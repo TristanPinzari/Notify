@@ -1,0 +1,735 @@
+:root {
+  --primary-color: rgb(79, 38, 131);
+  --secondary-color: rgb(154, 100, 246);
+  --lighter-gray: rgb(215, 215, 215);
+  --light-gray: rgb(30, 30, 30);
+  --dark-gray: rgb(20, 20, 20);
+  --default-border-radius: 10px;
+  --slightly-larger-text: 1.5em;
+  --width-ratio: calc(100vw / 1920);
+  --height-ratio: calc(100vh / 1080);
+  --default-border-settings: 1px solid white;
+  --bigger-text: 2vw;
+  --big-text: 1.5vw;
+  --medium-text: 1vw;
+  --first: rgb(35, 35, 35);
+  --second: rgb(20, 20, 20);
+  --third: rgb(10, 10, 10);
+}
+
+* {
+  margin: 0;
+  color: white;
+  transition: 0.5s;
+  font-family: "Poppins", sans-serif;
+}
+
+button {
+  cursor: pointer;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--lighter-gray);
+}
+
+.page {
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--light-gray);
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+.toastContainer {
+  position: fixed;
+  right: 1%;
+  width: 25vw;
+  height: 10vh;
+  z-index: 1;
+}
+
+.toastContainer.top {
+  top: 1%;
+}
+
+.toastContainer.bottom {
+  bottom: 1%;
+}
+
+.toastdiv {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-color: var(--light-gray);
+  border: var(--default-border-settings);
+  border-radius: var(--default-border-radius);
+  z-index: inherit;
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+  animation: fadeandslide 3s ease-in-out forwards;
+  transition: transform 1s ease;
+  opacity: 1;
+}
+
+@keyframes fadeandslide {
+  0% {
+    opacity: 0;
+    transform: translateY(-25px);
+  }
+
+  5%,
+  95% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-25px);
+  }
+}
+
+.toastdiv p {
+  color: white;
+}
+
+.toastdiv.success {
+  background-color: rgba(84, 181, 0, 0.525);
+}
+
+.toastdiv.error {
+  background-color: rgba(181, 45, 0, 0.525);
+}
+
+.toasticon {
+  color: white;
+  font-size: 1.5rem;
+  aspect-ratio: 1 / 1;
+}
+
+/*Login page*/
+
+#page {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+
+#videoBackground {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 16 / 9;
+  transform: scaleX(-1);
+  object-fit: cover;
+}
+
+#loginBox {
+  position: absolute;
+  left: 70%;
+  top: 50%;
+  aspect-ratio: 1 / 1;
+  border-radius: 15px;
+  transform: translateX(-50%) translateY(-50%);
+  background: rgba(25, 25, 25, 0.5);
+  backdrop-filter: blur(3px);
+  z-index: 1;
+  animation: spin 30s linear infinite;
+  transition: 1s;
+  mix-blend-mode: hard-light;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: LoginBoxSlideOpen 1s ease forwards;
+}
+
+#loginBox > * {
+  animation: LoginBoxChildrenAppear 2s ease forwards;
+}
+
+@keyframes LoginBoxSlideOpen {
+  from {
+    width: 0;
+  }
+
+  to {
+    width: max(35%, 500px);
+  }
+}
+
+@keyframes LoginBoxChildrenAppear {
+  0% {
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@media (width < 1000px) {
+  #loginBox {
+    left: 50%;
+  }
+}
+
+@media (width < 500) {
+  #loginBox {
+    left: 50%;
+    border-radius: 0;
+    width: 100%;
+  }
+}
+
+#loginBox h1 {
+  font-size: 4rem;
+  margin-top: 10%;
+  margin-bottom: 2%;
+}
+
+#loginBox div:has(input) {
+  position: relative;
+  width: 65%;
+  height: 10%;
+  margin: 1rem;
+}
+
+#loginBox div:has(input) > :nth-child(2) {
+  position: absolute;
+  font-size: 1.25rem;
+  top: 50%;
+  right: 2%;
+  stroke: rgba(255, 255, 255, 0.75);
+  transform: translateY(-50%);
+}
+
+#loginBox div:has(input):before {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.25);
+  transition: 0.5s;
+}
+
+#loginBox div:focus-within input {
+  color: white;
+}
+
+#loginBox div:focus-within::before {
+  background-color: rgba(255, 255, 255, 0.5);
+  transition: 0.5s;
+}
+
+#loginBox div:focus-within > :nth-child(2) {
+  stroke: white;
+}
+
+#loginBox input {
+  color: rgba(255, 255, 255, 0.75);
+  width: 85%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  padding-left: 5%;
+  font-size: 1.25rem;
+  outline: none;
+}
+
+#usernameDiv {
+  opacity: 0;
+  height: 0;
+}
+
+#usernameDiv.active {
+  animation: usernameExpand 1s ease forwards;
+}
+
+#usernameDiv.inactive {
+  animation: usernameShrink 1s ease forwards;
+}
+
+@keyframes usernameExpand {
+  from {
+    opacity: 0;
+    height: 0;
+    margin: 0;
+  }
+
+  to {
+    opacity: 1;
+    height: 10%;
+    margin: 1rem;
+  }
+}
+
+@keyframes usernameShrink {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+    height: 0;
+    margin: 0;
+  }
+}
+
+#loginBox div:has(a) {
+  margin-bottom: 10%;
+  width: 50%;
+  aspect-ratio: 2.5 / 1;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#loginBox button {
+  width: 100%;
+  aspect-ratio: 5 / 1;
+  border-radius: 5px;
+  border: none;
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+#loginBox button:hover {
+  background-color: rgba(255, 255, 255, 0.75);
+  color: rgba(25, 25, 25);
+}
+
+#loginBox a {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 90%;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+#loginBox a:hover {
+  color: rgba(255, 255, 255);
+}
+
+#loginBox p {
+  opacity: 0;
+  margin: 3%;
+  width: 70%;
+  height: 5%;
+  color: rgba(255, 53, 53);
+  text-align: center;
+  font-size: 80%;
+}
+
+#loginBox p.active {
+  animation: fadeIn 0.5s ease forwards;
+}
+
+#loginBox p.inactive {
+  animation: fadeOut 0.5s ease forwards;
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+/* Home  */
+
+button,
+input {
+  background-color: transparent;
+}
+
+.overlay {
+  position: absolute;
+  width: 25vw;
+  height: 250px;
+  border-radius: var(--default-border-radius);
+  border: var(--default-border-settings);
+  background-color: var(--light-gray);
+  z-index: 2;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  align-items: center;
+}
+
+.overlayBackground {
+  z-index: 1;
+  position: absolute;
+  width: 100vw;
+  height: 100vh;
+}
+
+.overlay input {
+  margin-top: 12.5%;
+  width: 80%;
+  height: 25%;
+  border: var(--default-border-settings);
+  border-radius: var(--default-border-radius);
+  padding-left: 5%;
+  color: white;
+  font-size: 1.5rem;
+}
+
+.overlay input::placeholder {
+  color: var(--lighter-gray);
+}
+
+.overlay .special {
+  width: 50%;
+  height: 20%;
+
+  border: var(--default-border-settings);
+  border-radius: var(--default-border-radius);
+  color: white;
+  font-size: 1.5rem;
+}
+
+.joinOrCreate {
+  color: white;
+  font-size: var(--medium-text);
+  border: none;
+  margin: 10px;
+  transition: 0s;
+}
+
+#classOverlay .container {
+  position: absolute;
+  top: 0;
+  display: flex;
+  width: 100%;
+  justify-content: space-evenly;
+  align-items: center;
+  border-bottom: var(--default-border-settings);
+}
+
+#topicOverlay input {
+  margin-top: 0;
+}
+
+#topicOverlay p {
+  color: white;
+  font-size: 3rem;
+}
+
+#title {
+  color: white;
+  width: 100%;
+  height: 10%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: var(--bigger-text);
+  font-weight: bold;
+  background-color: var(--first);
+  /* border-right: var(--default-border-settings);
+  border-bottom: var(--default-border-settings); */
+}
+
+#title::before {
+  content: "N";
+  color: var(--secondary-color);
+}
+
+#panelsContainer {
+  width: 13%;
+  height: 100%;
+  background-color: rgb(30, 30, 30);
+}
+
+.sidePanel {
+  width: 100%;
+  height: 45%;
+  display: flex;
+  justify-content: space-evenly;
+
+  display: flex;
+  flex-direction: column;
+}
+
+#classPanel {
+  top: calc(100 * var(--height-ratio));
+  background-color: rgb(30, 30, 30);
+  border-radius: 15px 0 0 0;
+  /* border-right: var(--default-border-settings);
+  border-bottom: var(--default-border-settings); */
+}
+
+#topicPanel {
+  bottom: 0;
+  background-color: rgb(32.5, 32.5, 32.5);
+  border-radius: 15px 15px 0 0;
+  /* border-right: var(--default-border-settings); */
+}
+
+.labelIconContainer {
+  margin-top: 5%;
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+}
+
+.directoryLabel {
+  font-size: var(--big-text);
+  color: white;
+}
+
+.goPlusIcon {
+  color: white;
+  font-size: var(--big-text);
+  cursor: pointer;
+}
+
+.directoryScroll {
+  width: 100%;
+  height: 85%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.directoryScroll button {
+  border: none;
+  color: white;
+  text-align: left;
+  font-size: var(--medium-text);
+  margin-top: 20px;
+  padding-left: 10%;
+  transition: 0s;
+}
+
+#rightContainer {
+  width: 87%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+#directoryPanel {
+  /* border-bottom: var(--default-border-settings); */
+  background-color: var(--first);
+  height: 10%;
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+}
+
+#classDirectory {
+  color: white;
+  font-size: var(--bigger-text);
+}
+
+#topicDirectory {
+  color: white;
+  font-size: var(--big-text);
+}
+
+#tabDirectory {
+  font-size: var(--medium-text);
+}
+
+#tabdiv {
+  display: flex;
+  width: 100%;
+  height: 90%;
+  border-radius: 15px 0 0 0;
+}
+
+#tabBoxes {
+  width: 15%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  /* border-right: var(--default-border-settings); */
+  background-color: var(--second);
+}
+
+#tabBoxes div {
+  height: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-evenly;
+}
+
+#tabBoxes div > * {
+  font-size: var(--medium-text);
+}
+
+.tabBox.custom p {
+  width: 80%;
+}
+
+.tabBox.custom {
+  background-color: rgb(22.5, 22.5, 22.5);
+  border-radius: 15px 15px 0 0;
+}
+
+.tabBox.custom.pinnedDoc label,
+.tabBox.custom button {
+  border: var(--default-border-settings);
+  border-radius: var(--default-border-radius);
+  width: 80%;
+  height: 10%;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#tabButtons {
+  background-color: rgb(20, 20, 20);
+  border-radius: 0 15px 0 0;
+  /* border-bottom: var(--default-border-settings); */
+}
+
+.tabButton {
+  width: 100%;
+  height: 20%;
+  color: white;
+  border: none;
+  text-align: left;
+  padding-left: 10%;
+  transition: 0s;
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  align-items: center;
+  width: 85%;
+  height: auto;
+  background-color: var(--third);
+}
+
+iframe {
+  width: 100%;
+  height: 100%;
+}
+
+#fileDropBox {
+  margin-top: 2.5%;
+  width: 90%;
+  height: 15%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed white;
+  border-radius: var(--default-border-radius);
+  background-color: var(--second);
+}
+
+.listScroll {
+  width: 90%;
+  height: 75%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background-color: var(--second);
+}
+
+.listItem {
+  flex-shrink: 0;
+  width: 100%;
+  height: 20%;
+  background-color: rgb(59, 59, 59);
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+}
+
+.deleteIcon {
+  font-size: 2vw;
+  cursor: pointer;
+}
+
+#signOut {
+  font-size: 2vw;
+  cursor: pointer;
+}
+
+#membersButtons {
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+  width: 90%;
+  height: 10%;
+}
+
+#leaveButton {
+  background-color: rgb(186, 28, 28);
+  border: none;
+  border-radius: var(--default-border-radius);
+  height: 80%;
+  width: 12%;
+}
+
+#compiledDocTab {
+  justify-content: start;
+  align-items: flex-start;
+  box-sizing: border-box;
+  padding: 5% 15%;
+  position: relative;
+  overflow-y: auto;
+}
+
+#compiledDocTab::before {
+  content: "";
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  width: 0.2%;
+  height: 80%;
+  background: linear-gradient(
+    to bottom,
+    var(--lighter-gray),
+    var(--light-gray)
+  );
+}
+
+#compiledDocTab > * {
+  text-align: left;
+  margin: 1%;
+}
+
+#compiledDocTab b {
+  font-size: 2.5vw;
+}
+
+#compiledDocTab p,
+li {
+  font-size: 1.25vw;
+}
