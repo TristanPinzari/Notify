@@ -41,6 +41,7 @@ function Home() {
   const [grammarCheck, setGrammarCheck] = useState(true);
   const [bulletFormat, setBulletFormat] = useState("");
   const [compiledDocData, setCompiledDocData] = useState({});
+  const [isCompiling, setIsCompiling] = useState(false);
 
   useEffect(() => {
     //Keeps track of whether the user is still logged in or not
@@ -488,12 +489,14 @@ function Home() {
     const topicName = currentTopic.topicName;
     let newData = { ...compiledDocData };
     if (!(className in newData)) newData[className] = {};
+    setIsCompiling(true);
     newData[className][topicName] = await generateCompiledDoc(
       currentTopic.collection,
       bulletFormat,
       grammarCheck
     );
     setCompiledDocData(newData);
+    setIsCompiling(false);
   }
 
   return (
@@ -830,17 +833,23 @@ function Home() {
             </div>
           )}
 
-          {currentTab == "Compiled Doc" && (
-            <div
-              className="tab"
-              id="compiledDocTab"
-              dangerouslySetInnerHTML={{
-                __html:
-                  compiledDocData[currentClass?.className]?.[
-                    currentTopic?.topicName
-                  ] || "",
-              }}
-            />
+          {currentTab === "Compiled Doc" && (
+            <div className="tab" id="compiledDocTab">
+              {isCompiling ? (
+                <div className="flash">
+                  <p>Gemini is busy generating your response...</p>
+                </div>
+              ) : (
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html:
+                      compiledDocData[currentClass?.className]?.[
+                        currentTopic?.topicName
+                      ] || "No document compiled yet.",
+                  }}
+                />
+              )}
+            </div>
           )}
         </div>
       </div>
