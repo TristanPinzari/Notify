@@ -1,0 +1,221 @@
+import {
+  pgTable,
+  pgEnum,
+  text,
+  timestamp,
+  boolean,
+  primaryKey,
+  unique,
+  index,
+} from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
+
+export const rank = pgEnum("rank", ["owner", "admin", "contributor", "viewer"]);
+
+export const contributionType = pgEnum("contribution_type", [
+  "yt_link",
+  "pdf",
+  "image",
+  "txt",
+]);
+
+export const minEditRank = pgEnum("min_edit_rank", [
+  "owner",
+  "admin",
+  "contributor",
+]);
+
+export const user = pgTable("user", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  emailVerified: boolean("email_verified").default(false).notNull(),
+  image: text("image"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+});
+
+export const classes = pgTable("classes", {
+  id: text("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  defaultRank: rank("default_rank").notNull().default("contributor"),
+  canAdminManageUsers: boolean("can_admin_manage_users")
+    .notNull()
+    .default(false),
+  minEditRank: minEditRank("min_edit_rank").notNull().default("owner"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const userClasses = pgTable(
+  "user_classes",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id),
+    classId: text("class_id")
+      .notNull()
+      .references(() => classes.id),
+    rank: rank("rank").notNull(),
+    joinedAt: timestamp("joined_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.classId] })],
+);
+
+export const classBans = pgTable(
+  "class_bans",
+  {
+    id: text("id").primaryKey(),
+    classId: text("class_id")
+      .notNull()
+      .references(() => classes.id),
+    bannedUserId: text("banned_user_id")
+      .notNull()
+      .references(() => user.id),
+    bannedByUserId: text("banned_by_user_id")
+      .notNull()
+      .references(() => user.id),
+    reason: text("reason"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.classId, t.bannedUserId)],
+);
+
+export const topics = pgTable("topics", {
+  id: text("id").primaryKey(),
+  classId: text("class_id")
+    .notNull()
+    .references(() => classes.id),
+  name: text("name").notNull().default("Untitled topic"),
+  createdBy: text("created_by")
+    .notNull()
+    .references(() => user.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const masterDocuments = pgTable("master_documents", {
+  id: text("id").primaryKey(),
+  topicId: text("topic_id")
+    .notNull()
+    .references(() => topics.id),
+  content: text("content").notNull(),
+  previousContent: text("previous_content"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const contributions = pgTable("contributions", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  topicId: text("topic_id")
+    .notNull()
+    .references(() => topics.id),
+  uploadedBy: text("uploaded_by")
+    .notNull()
+    .references(() => user.id),
+  type: contributionType("type").notNull(),
+  text: text("text"),
+  s3Key: text("s3_key"),
+  url: text("url"),
+  isCompiled: boolean("is_compiled").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const compileLogs = pgTable("compile_logs", {
+  id: text("id").primaryKey(),
+  classId: text("class_id")
+    .notNull()
+    .references(() => classes.id),
+  topicId: text("topic_id")
+    .notNull()
+    .references(() => topics.id),
+  triggeredBy: text("triggered_by")
+    .notNull()
+    .references(() => user.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const session = pgTable(
+  "session",
+  {
+    id: text("id").primaryKey(),
+    expiresAt: timestamp("expires_at").notNull(),
+    token: text("token").notNull().unique(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [index("session_userId_idx").on(table.userId)],
+);
+
+export const account = pgTable(
+  "account",
+  {
+    id: text("id").primaryKey(),
+    accountId: text("account_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    idToken: text("id_token"),
+    accessTokenExpiresAt: timestamp("access_token_expires_at"),
+    refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+    scope: text("scope"),
+    password: text("password"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [index("account_userId_idx").on(table.userId)],
+);
+
+export const verification = pgTable(
+  "verification",
+  {
+    id: text("id").primaryKey(),
+    identifier: text("identifier").notNull(),
+    value: text("value").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [index("verification_identifier_idx").on(table.identifier)],
+);
+
+export const userRelations = relations(user, ({ many }) => ({
+  sessions: many(session),
+  accounts: many(account),
+}));
+
+export const sessionRelations = relations(session, ({ one }) => ({
+  user: one(user, {
+    fields: [session.userId],
+    references: [user.id],
+  }),
+}));
+
+export const accountRelations = relations(account, ({ one }) => ({
+  user: one(user, {
+    fields: [account.userId],
+    references: [user.id],
+  }),
+}));
