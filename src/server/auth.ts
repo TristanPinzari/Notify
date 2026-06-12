@@ -18,6 +18,12 @@ export const auth = betterAuth({
       console.log(`Verify: ${url}`);
     },
   },
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    },
+  },
 });
 
 export type Session = typeof auth.$Infer.Session;

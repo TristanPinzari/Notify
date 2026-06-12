@@ -19,12 +19,6 @@ export const contributionType = pgEnum("contribution_type", [
   "txt",
 ]);
 
-export const minEditRank = pgEnum("min_edit_rank", [
-  "owner",
-  "admin",
-  "contributor",
-]);
-
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -43,10 +37,25 @@ export const classes = pgTable("classes", {
   code: text("code").notNull().unique(),
   name: text("name").notNull(),
   defaultRank: rank("default_rank").notNull().default("contributor"),
-  canAdminManageUsers: boolean("can_admin_manage_users")
+  minRankCreateTopic: rank("min_rank_create_topic")
     .notNull()
-    .default(false),
-  minEditRank: minEditRank("min_edit_rank").notNull().default("owner"),
+    .default("contributor"),
+  minRankDeleteTopic: rank("min_rank_delete_topic").notNull().default("owner"),
+  minRankUploadContribution: rank("min_rank_upload_contribution")
+    .notNull()
+    .default("contributor"),
+  minRankDeleteContribution: rank("min_rank_delete_contribution")
+    .notNull()
+    .default("admin"),
+  minRankTriggerCompilation: rank("min_rank_trigger_compilation")
+    .notNull()
+    .default("contributor"),
+  minRankEditCompilation: rank("min_rank_edit_compilation")
+    .notNull()
+    .default("contributor"),
+  minRankBanUsers: rank("min_rank_ban_users").notNull().default("admin"),
+  minRankKickUsers: rank("min_rank_kick_users").notNull().default("admin"),
+  minRankChangeRanks: rank("min_rank_change_ranks").notNull().default("admin"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
