@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { USERNAME_RE, EMAIL_RE } from "@/lib/validation";
 
 const MailIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -117,8 +118,8 @@ export function AuthForm({ defaultMode }: { defaultMode: "login" | "signup" }) {
 
   function validate() {
     const e: Record<string, string> = {};
-    if (isSignup && !/^[a-zA-Z0-9_]{3,20}$/.test(name)) e.name = "3–20 characters, letters, numbers and underscores only.";
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) e.email = "Enter a valid email address.";
+    if (isSignup && !USERNAME_RE.test(name)) e.name = "3–20 characters, letters, numbers and underscores only.";
+    if (!EMAIL_RE.test(email)) e.email = "Enter a valid email address.";
     if (password.length < 8) e.password = "Password must be at least 8 characters.";
     if (isSignup && password !== confirmPassword) e.confirmPassword = "Passwords do not match.";
     return e;
@@ -162,7 +163,7 @@ export function AuthForm({ defaultMode }: { defaultMode: "login" | "signup" }) {
       {/* Brand panel */}
       <div className="brandpane">
         <Link className="home-link" href="/"><BackIcon /> Back to home</Link>
-        <div style={{ marginTop: "auto" }}>
+        <div className="mt-auto">
           <div className="brand-logo"><span className="mk">N</span>otify</div>
           <h1 className="brand-h">
             {isSignup
@@ -276,7 +277,7 @@ export function AuthForm({ defaultMode }: { defaultMode: "login" | "signup" }) {
                   </div>
                 )}
 
-                <button className="submit" type="submit" disabled={loading} style={isSignup ? { marginTop: "6px" } : {}}>
+                <button className={`submit${isSignup ? " mt-1.5" : ""}`} type="submit" disabled={loading}>
                   {loading
                     ? <><span className="spin" />{isSignup ? "Creating account…" : "Signing in…"}</>
                     : <>{isSignup ? "Create account" : "Log in"}<ArrowIcon /></>}

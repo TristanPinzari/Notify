@@ -57,7 +57,7 @@ export const classes = pgTable("classes", {
   minRankKickUsers: rank("min_rank_kick_users").notNull().default("admin"),
   minRankChangeRanks: rank("min_rank_change_ranks").notNull().default("admin"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
 export const userClasses = pgTable(

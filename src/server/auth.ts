@@ -3,9 +3,7 @@ import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/server/db";
 import * as schema from "@/server/db/schema";
-
-const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
-const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+import { USERNAME_RE, EMAIL_RE } from "@/lib/validation";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -40,9 +38,11 @@ export const auth = betterAuth({
     },
   },
   emailVerification: {
-    callBackURL: "/verified",
+    autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ url }) => {
-      console.log(`Verify: ${url}`);
+      const verifyUrl = new URL(url);
+      verifyUrl.searchParams.set("callbackURL", "/verified?from=verify");
+      console.log(`Verify: ${verifyUrl.toString()}`);
     },
   },
   socialProviders: {

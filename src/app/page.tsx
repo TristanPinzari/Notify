@@ -1,6 +1,11 @@
+"use client";
+
 import Link from "next/link";
+import { authClient } from "@/lib/auth-client";
 
 export default function Page() {
+  const { data: session } = authClient.useSession();
+
   return (
     <>
       {/* NAV */}
@@ -21,12 +26,20 @@ export default function Page() {
             </a>
           </nav>
           <div className="nav-cta">
-            <Link className="nav-login" href="/sign-in">
-              Log in
-            </Link>
-            <Link className="nav-signup" href="/sign-up">
-              Sign up free
-            </Link>
+            {session ? (
+              <Link className="nav-signup" href="/home">
+                Go to Notify
+              </Link>
+            ) : (
+              <>
+                <Link className="nav-login" href="/sign-in">
+                  Log in
+                </Link>
+                <Link className="nav-signup" href="/sign-up">
+                  Sign up free
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -50,19 +63,25 @@ export default function Page() {
               document.
             </p>
             <div className="hero-cta">
-              <Link className="btn btn-primary btn-lg" href="/sign-up">
+              <Link
+                className="btn btn-primary btn-lg"
+                href={session ? "/home" : "/sign-up"}
+              >
                 Start a class free <span className="arrow">→</span>
               </Link>
-              <Link className="btn btn-ghost btn-lg" href="/sign-in">
+              <Link
+                className="btn btn-ghost btn-lg"
+                href={session ? "/home" : "/sign-in"}
+              >
                 Log in
               </Link>
             </div>
             <div className="trust">
               <div className="avatars">
-                <span style={{ background: "#c47918" }}>A</span>
-                <span style={{ background: "#3f7d52" }}>M</span>
-                <span style={{ background: "#9e3b32" }}>K</span>
-                <span style={{ background: "#3a5fa8" }}>J</span>
+                <span className="bg-(--accent)">A</span>
+                <span className="bg-(--success)">M</span>
+                <span className="bg-(--danger)">K</span>
+                <span className="bg-[#3a5fa8]">J</span>
               </div>
               <span>Join classmates already studying smarter together</span>
             </div>
@@ -76,11 +95,11 @@ export default function Page() {
                 </div>
                 <div className="mock-lbl">Classes</div>
                 <div className="mock-nav on">HIST 1707</div>
-                <div className="mock-nav">BIO 207</div>
+                <div className="mock-nav">CS 1026</div>
                 <div className="mock-lbl">Topics</div>
                 <div className="mock-nav on">French Revolution</div>
-                <div className="mock-nav">Congress of Vienna</div>
-                <div className="mock-nav">The 1848 Revolutions</div>
+                <div className="mock-nav">Globalization</div>
+                <div className="mock-nav">Department stores</div>
               </div>
               <div className="mock-main">
                 <div className="mock-top">
@@ -100,16 +119,17 @@ export default function Page() {
                     <span className="mock-chip ok">✓ Fact-checked</span>
                   </div>
                   <div className="mock-h2">Causes of the Revolution</div>
-                  <div className="mock-line" style={{ width: "100%" }}></div>
-                  <div className="mock-line" style={{ width: "94%" }}></div>
-                  <div className="mock-line" style={{ width: "88%" }}></div>
-                  <div
-                    className="mock-line"
-                    style={{ width: "60%", marginBottom: 14 }}
-                  ></div>
+                  <div className="mock-line w-full"></div>
+                  <div className="mock-line w-[94%]"></div>
+                  <div className="mock-line w-[88%]"></div>
+                  <div className="mock-line w-[60%] mb-3.5"></div>
                   <div className="mock-h2">The Estates-General</div>
-                  <div className="mock-line" style={{ width: "96%" }}></div>
-                  <div className="mock-line" style={{ width: "78%" }}></div>
+                  <div className="mock-line w-[96%]"></div>
+                  <div className="mock-line w-[96%]"></div>
+                  <div className="mock-line w-[96%]"></div>
+                  <div className="mock-line w-[96%]"></div>
+                  <div className="mock-line w-[96%]"></div>
+                  <div className="mock-line w-[56%]"></div>
                 </div>
               </div>
             </div>
@@ -220,7 +240,7 @@ export default function Page() {
       </section>
 
       {/* FEATURES */}
-      <section className="sec" id="features" style={{ paddingTop: 0 }}>
+      <section className="sec pt-0" id="features">
         <div className="wrap">
           <div className="sec-head">
             <div className="sec-kick">Features</div>
@@ -336,11 +356,17 @@ export default function Page() {
             <em>Start sharing one.</em>
           </h2>
           <p>Free for students. Spin up your first class in under a minute.</p>
-          <div className="hero-cta" style={{ justifyContent: "center" }}>
-            <Link className="btn btn-primary btn-lg" href="/sign-up">
+          <div className="hero-cta justify-center">
+            <Link
+              className="btn btn-primary btn-lg"
+              href={session ? "/home" : "/sign-up"}
+            >
               Sign up free <span className="arrow">→</span>
             </Link>
-            <Link className="btn btn-ghost btn-lg" href="/sign-in">
+            <Link
+              className="btn btn-ghost btn-lg"
+              href={session ? "/home" : "/sign-in"}
+            >
               Log in
             </Link>
           </div>
@@ -356,8 +382,8 @@ export default function Page() {
           <nav className="foot-links">
             <a href="#how">How it works</a>
             <a href="#features">Features</a>
-            <Link href="/sign-in">Log in</Link>
-            <Link href="/sign-up">Sign up</Link>
+            <Link href={session ? "/home" : "/sign-in"}>Log in</Link>
+            <Link href={session ? "/home" : "/sign-up"}>Sign up</Link>
           </nav>
           <div className="cr">© 2026 Notify</div>
         </div>
