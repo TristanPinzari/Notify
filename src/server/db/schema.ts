@@ -57,7 +57,10 @@ export const classes = pgTable("classes", {
   minRankKickUsers: rank("min_rank_kick_users").notNull().default("admin"),
   minRankChangeRanks: rank("min_rank_change_ranks").notNull().default("admin"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow().$onUpdate(() => new Date()),
+  updatedAt: timestamp("updated_at")
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
 });
 
 export const userClasses = pgTable(
@@ -65,10 +68,10 @@ export const userClasses = pgTable(
   {
     userId: text("user_id")
       .notNull()
-      .references(() => user.id),
+      .references(() => user.id, { onDelete: "cascade" }),
     classId: text("class_id")
       .notNull()
-      .references(() => classes.id),
+      .references(() => classes.id, { onDelete: "cascade" }),
     rank: rank("rank").notNull(),
     joinedAt: timestamp("joined_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -82,13 +85,13 @@ export const classBans = pgTable(
     id: text("id").primaryKey(),
     classId: text("class_id")
       .notNull()
-      .references(() => classes.id),
+      .references(() => classes.id, { onDelete: "cascade" }),
     bannedUserId: text("banned_user_id")
       .notNull()
-      .references(() => user.id),
+      .references(() => user.id, { onDelete: "cascade" }),
     bannedByUserId: text("banned_by_user_id")
       .notNull()
-      .references(() => user.id),
+      .references(() => user.id, { onDelete: "cascade" }),
     reason: text("reason"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
@@ -99,11 +102,11 @@ export const topics = pgTable("topics", {
   id: text("id").primaryKey(),
   classId: text("class_id")
     .notNull()
-    .references(() => classes.id),
+    .references(() => classes.id, { onDelete: "cascade" }),
   name: text("name").notNull().default("Untitled topic"),
   createdBy: text("created_by")
     .notNull()
-    .references(() => user.id),
+    .references(() => user.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -112,7 +115,7 @@ export const masterDocuments = pgTable("master_documents", {
   id: text("id").primaryKey(),
   topicId: text("topic_id")
     .notNull()
-    .references(() => topics.id),
+    .references(() => topics.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   previousContent: text("previous_content"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -124,10 +127,10 @@ export const contributions = pgTable("contributions", {
   name: text("name").notNull(),
   topicId: text("topic_id")
     .notNull()
-    .references(() => topics.id),
+    .references(() => topics.id, { onDelete: "cascade" }),
   uploadedBy: text("uploaded_by")
     .notNull()
-    .references(() => user.id),
+    .references(() => user.id, { onDelete: "cascade" }),
   type: contributionType("type").notNull(),
   text: text("text"),
   s3Key: text("s3_key"),
@@ -141,13 +144,13 @@ export const compileLogs = pgTable("compile_logs", {
   id: text("id").primaryKey(),
   classId: text("class_id")
     .notNull()
-    .references(() => classes.id),
+    .references(() => classes.id, { onDelete: "cascade" }),
   topicId: text("topic_id")
     .notNull()
-    .references(() => topics.id),
+    .references(() => topics.id, { onDelete: "cascade" }),
   triggeredBy: text("triggered_by")
     .notNull()
-    .references(() => user.id),
+    .references(() => user.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -228,3 +231,21 @@ export const accountRelations = relations(account, ({ one }) => ({
     references: [user.id],
   }),
 }));
+
+export type Rank = (typeof rank.enumValues)[number];
+export type ClassSettings = Partial<
+  Pick<
+    typeof classes.$inferSelect,
+    | "name"
+    | "defaultRank"
+    | "minRankCreateTopic"
+    | "minRankDeleteTopic"
+    | "minRankUploadContribution"
+    | "minRankDeleteContribution"
+    | "minRankTriggerCompilation"
+    | "minRankEditCompilation"
+    | "minRankBanUsers"
+    | "minRankKickUsers"
+    | "minRankChangeRanks"
+  >
+>;
