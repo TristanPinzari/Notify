@@ -65,19 +65,17 @@ export default async function TopicLayout({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div className="topbar">
-        <div className="crumbs">
-          <span className="home-ic">
-            <HomeIcon />
-          </span>
-          <span className="dim">{cls[0].name}</span>
-          <span className="sep">/</span>
-          <span className="cur">{topic[0].name}</span>
+      <div className="h-14 shrink-0 flex items-center gap-3.5 px-5.5 border-b border-(--line-soft) bg-(--paper)">
+        <div className="flex items-center gap-2.25 text-[13.5px] min-w-0">
+          <span className="flex text-(--ink-fainter)"><HomeIcon /></span>
+          <span className="text-(--ink-label) whitespace-nowrap">{cls[0].name}</span>
+          <span className="text-(--ink-fainter)">/</span>
+          <span className="text-(--ink) font-semibold overflow-hidden text-ellipsis whitespace-nowrap">{topic[0].name}</span>
         </div>
-        <div className="topbar-right">
-          <button className="icon-btn bell" title="Notifications">
+        <div className="ml-auto flex items-center gap-2">
+          <button className="icon-btn relative" title="Notifications">
             <BellIcon />
-            <span className="dot" />
+            <span className="absolute top-1.25 right-1.5 w-1.75 h-1.75 rounded-full bg-(--accent) border-[1.5px] border-(--paper)" />
           </button>
         </div>
       </div>

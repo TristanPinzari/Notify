@@ -257,14 +257,17 @@ export function Sidebar({ user, classes }: Props) {
                       <Link
                         key={topic.id}
                         href={href}
-                        className={`topic${pathname === href ? " active" : ""}`}
+                        className={`topic ${pathname.startsWith(href) ? " active" : ""}`}
                       >
                         <span className="topic-dot" />
                         <span className="ttxt">{topic.name}</span>
                       </Link>
                     );
                   })}
-                  <button className="topic-add" onClick={() => setTopicModal(cls.id)}>
+                  <button
+                    className="topic-add"
+                    onClick={() => setTopicModal(cls.id)}
+                  >
                     <span className="pl">
                       <PlusIcon />
                     </span>
@@ -285,7 +288,9 @@ export function Sidebar({ user, classes }: Props) {
       </div>
 
       {modalOpen && <ClassModal onClose={() => setModalOpen(false)} />}
-      {topicModal && <TopicModal classId={topicModal} onClose={() => setTopicModal(null)} />}
+      {topicModal && (
+        <TopicModal classId={topicModal} onClose={() => setTopicModal(null)} />
+      )}
 
       <div className="side-user" ref={menuRef}>
         <div className={`side-menu${menuOpen ? " show" : ""}`}>
