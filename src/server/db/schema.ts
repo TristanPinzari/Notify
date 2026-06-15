@@ -11,6 +11,12 @@ import {
 import { relations } from "drizzle-orm";
 
 export const rank = pgEnum("rank", ["owner", "admin", "contributor", "viewer"]);
+export const RANK_VALUE = {
+  owner: 4,
+  admin: 3,
+  contributor: 2,
+  viewer: 1,
+} as const;
 
 export const contributionType = pgEnum("contribution_type", [
   "yt_link",

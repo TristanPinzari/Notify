@@ -2091,3 +2091,102 @@ h1.head em {
   --error-border: rgba(180, 69, 47, 0.22);
   --error-text: var(--danger);
 }
+
+/* ===== icon button ===== */
+.icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--ink-fainter);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.icon-btn:hover {
+  background: var(--paper-raised);
+  color: var(--ink-nav);
+}
+
+/* ===== topic layout ===== */
+.topbar {
+  height: 56px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 22px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--paper);
+}
+
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13.5px;
+  min-width: 0;
+}
+.crumbs .home-ic { color: var(--ink-fainter); display: flex; }
+.crumbs .dim { color: var(--ink-label); white-space: nowrap; }
+.crumbs .sep { color: var(--ink-fainter); }
+.crumbs .cur { color: var(--ink); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.bell { position: relative; }
+.bell .dot {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 1.5px solid var(--paper);
+}
+
+.tabbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 22px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--paper);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  color: var(--ink-label);
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 13px 14px 12px;
+  transition: color 0.15s;
+  white-space: nowrap;
+  text-decoration: none;
+  font-family: var(--sans);
+  cursor: pointer;
+}
+.tab svg { width: 16px; height: 16px; }
+.tab:hover { color: var(--ink); }
+.tab.on { color: var(--accent-text); font-weight: 600; }
+.tab.on::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: -1px;
+  height: 2.5px;
+  border-radius: 9px 9px 0 0;
+  background: var(--accent);
+}

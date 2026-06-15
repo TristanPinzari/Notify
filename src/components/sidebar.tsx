@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { authClient } from "@/lib/auth-client";
 import { ClassModal } from "@/components/class-modal";
+import { TopicModal } from "@/components/topic-modal";
 
 const BADGE_COLORS = [
   "#c47918",
@@ -168,6 +169,7 @@ export function Sidebar({ user, classes }: Props) {
   });
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [topicModal, setTopicModal] = useState<string | null>(null);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -262,7 +264,7 @@ export function Sidebar({ user, classes }: Props) {
                       </Link>
                     );
                   })}
-                  <button className="topic-add">
+                  <button className="topic-add" onClick={() => setTopicModal(cls.id)}>
                     <span className="pl">
                       <PlusIcon />
                     </span>
@@ -283,6 +285,7 @@ export function Sidebar({ user, classes }: Props) {
       </div>
 
       {modalOpen && <ClassModal onClose={() => setModalOpen(false)} />}
+      {topicModal && <TopicModal classId={topicModal} onClose={() => setTopicModal(null)} />}
 
       <div className="side-user" ref={menuRef}>
         <div className={`side-menu${menuOpen ? " show" : ""}`}>

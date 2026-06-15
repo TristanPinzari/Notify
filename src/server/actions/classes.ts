@@ -7,12 +7,12 @@ import {
   classBans,
   Rank,
   ClassSettings,
+  RANK_VALUE,
 } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
-
-const RANK_VALUE = { owner: 4, admin: 3, contributor: 2, viewer: 1 } as const;
+import { getUserRank } from "./shared";
 
 async function generateUniqueCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -29,18 +29,6 @@ async function generateUniqueCode() {
     ).length > 0
   );
   return code;
-}
-
-async function getUserRank(classId: string, userId: string) {
-  const membership = await db
-    .select({ rank: userClasses.rank })
-    .from(userClasses)
-    .where(
-      and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
-    )
-    .limit(1);
-
-  return membership[0]?.rank;
 }
 
 export async function createClass(name: string) {
