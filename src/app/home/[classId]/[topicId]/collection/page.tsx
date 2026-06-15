@@ -1,3 +1,83 @@
-export default function CollectionPage() {
-  return <div>Collection</div>;
+import CollectionView from "@/components/collection-view";
+import { auth } from "@/server/auth";
+import { db } from "@/server/db";
+import {
+  classes,
+  contributions,
+  RANK_VALUE,
+  user,
+  userClasses,
+} from "@/server/db/schema";
+import { and, eq } from "drizzle-orm";
+import { headers } from "next/headers";
+import { notFound } from "next/navigation";
+
+export default async function CollectionPage({
+  params,
+}: {
+  params: Promise<{ classId: string; topicId: string }>;
+}) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) notFound();
+
+  const { classId, topicId } = await params;
+
+  const [rows, [cls], [member]] = await Promise.all([
+    db
+      .select({
+        contributionId: contributions.id,
+        contributionName: contributions.name,
+        contributionType: contributions.type,
+        extractionMethod: contributions.extractionMethod,
+        isCompiled: contributions.isCompiled,
+        status: contributions.processingStatus,
+        uploaderName: user.name,
+        uploaderId: user.id,
+        createdAt: contributions.createdAt,
+      })
+      .from(contributions)
+      .innerJoin(user, eq(contributions.uploadedBy, user.id))
+      .where(eq(contributions.topicId, topicId))
+      .orderBy(contributions.createdAt),
+    db
+      .select({
+        minRankUploadContribution: classes.minRankUploadContribution,
+        minRankDeleteContribution: classes.minRankDeleteContribution,
+      })
+      .from(classes)
+      .where(eq(classes.id, classId))
+      .limit(1),
+    db
+      .select({ rank: userClasses.rank })
+      .from(userClasses)
+      .where(
+        and(
+          eq(userClasses.classId, classId),
+          eq(userClasses.userId, session.user.id),
+        ),
+      )
+      .limit(1),
+  ]);
+
+  if (!cls || !member) notFound();
+
+  const canUpload =
+    RANK_VALUE[member.rank] >= RANK_VALUE[cls.minRankUploadContribution];
+  const canDelete =
+    RANK_VALUE[member.rank] >= RANK_VALUE[cls.minRankDeleteContribution];
+
+  const serialized = rows.map((r) => ({
+    ...r,
+    createdAt: r.createdAt.toISOString(),
+  }));
+
+  return (
+    <CollectionView
+      contributions={serialized}
+      canUpload={canUpload}
+      canDelete={canDelete}
+      classId={classId}
+      topicId={topicId}
+    />
+  );
 }

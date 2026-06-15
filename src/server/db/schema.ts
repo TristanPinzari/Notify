@@ -19,11 +19,30 @@ export const RANK_VALUE = {
 } as const;
 
 export const contributionType = pgEnum("contribution_type", [
-  "yt_link",
   "pdf",
   "image",
-  "txt",
+  "audio",
+  "youtube",
+  "link",
+  "text",
 ]);
+export const extractionMethod = pgEnum("extraction_method", [
+  "text_extraction",
+  "handwriting_ocr",
+  "speech_to_text",
+  "youtube_transcript",
+  "web_scrape",
+]);
+export const processingStatus = pgEnum("processing_status", [
+  "pending",
+  "processing",
+  "ready",
+  "failed",
+]);
+
+export type CType = (typeof contributionType.enumValues)[number];
+export type PStatus = (typeof processingStatus.enumValues)[number];
+export type EMethod = (typeof extractionMethod.enumValues)[number];
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -138,6 +157,10 @@ export const contributions = pgTable("contributions", {
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   type: contributionType("type").notNull(),
+  extractionMethod: extractionMethod("extraction_method").notNull(),
+  processingStatus: processingStatus("processing_status")
+    .notNull()
+    .default("pending"),
   text: text("text"),
   s3Key: text("s3_key"),
   url: text("url"),

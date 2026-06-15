@@ -61,11 +61,11 @@ export async function joinClass(code: string) {
 
   try {
     const cls = await db
-      .select()
+      .select({ id: classes.id, defaultRank: classes.defaultRank })
       .from(classes)
       .where(eq(classes.code, code))
       .limit(1);
-    if (!cls[0]) return { error: "Class not found." };
+    if (!cls[0]) return { error: "Class does not exist." };
 
     const banned = await db
       .select({ reason: classBans.reason })
@@ -112,10 +112,17 @@ export async function leaveClass(classId: string) {
   if (!session) return { error: "Not authenticated." };
 
   try {
-    const membership = await getUserRank(classId, session.user.id);
+    const cls = await db
+      .select({ id: classes.id })
+      .from(classes)
+      .where(eq(classes.id, classId))
+      .limit(1);
+    if (!cls[0]) return { error: "Class does not exist." };
 
-    if (!membership) return { error: "You are not a member of this class." };
-    if (membership === "owner")
+    const rank = await getUserRank(classId, session.user.id);
+
+    if (!rank) return { error: "You are not a member of this class." };
+    if (rank === "owner")
       return { error: "You cannot leave as the class owner." };
 
     await db
@@ -139,10 +146,17 @@ export async function deleteClass(classId: string) {
   if (!session) return { error: "Not authenticated." };
 
   try {
-    const membership = await getUserRank(classId, session.user.id);
+    const cls = await db
+      .select({ id: classes.id })
+      .from(classes)
+      .where(eq(classes.id, classId))
+      .limit(1);
+    if (!cls[0]) return { error: "Class does not exist." };
 
-    if (!membership) return { error: "You are not a member of this class." };
-    if (membership !== "owner")
+    const rank = await getUserRank(classId, session.user.id);
+
+    if (!rank) return { error: "You are not a member of this class." };
+    if (rank !== "owner")
       return { error: "You are not the owner of this class." };
 
     await db.delete(classes).where(eq(classes.id, classId));
@@ -168,17 +182,17 @@ export async function kickFromClass(classId: string, userId: string) {
       .limit(1);
     if (!cls[0]) return { error: "Class does not exist." };
 
-    const membershipSubjecter = await getUserRank(classId, session.user.id);
-    if (!membershipSubjecter)
+    const rankSubjecter = await getUserRank(classId, session.user.id);
+    if (!rankSubjecter)
       return { error: "You are not a member of this class." };
 
-    if (RANK_VALUE[cls[0].minRankKickUsers] > RANK_VALUE[membershipSubjecter])
+    if (RANK_VALUE[cls[0].minRankKickUsers] > RANK_VALUE[rankSubjecter])
       return { error: "Your rank is not high enough to kick this user." };
 
-    const membershipSubject = await getUserRank(classId, userId);
-    if (!membershipSubject)
+    const rankSubject = await getUserRank(classId, userId);
+    if (!rankSubject)
       return { error: "The user you are trying to kick is not in the class." };
-    if (RANK_VALUE[membershipSubject] >= RANK_VALUE[membershipSubjecter])
+    if (RANK_VALUE[rankSubject] >= RANK_VALUE[rankSubjecter])
       return { error: "Your rank is not high enough to kick this user." };
 
     await db
@@ -207,17 +221,17 @@ export async function banFromClass(classId: string, userId: string) {
       .limit(1);
     if (!cls[0]) return { error: "Class does not exist." };
 
-    const membershipSubjecter = await getUserRank(classId, session.user.id);
-    if (!membershipSubjecter)
+    const rankSubjecter = await getUserRank(classId, session.user.id);
+    if (!rankSubjecter)
       return { error: "You are not a member of this class." };
 
-    if (RANK_VALUE[cls[0].minRankBanUsers] > RANK_VALUE[membershipSubjecter])
+    if (RANK_VALUE[cls[0].minRankBanUsers] > RANK_VALUE[rankSubjecter])
       return { error: "Your rank is not high enough to ban this user." };
 
-    const membershipSubject = await getUserRank(classId, userId);
-    if (!membershipSubject)
+    const rankSubject = await getUserRank(classId, userId);
+    if (!rankSubject)
       return { error: "The user you are trying to ban is not in the class." };
-    if (RANK_VALUE[membershipSubject] >= RANK_VALUE[membershipSubjecter])
+    if (RANK_VALUE[rankSubject] >= RANK_VALUE[rankSubjecter])
       return { error: "Your rank is not high enough to ban this user." };
 
     await db.transaction(async (tx) => {
@@ -259,11 +273,11 @@ export async function unbanFromClass(classId: string, userId: string) {
       .limit(1);
     if (!cls[0]) return { error: "Class does not exist." };
 
-    const membershipSubjecter = await getUserRank(classId, session.user.id);
-    if (!membershipSubjecter)
+    const rankSubjecter = await getUserRank(classId, session.user.id);
+    if (!rankSubjecter)
       return { error: "You are not a member of this class." };
 
-    if (RANK_VALUE[cls[0].minRankBanUsers] > RANK_VALUE[membershipSubjecter])
+    if (RANK_VALUE[cls[0].minRankBanUsers] > RANK_VALUE[rankSubjecter])
       return {
         error: "Your rank is not high enough to unban this user.",
       };
@@ -309,24 +323,24 @@ export async function changeUserRank(
       .limit(1);
     if (!cls[0]) return { error: "Class does not exist." };
 
-    const membershipSubjecter = await getUserRank(classId, session.user.id);
-    if (!membershipSubjecter)
+    const rankSubjecter = await getUserRank(classId, session.user.id);
+    if (!rankSubjecter)
       return { error: "You are not a member of this class." };
 
-    if (RANK_VALUE[cls[0].minRankChangeRanks] > RANK_VALUE[membershipSubjecter])
+    if (RANK_VALUE[cls[0].minRankChangeRanks] > RANK_VALUE[rankSubjecter])
       return {
         error: "Your rank is not high enough to change this user's rank.",
       };
 
-    const membershipSubject = await getUserRank(classId, userId);
-    if (!membershipSubject)
+    const rankSubject = await getUserRank(classId, userId);
+    if (!rankSubject)
       return {
         error: "The user you are trying to rerank is not in the class.",
       };
-    if (RANK_VALUE[membershipSubject] >= RANK_VALUE[membershipSubjecter])
+    if (RANK_VALUE[rankSubject] >= RANK_VALUE[rankSubjecter])
       return { error: "Your rank is not high enough to rerank this user." };
 
-    if (RANK_VALUE[newRank] >= RANK_VALUE[membershipSubjecter])
+    if (RANK_VALUE[newRank] >= RANK_VALUE[rankSubjecter])
       return { error: "You can only rerank someone to a rank below yours." };
 
     await db
@@ -356,16 +370,16 @@ export async function updateClassSettings(
   try {
     const cls = await db
       .select({
-        classId: classes.id,
+        id: classes.id,
       })
       .from(classes)
       .where(eq(classes.id, classId))
       .limit(1);
     if (!cls[0]) return { error: "Class does not exist." };
 
-    const membership = await getUserRank(classId, session.user.id);
-    if (!membership) return { error: "You are not a member of this class." };
-    if (membership !== "owner")
+    const rank = await getUserRank(classId, session.user.id);
+    if (!rank) return { error: "You are not a member of this class." };
+    if (rank !== "owner")
       return { error: "You are not the owner of this class." };
 
     await db.update(classes).set(settings).where(eq(classes.id, classId));
@@ -384,16 +398,16 @@ export async function regenerateCode(classId: string) {
   try {
     const cls = await db
       .select({
-        classId: classes.id,
+        id: classes.id,
       })
       .from(classes)
       .where(eq(classes.id, classId))
       .limit(1);
     if (!cls[0]) return { error: "Class does not exist." };
 
-    const membership = await getUserRank(classId, session.user.id);
-    if (!membership) return { error: "You are not a member of this class." };
-    if (membership !== "owner")
+    const rank = await getUserRank(classId, session.user.id);
+    if (!rank) return { error: "You are not a member of this class." };
+    if (rank !== "owner")
       return { error: "You are not the owner of this class." };
 
     await db

@@ -2,56 +2,6 @@
 
 import Link from "next/link";
 
-const HomeIcon = () => (
-  <svg
-    width="15"
-    height="15"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.7"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-    <path d="M9 22V12h6v10" />
-  </svg>
-);
-
-const SignInIcon = () => (
-  <svg
-    width="15"
-    height="15"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.7"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-    <path d="m10 17 5-5-5-5" />
-    <path d="M15 12H3" />
-  </svg>
-);
-
-const HelpIcon = () => (
-  <svg
-    width="15"
-    height="15"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.7"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <circle cx="12" cy="12" r="10" />
-    <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3" />
-    <path d="M12 17h.01" />
-  </svg>
-);
-
 const BackIcon = () => (
   <svg
     width="17"

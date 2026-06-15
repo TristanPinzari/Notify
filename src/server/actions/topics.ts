@@ -21,9 +21,9 @@ export async function createTopic(classId: string, name: string) {
       .limit(1);
     if (!cls[0]) return { error: "Class does not exist." };
 
-    const membership = await getUserRank(classId, session.user.id);
-    if (!membership) return { error: "You are not a member of this class." };
-    if (RANK_VALUE[cls[0].minRankCreateTopic] > RANK_VALUE[membership])
+    const rank = await getUserRank(classId, session.user.id);
+    if (!rank) return { error: "You are not a member of this class." };
+    if (RANK_VALUE[cls[0].minRankCreateTopic] > RANK_VALUE[rank])
       return { error: "Your rank is not high enough to create new topics." };
 
     await db.insert(topics).values({
@@ -54,9 +54,9 @@ export async function deleteTopic(classId: string, topicId: string) {
       .limit(1);
     if (!cls[0]) return { error: "Class does not exist." };
 
-    const membership = await getUserRank(classId, session.user.id);
-    if (!membership) return { error: "You are not a member of this class." };
-    if (RANK_VALUE[cls[0].minRankDeleteTopic] > RANK_VALUE[membership])
+    const rank = await getUserRank(classId, session.user.id);
+    if (!rank) return { error: "You are not a member of this class." };
+    if (RANK_VALUE[cls[0].minRankDeleteTopic] > RANK_VALUE[rank])
       return { error: "Your rank is not high enough to delete topics." };
 
     await db.delete(topics).where(eq(topics.id, topicId));
@@ -86,9 +86,9 @@ export async function changeTopicName(
       .limit(1);
     if (!cls[0]) return { error: "Class does not exist." };
 
-    const membership = await getUserRank(classId, session.user.id);
-    if (!membership) return { error: "You are not a member of this class." };
-    if (RANK_VALUE[cls[0].minRankCreateTopic] > RANK_VALUE[membership])
+    const rank = await getUserRank(classId, session.user.id);
+    if (!rank) return { error: "You are not a member of this class." };
+    if (RANK_VALUE[cls[0].minRankCreateTopic] > RANK_VALUE[rank])
       return { error: "Your rank is not high enough to edit topics." };
 
     await db.update(topics).set({ name }).where(eq(topics.id, topicId));
@@ -105,8 +105,8 @@ export async function getTopics(classId: string) {
   if (!session) return { error: "Not authenticated." };
 
   try {
-    const membership = await getUserRank(classId, session.user.id);
-    if (!membership) return { error: "You are not a member of this class." };
+    const rank = await getUserRank(classId, session.user.id);
+    if (!rank) return { error: "You are not a member of this class." };
 
     return await db
       .select({ id: topics.id, name: topics.name, createdAt: topics.createdAt })
