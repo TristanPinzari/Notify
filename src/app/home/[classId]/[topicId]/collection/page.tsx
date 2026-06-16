@@ -8,7 +8,7 @@ import {
   user,
   userClasses,
 } from "@/server/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
@@ -38,7 +38,7 @@ export default async function CollectionPage({
       .from(contributions)
       .innerJoin(user, eq(contributions.uploadedBy, user.id))
       .where(eq(contributions.topicId, topicId))
-      .orderBy(contributions.createdAt),
+      .orderBy(desc(contributions.createdAt)),
     db
       .select({
         minRankUploadContribution: classes.minRankUploadContribution,

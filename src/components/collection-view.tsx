@@ -1,13 +1,17 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { CType, EMethod, PStatus } from "@/server/db/schema";
 import {
   createContribution,
-  getUploadUrl,
-  setContributionStatus,
+  deleteContribution,
+  getContributionStatuses,
+  getContributionUrl,
 } from "@/server/actions/contributions";
 import { toast } from "sonner";
+import { getPlaylistInfo } from "@/server/actions/youtube";
+
+const POLL_INTERVAL_MS = 10000;
 
 export type ContributionRow = {
   contributionId: string;
@@ -47,32 +51,12 @@ const METHODS_FOR_TYPE: Record<CType, EMethod[]> = {
   text: ["text_extraction"],
 };
 
-const MOCK_PLAYLIST = {
-  name: "Crash Course European History",
-  videos: [
-    { title: "The Renaissance", dur: "12:34", url: "https://youtu.be/mock1" },
-    { title: "The Reformation", dur: "13:02", url: "https://youtu.be/mock2" },
-    { title: "Absolute Monarchy", dur: "11:48", url: "https://youtu.be/mock3" },
-    { title: "The Enlightenment", dur: "14:21", url: "https://youtu.be/mock4" },
-    {
-      title: "The French Revolution",
-      dur: "15:09",
-      url: "https://youtu.be/mock5",
-    },
-    {
-      title: "Napoleon Bonaparte",
-      dur: "13:55",
-      url: "https://youtu.be/mock6",
-    },
-  ],
-};
-
 type FileRow = {
   id: string;
   type: CType;
   name: string;
   who: string;
-  when: string;
+  createdAt: string;
   method: EMethod;
   status: PStatus;
   isCompiled: boolean;
@@ -139,7 +123,6 @@ function StatusPill({ status }: { status: PStatus }) {
         Failed
       </span>
     );
-  if (status === "pending") return <span className="status pend">Pending</span>;
   return (
     <span className="status done">
       <CheckIcon />
@@ -171,7 +154,7 @@ export default function CollectionView({
       type: c.contributionType,
       name: c.contributionName,
       who: c.uploaderName,
-      when: timeAgo(c.createdAt),
+      createdAt: c.createdAt,
       method: c.extractionMethod,
       status: c.status,
       isCompiled: c.isCompiled,
@@ -181,6 +164,31 @@ export default function CollectionView({
   const [drag, setDrag] = useState(false);
   const [url, setUrl] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [resolvingLink, setResolvingLink] = useState(false);
+  const [stagingState, setStagingState] = useState<
+    Record<number, "uploading" | "error">
+  >({});
+
+  const filesRef = useRef(files);
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (!filesRef.current.some((f) => f.status === "processing")) return;
+
+      const result = await getContributionStatuses(classId, topicId);
+      if ("error" in result) return;
+
+      const byId = new Map(result.statuses.map((s) => [s.id, s.status]));
+      setFiles((fs) =>
+        fs.map((f) => (byId.has(f.id) ? { ...f, status: byId.get(f.id)! } : f)),
+      );
+    }, POLL_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [classId, topicId]);
 
   function detectType(file: File): CType {
     if (file.type === "application/pdf") return "pdf";
@@ -217,11 +225,15 @@ export default function CollectionView({
     }
   }
 
-  function stageLink() {
-    if (!url.trim()) return;
+  async function stageLink() {
+    if (!url.trim() || resolvingLink) return;
     const isPlaylist = /[?&]list=|playlist/i.test(url);
     if (isPlaylist) {
-      const videos = MOCK_PLAYLIST.videos.map((v) => ({
+      setResolvingLink(true);
+      const playlist = await getPlaylistInfo(url);
+      setResolvingLink(false);
+      if ("error" in playlist) return toast.error(playlist.error);
+      const videos = playlist.videos.map((v) => ({
         id: ++stageSeq,
         ...v,
         checked: true,
@@ -231,7 +243,7 @@ export default function CollectionView({
         {
           id: ++stageSeq,
           kind: "playlist",
-          name: MOCK_PLAYLIST.name,
+          name: playlist.name,
           url: url.replace(/^https?:\/\//, ""),
           videos,
           collapsed: false,
@@ -300,35 +312,110 @@ export default function CollectionView({
     );
 
   async function uploadFile(s: StagedFile) {
+    setStagingState((st) => ({ ...st, [s.id]: "uploading" }));
+
     const created = await createContribution(classId, topicId, {
       name: s.name,
       type: s.type,
       extractionMethod: s.method,
+      file: s.file,
     });
+
     if ("error" in created) {
+      setStagingState((st) => ({ ...st, [s.id]: "error" }));
       toast.error(`Something went wrong while uploading ${s.name}.`);
       return;
     }
 
-    const signed = await getUploadUrl(classId, created.id, s.name, s.file.type);
-    if ("error" in signed) {
-      toast.error(`Something went wrong while uploading ${s.name}.`);
+    toast.success(`Successfully uploaded ${s.name}.`);
+    setStaged((st) => st.filter((x) => x.id !== s.id));
+    setFiles((fs) => [
+      {
+        id: created.id,
+        type: s.type,
+        name: s.name,
+        who: "You",
+        createdAt: created.createdAt,
+        method: s.method,
+        status: "processing",
+        isCompiled: false,
+      },
+      ...fs,
+    ]);
+  }
+
+  async function uploadLink(s: StagedLink) {
+    setStagingState((st) => ({ ...st, [s.id]: "uploading" }));
+
+    const created = await createContribution(classId, topicId, {
+      name: s.name,
+      type: s.type,
+      extractionMethod: s.method,
+      url: s.url,
+    });
+
+    if ("error" in created) {
+      setStagingState((st) => ({ ...st, [s.id]: "error" }));
+      toast.error(`Something went wrong while adding ${s.name}.`);
       return;
     }
 
-    try {
-      const res = await fetch(signed.url, {
-        method: "PUT",
-        body: s.file,
-        headers: { "Content-Type": s.file.type },
-      });
-      if (!res.ok) throw new Error("upload failed");
-      await setContributionStatus(classId, created.id, "processing");
-      toast.success(`Successfully uploaded ${s.name}.`);
-    } catch {
-      await setContributionStatus(classId, created.id, "failed");
-      toast.error(`Something went wrong while uploading ${s.name}.`);
+    toast.success(`Successfully added ${s.name}.`);
+    setStaged((st) => st.filter((x) => x.id !== s.id));
+    setFiles((fs) => [
+      {
+        id: created.id,
+        type: s.type,
+        name: s.name,
+        who: "You",
+        createdAt: created.createdAt,
+        method: s.method,
+        status: "processing",
+        isCompiled: false,
+      },
+      ...fs,
+    ]);
+  }
+
+  async function uploadPlaylist(s: StagedPlaylist) {
+    setStagingState((st) => ({ ...st, [s.id]: "uploading" }));
+
+    const checked = s.videos.filter((v) => v.checked);
+    const results = await Promise.all(
+      checked.map((v) =>
+        createContribution(classId, topicId, {
+          name: v.title,
+          type: "youtube",
+          extractionMethod: "youtube_transcript",
+          url: v.url,
+        }),
+      ),
+    );
+
+    const created = results.filter(
+      (r): r is { id: string; createdAt: string } => !("error" in r),
+    );
+    if (created.length < checked.length) {
+      setStagingState((st) => ({ ...st, [s.id]: "error" }));
+      toast.error(`Some videos in ${s.name} failed to add.`);
+    } else {
+      toast.success(`Successfully added ${s.name}.`);
+      setStaged((st) => st.filter((x) => x.id !== s.id));
     }
+
+    setFiles((fs) => [
+      ...created.map((c, i) => ({
+        id: c.id,
+        type: "youtube" as CType,
+        name: checked[i].title,
+        who: "You",
+        createdAt: c.createdAt,
+        method: "youtube_transcript" as EMethod,
+        status: "processing" as PStatus,
+        isCompiled: false,
+      })),
+      ...fs,
+    ]);
   }
 
   async function uploadAll() {
@@ -336,41 +423,30 @@ export default function CollectionView({
     setUploading(true);
 
     await Promise.all(
-      staged.map(async (s) => {
-        if (s.kind === "playlist") {
-          await Promise.all(
-            s.videos
-              .filter((v) => v.checked)
-              .map((v) =>
-                createContribution(classId, topicId, {
-                  name: v.title,
-                  type: "youtube",
-                  extractionMethod: "youtube_transcript",
-                  url: v.url,
-                }),
-              ),
-          );
-        } else if (s.kind === "link") {
-          await createContribution(classId, topicId, {
-            name: s.name,
-            type: s.type,
-            extractionMethod: s.method,
-            url: s.url,
-          });
-        } else {
-          await uploadFile(s);
-        }
+      staged.map((s) => {
+        if (s.kind === "playlist") return uploadPlaylist(s);
+        if (s.kind === "link") return uploadLink(s);
+        return uploadFile(s);
       }),
     );
 
-    setStaged([]);
     setUploading(false);
-    // TODO: refresh contribution list from the server
   }
 
-  function removeFile(id: string) {
+  async function removeFile(name: string, id: string) {
+    const res = await deleteContribution(classId, id);
+    if ("error" in res) return toast.error(res.error);
     setFiles((fs) => fs.filter((f) => f.id !== id));
-    // TODO: call delete server action
+    toast.success(`Successfully deleted ${name} from the collection.`);
+  }
+
+  async function openContribution(id: string) {
+    const result = await getContributionUrl(classId, id);
+    if ("error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    window.open(result.url, "_blank", "noopener,noreferrer");
   }
 
   const uncompiled = files.filter(
@@ -422,7 +498,7 @@ export default function CollectionView({
         {processing > 0 && (
           <span className="chip" style={{ color: "var(--accent-text)" }}>
             <span className="spin-amber" />
-            <b>{processing}</b> extracting
+            <b>{processing}</b> processing
           </span>
         )}
         <span className="chip">
@@ -473,13 +549,27 @@ export default function CollectionView({
                 className="flex-1 border-none bg-transparent outline-none text-[13px] text-(--ink) py-2.5 placeholder:text-(--ink-fainter)"
                 placeholder="Paste a YouTube video, playlist, or article link…"
                 value={url}
+                disabled={resolvingLink}
                 onChange={(e) => setUrl(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && stageLink()}
               />
             </div>
-            <button className="btn btn-ghost" onClick={stageLink}>
-              <PlusIcon />
-              Add link
+            <button
+              className="btn btn-ghost"
+              onClick={stageLink}
+              disabled={resolvingLink}
+            >
+              {resolvingLink ? (
+                <>
+                  <span className="mini-spin" />
+                  Adding…
+                </>
+              ) : (
+                <>
+                  <PlusIcon />
+                  Add link
+                </>
+              )}
             </button>
           </div>
         </>
@@ -558,9 +648,17 @@ export default function CollectionView({
                         >
                           {v.checked && <CheckIcon />}
                         </span>
-                        <span className={`pl-vtitle${v.checked ? "" : " off"}`}>
-                          {v.title}
-                        </span>
+                        <a
+                          href={v.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <span
+                            className={`pl-vtitle${v.checked ? "" : " off"}`}
+                          >
+                            {v.title}
+                          </span>
+                        </a>
                         <span className="pl-vdur">{v.dur}</span>
                       </div>
                     ))}
@@ -576,8 +674,18 @@ export default function CollectionView({
                   <div className="fname">{s.name}</div>
                   <div className="fmeta">
                     {s.kind === "link" ? "Link" : "File"} ·{" "}
-                    <span className="text-(--accent-text) font-semibold">
-                      pending
+                    <span
+                      className={
+                        stagingState[s.id] === "error"
+                          ? "text-(--danger) font-semibold"
+                          : "text-(--accent-text) font-semibold"
+                      }
+                    >
+                      {stagingState[s.id] === "uploading"
+                        ? "uploading…"
+                        : stagingState[s.id] === "error"
+                          ? "error"
+                          : "pending"}
                     </span>
                   </div>
                 </div>
@@ -617,9 +725,9 @@ export default function CollectionView({
               <span className="shrink-0 text-(--accent-text) mt-px">
                 <InfoIcon />
               </span>
-              Uploading runs the chosen extraction on each source — this can
-              take a moment. Override the method above if the default looks
-              wrong (e.g. a handwritten PDF).
+              Sources show as Processing while we extract their text — this
+              usually takes a few moments, and they&apos;ll switch to Ready on
+              their own.
             </span>
             {!uploading && (
               <button className="btn btn-ghost" onClick={() => setStaged([])}>
@@ -666,9 +774,14 @@ export default function CollectionView({
             <div className="file" key={f.id}>
               <span className={`ftype ${f.type}`}>{TYPE_LABEL[f.type]}</span>
               <div className="finfo">
-                <div className="fname">{f.name}</div>
+                <button
+                  className="fname-link"
+                  onClick={() => openContribution(f.id)}
+                >
+                  <span className="fname">{f.name}</span>
+                </button>
                 <div className="fmeta">
-                  Added by <b>{f.who}</b> · {f.when} ·{" "}
+                  Added by <b>{f.who}</b> · {timeAgo(f.createdAt)} ·{" "}
                   <span className="method-tag">
                     {EXTRACTION_LABELS[f.method]}
                   </span>
@@ -680,7 +793,7 @@ export default function CollectionView({
                   <button
                     className="icon-btn"
                     style={{ color: "var(--ink-fainter)" }}
-                    onClick={() => removeFile(f.id)}
+                    onClick={() => removeFile(f.name, f.id)}
                   >
                     <TrashIcon />
                   </button>
