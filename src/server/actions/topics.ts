@@ -1,13 +1,16 @@
 "use server";
 
 import { db } from "@/server/db";
-import { classes, RANK_VALUE, topics } from "@/server/db/schema";
+import { classes, topics } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
-import { getUserRank } from "./shared";
+import { getUserRank, requireRank, topicBelongsToClass } from "./shared";
 
-export async function createTopic(classId: string, name: string) {
+export async function createTopic(
+  classId: string,
+  name: string,
+): Promise<{ error: string } | { success: true }> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
 
@@ -21,10 +24,13 @@ export async function createTopic(classId: string, name: string) {
       .limit(1);
     if (!cls[0]) return { error: "Class does not exist." };
 
-    const rank = await getUserRank(classId, session.user.id);
-    if (!rank) return { error: "You are not a member of this class." };
-    if (RANK_VALUE[cls[0].minRankCreateTopic] > RANK_VALUE[rank])
-      return { error: "Your rank is not high enough to create new topics." };
+    const allowed = await requireRank(
+      classId,
+      session.user.id,
+      cls[0].minRankCreateTopic,
+      "create new topics",
+    );
+    if ("error" in allowed) return allowed;
 
     await db.insert(topics).values({
       id: crypto.randomUUID(),
@@ -45,6 +51,9 @@ export async function deleteTopic(classId: string, topicId: string) {
   if (!session) return { error: "Not authenticated." };
 
   try {
+    if (!(await topicBelongsToClass(classId, topicId)))
+      return { error: "Topic does not exist in this class." };
+
     const cls = await db
       .select({
         minRankDeleteTopic: classes.minRankDeleteTopic,
@@ -54,10 +63,13 @@ export async function deleteTopic(classId: string, topicId: string) {
       .limit(1);
     if (!cls[0]) return { error: "Class does not exist." };
 
-    const rank = await getUserRank(classId, session.user.id);
-    if (!rank) return { error: "You are not a member of this class." };
-    if (RANK_VALUE[cls[0].minRankDeleteTopic] > RANK_VALUE[rank])
-      return { error: "Your rank is not high enough to delete topics." };
+    const allowed = await requireRank(
+      classId,
+      session.user.id,
+      cls[0].minRankDeleteTopic,
+      "delete topics",
+    );
+    if ("error" in allowed) return allowed;
 
     await db.delete(topics).where(eq(topics.id, topicId));
 
@@ -77,6 +89,9 @@ export async function changeTopicName(
   if (!session) return { error: "Not authenticated." };
 
   try {
+    if (!(await topicBelongsToClass(classId, topicId)))
+      return { error: "Topic does not exist in this class." };
+
     const cls = await db
       .select({
         minRankCreateTopic: classes.minRankCreateTopic,
@@ -86,10 +101,13 @@ export async function changeTopicName(
       .limit(1);
     if (!cls[0]) return { error: "Class does not exist." };
 
-    const rank = await getUserRank(classId, session.user.id);
-    if (!rank) return { error: "You are not a member of this class." };
-    if (RANK_VALUE[cls[0].minRankCreateTopic] > RANK_VALUE[rank])
-      return { error: "Your rank is not high enough to edit topics." };
+    const allowed = await requireRank(
+      classId,
+      session.user.id,
+      cls[0].minRankCreateTopic,
+      "edit topics",
+    );
+    if ("error" in allowed) return allowed;
 
     await db.update(topics).set({ name }).where(eq(topics.id, topicId));
 

@@ -34,7 +34,6 @@ export const extractionMethod = pgEnum("extraction_method", [
   "web_scrape",
 ]);
 export const processingStatus = pgEnum("processing_status", [
-  "pending",
   "processing",
   "ready",
   "failed",
@@ -160,7 +159,7 @@ export const contributions = pgTable("contributions", {
   extractionMethod: extractionMethod("extraction_method").notNull(),
   processingStatus: processingStatus("processing_status")
     .notNull()
-    .default("pending"),
+    .default("processing"),
   text: text("text"),
   s3Key: text("s3_key"),
   url: text("url"),

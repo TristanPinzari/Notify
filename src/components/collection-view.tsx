@@ -5,6 +5,7 @@ import type { CType, EMethod, PStatus } from "@/server/db/schema";
 import {
   createContribution,
   getUploadUrl,
+  setContributionStatus,
 } from "@/server/actions/contributions";
 import { toast } from "sonner";
 
@@ -49,12 +50,20 @@ const METHODS_FOR_TYPE: Record<CType, EMethod[]> = {
 const MOCK_PLAYLIST = {
   name: "Crash Course European History",
   videos: [
-    { title: "The Renaissance", dur: "12:34" },
-    { title: "The Reformation", dur: "13:02" },
-    { title: "Absolute Monarchy", dur: "11:48" },
-    { title: "The Enlightenment", dur: "14:21" },
-    { title: "The French Revolution", dur: "15:09" },
-    { title: "Napoleon Bonaparte", dur: "13:55" },
+    { title: "The Renaissance", dur: "12:34", url: "https://youtu.be/mock1" },
+    { title: "The Reformation", dur: "13:02", url: "https://youtu.be/mock2" },
+    { title: "Absolute Monarchy", dur: "11:48", url: "https://youtu.be/mock3" },
+    { title: "The Enlightenment", dur: "14:21", url: "https://youtu.be/mock4" },
+    {
+      title: "The French Revolution",
+      dur: "15:09",
+      url: "https://youtu.be/mock5",
+    },
+    {
+      title: "Napoleon Bonaparte",
+      dur: "13:55",
+      url: "https://youtu.be/mock6",
+    },
   ],
 };
 
@@ -86,7 +95,13 @@ type StagedLink = {
   url: string;
   method: EMethod;
 };
-type PlVideo = { id: number; title: string; dur: string; checked: boolean };
+type PlVideo = {
+  id: number;
+  title: string;
+  dur: string;
+  url: string;
+  checked: boolean;
+};
 type StagedPlaylist = {
   id: number;
   kind: "playlist";
@@ -284,27 +299,73 @@ export default function CollectionView({
       }),
     );
 
+  async function uploadFile(s: StagedFile) {
+    const created = await createContribution(classId, topicId, {
+      name: s.name,
+      type: s.type,
+      extractionMethod: s.method,
+    });
+    if ("error" in created) {
+      toast.error(`Something went wrong while uploading ${s.name}.`);
+      return;
+    }
+
+    const signed = await getUploadUrl(classId, created.id, s.name, s.file.type);
+    if ("error" in signed) {
+      toast.error(`Something went wrong while uploading ${s.name}.`);
+      return;
+    }
+
+    try {
+      const res = await fetch(signed.url, {
+        method: "PUT",
+        body: s.file,
+        headers: { "Content-Type": s.file.type },
+      });
+      if (!res.ok) throw new Error("upload failed");
+      await setContributionStatus(classId, created.id, "processing");
+      toast.success(`Successfully uploaded ${s.name}.`);
+    } catch {
+      await setContributionStatus(classId, created.id, "failed");
+      toast.error(`Something went wrong while uploading ${s.name}.`);
+    }
+  }
+
   async function uploadAll() {
     if (uploading) return;
     setUploading(true);
 
-    // await Promise.all(
-    //   staged.map(async (s) => {
-    //     if (s.kind === "playlist") {
-    //       (await Promise.all(s.videos.filter((v) => v.checked))).map((v) =>
-    //         createContribution(classId, topicId, {
-    //           name: v.title,
-    //           type: "youtube",
-    //           extractionMethod: "youtube_transcript",
-    //           url: v.url,
-    //         }),
-    //       );
-    //     }
-    //   }),
-    // );
+    await Promise.all(
+      staged.map(async (s) => {
+        if (s.kind === "playlist") {
+          await Promise.all(
+            s.videos
+              .filter((v) => v.checked)
+              .map((v) =>
+                createContribution(classId, topicId, {
+                  name: v.title,
+                  type: "youtube",
+                  extractionMethod: "youtube_transcript",
+                  url: v.url,
+                }),
+              ),
+          );
+        } else if (s.kind === "link") {
+          await createContribution(classId, topicId, {
+            name: s.name,
+            type: s.type,
+            extractionMethod: s.method,
+            url: s.url,
+          });
+        } else {
+          await uploadFile(s);
+        }
+      }),
+    );
 
     setStaged([]);
     setUploading(false);
+    // TODO: refresh contribution list from the server
   }
 
   function removeFile(id: string) {

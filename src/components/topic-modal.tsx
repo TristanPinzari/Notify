@@ -71,7 +71,7 @@ export function TopicModal({ classId, onClose }: Props) {
     const result = await createTopic(classId, topicName);
     setLoading(false);
 
-    if (result.error) return setError(result.error);
+    if ("error" in result) return setError(result.error);
 
     toast.success("Topic created!");
     router.refresh();
