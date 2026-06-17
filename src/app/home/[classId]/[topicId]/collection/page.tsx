@@ -32,6 +32,8 @@ export default async function CollectionPage({
         extractionMethod: contributions.extractionMethod,
         isCompiled: contributions.isCompiled,
         status: contributions.processingStatus,
+        failureReason: contributions.failureReason,
+        manuallyEdited: contributions.manuallyEdited,
         uploaderName: user.name,
         uploaderId: user.id,
         createdAt: contributions.createdAt,
@@ -39,7 +41,9 @@ export default async function CollectionPage({
       .from(contributions)
       .innerJoin(user, eq(contributions.uploadedBy, user.id))
       .innerJoin(topics, eq(contributions.topicId, topics.id))
-      .where(and(eq(contributions.topicId, topicId), eq(topics.classId, classId)))
+      .where(
+        and(eq(contributions.topicId, topicId), eq(topics.classId, classId)),
+      )
       .orderBy(desc(contributions.createdAt)),
     db
       .select({

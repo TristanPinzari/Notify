@@ -1,0 +1,1 @@
+ALTER TABLE "contributions" ADD COLUMN "failure_reason" text;

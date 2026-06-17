@@ -13,7 +13,6 @@ import {
   contributions,
   CType,
   EMethod,
-  PStatus,
   topics,
 } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -25,16 +24,29 @@ import {
   requireRank,
   topicBelongsToClass,
 } from "./shared";
+import { getTemporalClient } from "@/temporal/client";
+import type { ExtractionInput } from "@/temporal/workflows";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION! });
 
-async function setContributionStatus(contributionId: string, status: PStatus) {
-  await db
-    .update(contributions)
-    .set({
-      processingStatus: status,
-    })
-    .where(eq(contributions.id, contributionId));
+async function startExtraction(
+  id: string,
+  extractionMethod: EMethod,
+  s3Key?: string,
+  url?: string,
+) {
+  const temporalClient = await getTemporalClient();
+  const input: ExtractionInput = {
+    contributionId: id,
+    extractionMethod: extractionMethod,
+    s3Key,
+    url: url,
+  };
+  await temporalClient.workflow.start("extractContribution", {
+    args: [input],
+    taskQueue: "extraction",
+    workflowId: `extract-${id}-${Date.now()}`,
+  });
 }
 
 export async function createContribution(
@@ -121,11 +133,7 @@ export async function createContribution(
       })
       .returning({ createdAt: contributions.createdAt });
 
-    // TODO: trigger the Temporal extraction workflow here, passing
-    // { contributionId: id, s3Key, url: data.url, extractionMethod: data.extractionMethod }.
-    // The workflow is responsible for calling setContributionStatus(id, "ready" | "failed")
-    // (and writing `text`) once extraction finishes — no client-facing
-    // action should ever set those again.
+    startExtraction(id, data.extractionMethod, s3Key, data.url);
 
     return { id, createdAt: row.createdAt.toISOString() };
   } catch (e) {
@@ -237,6 +245,7 @@ export async function getContributionStatuses(
       .select({
         id: contributions.id,
         status: contributions.processingStatus,
+        failureReason: contributions.failureReason,
       })
       .from(contributions)
       .where(eq(contributions.topicId, topicId));
@@ -319,6 +328,193 @@ export async function deleteContribution(
         );
       }
     }
+
+    return { success: true };
+  } catch (e) {
+    console.error("ERROR: ", e);
+    return { error: "Something went wrong." };
+  }
+}
+
+export async function restartExtraction(
+  classId: string,
+  topicId: string,
+  contributionId: string,
+) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    console.error("ERROR: restartExtraction called with no session");
+    return { error: "Not authenticated." };
+  }
+
+  try {
+    if (!(await topicBelongsToClass(classId, topicId))) {
+      console.error(
+        `ERROR: topic ${topicId} does not belong to class ${classId}`,
+      );
+      return { error: "Topic does not exist in this class." };
+    }
+
+    const [cls] = await db
+      .select({ minRankUploadContribution: classes.minRankUploadContribution })
+      .from(classes)
+      .where(eq(classes.id, classId))
+      .limit(1);
+    if (!cls) {
+      console.error(`ERROR: class ${classId} does not exist`);
+      return { error: "Class does not exist." };
+    }
+
+    const allowed = await requireRank(
+      classId,
+      session.user.id,
+      cls.minRankUploadContribution,
+      "upload",
+    );
+    if ("error" in allowed) {
+      console.error(`ERROR: ${allowed.error}`);
+      return allowed;
+    }
+
+    const contribution = await db
+      .select({
+        extractionMethod: contributions.extractionMethod,
+        s3Key: contributions.s3Key,
+        url: contributions.url,
+      })
+      .from(contributions)
+      .where(eq(contributions.id, contributionId))
+      .limit(1);
+
+    if (!contribution[0]) return { error: "This contribution does not exist." };
+
+    await db
+      .update(contributions)
+      .set({ processingStatus: "processing" })
+      .where(eq(contributions.id, contributionId));
+
+    await startExtraction(
+      contributionId,
+      contribution[0].extractionMethod,
+      contribution[0].s3Key || undefined,
+      contribution[0].url || undefined,
+    );
+
+    return { success: true };
+  } catch (e) {
+    console.error("ERROR: ", e);
+    return { error: "Something went wrong." };
+  }
+}
+
+export async function getContributionText(
+  classId: string,
+  contributionId: string,
+) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    console.error("ERROR: getContributionText called with no session");
+    return { error: "Not authenticated." };
+  }
+
+  try {
+    const [contribution] = await db
+      .select({ text: contributions.text })
+      .from(contributions)
+      .innerJoin(topics, eq(contributions.topicId, topics.id))
+      .where(
+        and(eq(contributions.id, contributionId), eq(topics.classId, classId)),
+      )
+      .limit(1);
+
+    if (!contribution) {
+      console.error(
+        `ERROR: contribution ${contributionId} does not belong to class ${classId}`,
+      );
+      return { error: "Contribution not found." };
+    }
+
+    return { text: contribution.text };
+  } catch (e) {
+    console.error("ERROR: ", e);
+    return { error: "Something went wrong." };
+  }
+}
+
+export async function editContribution(
+  classId: string,
+  topicId: string,
+  contributionId: string,
+  data: {
+    name?: string;
+    extractionMethod?: EMethod;
+    text?: string;
+  },
+) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    console.error("ERROR: editContribution called with no session");
+    return { error: "Not authenticated." };
+  }
+
+  try {
+    if (!(await topicBelongsToClass(classId, topicId))) {
+      console.error(
+        `ERROR: topic ${topicId} does not belong to class ${classId}`,
+      );
+      return { error: "Topic does not exist in this class." };
+    }
+
+    const [cls] = await db
+      .select({ minRankUploadContribution: classes.minRankUploadContribution })
+      .from(classes)
+      .where(eq(classes.id, classId))
+      .limit(1);
+    if (!cls) {
+      console.error(`ERROR: class ${classId} does not exist`);
+      return { error: "Class does not exist." };
+    }
+
+    const allowed = await requireRank(
+      classId,
+      session.user.id,
+      cls.minRankUploadContribution,
+      "upload",
+    );
+    if ("error" in allowed) {
+      console.error(`ERROR: ${allowed.error}`);
+      return allowed;
+    }
+
+    const [contribution] = await db
+      .select({ processingStatus: contributions.processingStatus })
+      .from(contributions)
+      .innerJoin(topics, eq(contributions.topicId, topics.id))
+      .where(
+        and(eq(contributions.id, contributionId), eq(topics.classId, classId)),
+      )
+      .limit(1);
+    if (!contribution) {
+      console.error(
+        `ERROR: contribution ${contributionId} does not belong to class ${classId}`,
+      );
+      return { error: "This contribution does not exist." };
+    }
+    if (contribution.processingStatus === "processing")
+      return { error: "This contribution is still being processed." };
+
+    await db
+      .update(contributions)
+      .set({
+        name: data.name,
+        extractionMethod: data.extractionMethod,
+        text: data.text,
+        manuallyEdited: true,
+        ...(data.text !== undefined
+          ? { processingStatus: "ready", failureReason: null }
+          : {}),
+      })
+      .where(eq(contributions.id, contributionId));
 
     return { success: true };
   } catch (e) {

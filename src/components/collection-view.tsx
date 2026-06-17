@@ -5,11 +5,29 @@ import type { CType, EMethod, PStatus } from "@/server/db/schema";
 import {
   createContribution,
   deleteContribution,
+  editContribution,
   getContributionStatuses,
+  getContributionText,
   getContributionUrl,
+  restartExtraction,
 } from "@/server/actions/contributions";
 import { toast } from "sonner";
 import { getPlaylistInfo, getVideoInfo } from "@/server/actions/youtube";
+import {
+  UploadIcon,
+  LinkIcon,
+  PlusIcon,
+  ChevIcon,
+  TrashIcon,
+  CheckIcon,
+  WarnIcon,
+  InfoIcon,
+  CollectionIcon,
+  InspectIcon,
+  EditPencilIcon,
+  RetryIcon,
+  XIcon,
+} from "@/components/icons";
 
 const POLL_INTERVAL_MS = 10000;
 
@@ -20,6 +38,8 @@ export type ContributionRow = {
   extractionMethod: EMethod;
   isCompiled: boolean;
   status: PStatus;
+  failureReason: string | null;
+  manuallyEdited: boolean;
   uploaderName: string;
   uploaderId: string;
   createdAt: string;
@@ -59,6 +79,8 @@ type FileRow = {
   createdAt: string;
   method: EMethod;
   status: PStatus;
+  failureReason: string | null;
+  manuallyEdited: boolean;
   isCompiled: boolean;
 };
 
@@ -109,7 +131,13 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-function StatusPill({ status }: { status: PStatus }) {
+function StatusPill({
+  status,
+  failureReason,
+}: {
+  status: PStatus;
+  failureReason?: string | null;
+}) {
   if (status === "processing")
     return (
       <span className="status proc">
@@ -119,7 +147,10 @@ function StatusPill({ status }: { status: PStatus }) {
     );
   if (status === "failed")
     return (
-      <span className="status fail">
+      <span
+        className="status fail"
+        title={failureReason ?? "Failure reason unknown."}
+      >
         <WarnIcon />
         Failed
       </span>
@@ -129,6 +160,324 @@ function StatusPill({ status }: { status: PStatus }) {
       <CheckIcon />
       Ready
     </span>
+  );
+}
+
+/* ---- SourceRow: committed source with expandable inspection panel ---- */
+type SourceRowProps = {
+  f: FileRow;
+  classId: string;
+  topicId: string;
+  canDelete: boolean;
+  onOpen: (id: string) => void;
+  onRemove: (name: string, id: string) => void;
+  onUpdate: (id: string, patch: Partial<FileRow>) => void;
+};
+
+function SourceRow({
+  f,
+  classId,
+  topicId,
+  canDelete,
+  onOpen,
+  onRemove,
+  onUpdate,
+}: SourceRowProps) {
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  // undefined = not yet fetched; null = fetched, no text
+  const [text, setText] = useState<string | null | undefined>(undefined);
+  const [loadingText, setLoadingText] = useState(false);
+  const [dName, setDName] = useState("");
+  const [dMethod, setDMethod] = useState<EMethod>(f.method);
+  const [dText, setDText] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+
+  const methods = METHODS_FOR_TYPE[f.type];
+  const inspectable = f.status === "ready" || f.status === "failed";
+  const panelOpen = open && inspectable;
+
+  async function togglePanel() {
+    if (open) {
+      setEditing(false);
+      setOpen(false);
+      return;
+    }
+    setOpen(true);
+    if (f.status === "ready" && text === undefined) {
+      setLoadingText(true);
+      const res = await getContributionText(classId, f.id);
+      if ("text" in res) setText(res.text);
+      setLoadingText(false);
+    }
+  }
+
+  function startEdit() {
+    setDName(f.name);
+    setDMethod(f.method);
+    setDText(text ?? "");
+    setEditing(true);
+  }
+
+  const dirty =
+    dName.trim() !== f.name || dMethod !== f.method || dText !== (text ?? "");
+
+  async function save() {
+    if (!dName.trim() || saving) return;
+    setSaving(true);
+    const methodChanged = dMethod !== f.method;
+
+    const res = await editContribution(classId, topicId, f.id, {
+      name: dName.trim(),
+      extractionMethod: dMethod,
+      text: methodChanged ? undefined : dText,
+    });
+
+    if ("error" in res) {
+      toast.error(res.error);
+      setSaving(false);
+      return;
+    }
+
+    if (methodChanged) {
+      const rr = await restartExtraction(classId, topicId, f.id);
+      if ("error" in rr) {
+        toast.error(rr.error);
+        setSaving(false);
+        return;
+      }
+      onUpdate(f.id, {
+        name: dName.trim(),
+        method: dMethod,
+        status: "processing",
+        manuallyEdited: true,
+      });
+      setText(undefined);
+      setOpen(false);
+      toast.success("Saved — re-extracting with new method.");
+    } else {
+      const wasFailedWithText =
+        f.status === "failed" && dText.trim().length > 0;
+      onUpdate(f.id, {
+        name: dName.trim(),
+        manuallyEdited: true,
+        ...(wasFailedWithText ? { status: "ready", failureReason: null } : {}),
+      });
+      setText(dText);
+      toast.success("Source updated.");
+      setEditing(false);
+    }
+
+    setSaving(false);
+  }
+
+  async function retry() {
+    setRetrying(true);
+    const res = await restartExtraction(classId, topicId, f.id);
+    if ("error" in res) {
+      toast.error(res.error);
+    } else {
+      onUpdate(f.id, { status: "processing", failureReason: null });
+      setText(undefined);
+      setOpen(false);
+      toast.success("Re-extracting…");
+    }
+    setRetrying(false);
+  }
+
+  return (
+    <>
+      <div className={`file${panelOpen ? " expanded" : ""}`}>
+        <span className={`ftype ${f.type}`}>{TYPE_LABEL[f.type]}</span>
+        <div className="finfo">
+          <button className="fname-link" onClick={() => onOpen(f.id)}>
+            <span className="fname">{f.name}</span>
+          </button>
+          <div className="fmeta">
+            Added by <b>{f.who}</b> · {timeAgo(f.createdAt)} ·{" "}
+            <span className="method-tag">{EXTRACTION_LABELS[f.method]}</span>
+            {f.manuallyEdited && <span className="method-tag"> · Edited</span>}
+          </div>
+        </div>
+        <div className="file-actions">
+          {!panelOpen && <StatusPill status={f.status} failureReason={f.failureReason} />}
+          {inspectable && (
+            <button
+              className="icon-btn"
+              title={panelOpen ? "Close" : "Inspect extraction"}
+              style={panelOpen ? { color: "var(--accent-text)" } : undefined}
+              onClick={togglePanel}
+            >
+              <InspectIcon />
+            </button>
+          )}
+          {canDelete && (
+            <button className="icon-btn" onClick={() => onRemove(f.name, f.id)}>
+              <TrashIcon />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {panelOpen && (
+        <div className="inspect">
+          <div className="inspect-inner">
+            {editing ? (
+              <>
+                <div className="inspect-bar">
+                  <span className="il">Edit source</span>
+                  <div className="inspect-actions">
+                    <button
+                      className="ibtn ibtn-cancel"
+                      onClick={() => setEditing(false)}
+                    >
+                      <XIcon />
+                      Cancel
+                    </button>
+                    <button
+                      className="ibtn ibtn-save"
+                      onClick={save}
+                      disabled={!dirty || !dName.trim() || saving}
+                    >
+                      <CheckIcon />
+                      {saving ? "Saving…" : "Save"}
+                    </button>
+                  </div>
+                </div>
+                <div className="iform">
+                  <div className="iform-fld">
+                    <label>Name</label>
+                    <input
+                      className="tin"
+                      value={dName}
+                      onChange={(e) => setDName(e.target.value)}
+                      placeholder="Source name"
+                    />
+                  </div>
+                  <div className="iform-fld">
+                    <label>Extraction method</label>
+                    <select
+                      className="tsel"
+                      value={dMethod}
+                      disabled={methods.length === 1}
+                      onChange={(e) => setDMethod(e.target.value as EMethod)}
+                    >
+                      {methods.map((m) => (
+                        <option key={m} value={m}>
+                          {EXTRACTION_LABELS[m]}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="iform-hint">
+                      {methods.length > 1
+                        ? "Changing this will re-extract on save."
+                        : "Only one method applies to this source type."}
+                    </div>
+                  </div>
+                  <div className="iform-fld">
+                    <label>Extracted text</label>
+                    <textarea
+                      className="extracted-edit"
+                      value={dText}
+                      onChange={(e) => setDText(e.target.value)}
+                      spellCheck={false}
+                      placeholder={
+                        f.status === "failed"
+                          ? "Extraction failed — you can paste a manual transcript here."
+                          : "Extracted text…"
+                      }
+                    />
+                  </div>
+                </div>
+              </>
+            ) : f.status === "failed" ? (
+              <>
+                <div className="inspect-bar">
+                  <span className="il">Extraction result</span>
+                  <span className="status fail">
+                    <WarnIcon />
+                    Failed
+                  </span>
+                  <span className="inspect-meta">
+                    <b>{EXTRACTION_LABELS[f.method]}</b>
+                  </span>
+                  <div className="inspect-actions">
+                    <button className="ibtn ibtn-edit" onClick={startEdit}>
+                      <EditPencilIcon />
+                      Edit
+                    </button>
+                    <button
+                      className="ibtn ibtn-edit"
+                      onClick={retry}
+                      disabled={retrying}
+                    >
+                      <RetryIcon />
+                      {retrying ? "Retrying…" : "Retry"}
+                    </button>
+                  </div>
+                </div>
+                <div className="fail-box">
+                  <span className="fail-box-ic">
+                    <WarnIcon size={18} />
+                  </span>
+                  <div>
+                    <div className="fail-box-title">
+                      Failed to extract text from this source
+                    </div>
+                    <div className="fail-box-reason">
+                      {f.failureReason ?? "Unknown error."}
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="inspect-bar">
+                  <span className="il">Extraction result</span>
+                  <span className="status done">
+                    <CheckIcon />
+                    Ready
+                  </span>
+                  <span className="inspect-meta">
+                    <b>{EXTRACTION_LABELS[f.method]}</b>
+                    {text != null && ` · ${text.length.toLocaleString()} chars`}
+                  </span>
+                  <div className="inspect-actions">
+                    <button
+                      className="ibtn ibtn-edit"
+                      onClick={retry}
+                      disabled={retrying || loadingText}
+                    >
+                      <RetryIcon />
+                      {retrying ? "Re-extracting…" : "Re-extract"}
+                    </button>
+                    <button
+                      className="ibtn ibtn-edit"
+                      onClick={startEdit}
+                      disabled={loadingText}
+                    >
+                      <EditPencilIcon />
+                      Edit
+                    </button>
+                  </div>
+                </div>
+                {loadingText ? (
+                  <div
+                    className="extracted"
+                    style={{ color: "var(--ink-faint)" }}
+                  >
+                    Loading…
+                  </div>
+                ) : (
+                  <div className="extracted">{text}</div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -158,6 +507,8 @@ export default function CollectionView({
       createdAt: c.createdAt,
       method: c.extractionMethod,
       status: c.status,
+      failureReason: c.failureReason,
+      manuallyEdited: c.manuallyEdited,
       isCompiled: c.isCompiled,
     })),
   );
@@ -182,9 +533,13 @@ export default function CollectionView({
       const result = await getContributionStatuses(classId, topicId);
       if ("error" in result) return;
 
-      const byId = new Map(result.statuses.map((s) => [s.id, s.status]));
+      const byId = new Map(result.statuses.map((s) => [s.id, s]));
       setFiles((fs) =>
-        fs.map((f) => (byId.has(f.id) ? { ...f, status: byId.get(f.id)! } : f)),
+        fs.map((f) => {
+          const s = byId.get(f.id);
+          if (!s) return f;
+          return { ...f, status: s.status, failureReason: s.failureReason };
+        }),
       );
     }, POLL_INTERVAL_MS);
 
@@ -195,6 +550,7 @@ export default function CollectionView({
     if (file.type === "application/pdf") return "pdf";
     if (file.type.startsWith("image/")) return "image";
     if (file.type.startsWith("audio/")) return "audio";
+    if (file.type === "text/plain") return "text";
     return "pdf";
   }
 
@@ -380,6 +736,8 @@ export default function CollectionView({
         createdAt: created.createdAt,
         method: s.method,
         status: "processing",
+        failureReason: null,
+        manuallyEdited: false,
         isCompiled: false,
       },
       ...fs,
@@ -413,6 +771,8 @@ export default function CollectionView({
         createdAt: created.createdAt,
         method: s.method,
         status: "processing",
+        failureReason: null,
+        manuallyEdited: false,
         isCompiled: false,
       },
       ...fs,
@@ -454,6 +814,8 @@ export default function CollectionView({
         createdAt: c.createdAt,
         method: "youtube_transcript" as EMethod,
         status: "processing" as PStatus,
+        failureReason: null,
+        manuallyEdited: false,
         isCompiled: false,
       })),
       ...fs,
@@ -491,6 +853,10 @@ export default function CollectionView({
     window.open(result.url, "_blank", "noopener,noreferrer");
   }
 
+  function updateFile(id: string, patch: Partial<FileRow>) {
+    setFiles((fs) => fs.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+  }
+
   const uncompiled = files.filter(
     (f) => !f.isCompiled && f.status === "ready",
   ).length;
@@ -524,21 +890,12 @@ export default function CollectionView({
           <b>{files.length}</b> sources
         </span>
         <span
-          className="chip"
-          style={
-            uncompiled > 0
-              ? {
-                  color: "var(--accent-text)",
-                  borderColor: "var(--accent)",
-                  background: "var(--accent-soft)",
-                }
-              : {}
-          }
+          className={`chip${uncompiled > 0 ? " text-(--accent-text) border-(--accent) bg-(--accent-soft)" : ""}`}
         >
           <b>{uncompiled}</b> uncompiled
         </span>
         {processing > 0 && (
-          <span className="chip" style={{ color: "var(--accent-text)" }}>
+          <span className="chip text-(--accent-text)">
             <span className="spin-amber" />
             <b>{processing}</b> processing
           </span>
@@ -556,7 +913,7 @@ export default function CollectionView({
             type="file"
             className="hidden"
             multiple
-            accept=".pdf,image/*,audio/*"
+            accept=".pdf,.txt,image/*,audio/*"
             onChange={handleFileInput}
           />
           <div
@@ -579,7 +936,7 @@ export default function CollectionView({
               <UploadIcon />
             </div>
             <h4>Drop files here, or click to select</h4>
-            <p>PDF, image, audio · up to 25 MB each</p>
+            <p>PDF, TXT, image, audio · up to 25 MB each</p>
           </div>
 
           <div className="flex gap-2.5 my-3.5">
@@ -619,15 +976,12 @@ export default function CollectionView({
 
       {/* staging area */}
       {staged.length > 0 && (
-        <div
-          className="rounded-[15px] bg-(--paper-raised) my-3.5 border border-(--accent) overflow-hidden"
-          style={{ boxShadow: "0 0 0 3px var(--accent-soft)" }}
-        >
+        <div className="rounded-[15px] bg-(--paper-raised) my-3.5 border border-(--accent) overflow-hidden shadow-[0_0_0_3px_var(--accent-soft)]">
           <div className="flex items-center gap-2.5 px-4 py-3.25 border-b border-(--line-soft)">
             <span className="text-[13px] font-semibold text-(--ink-heading)">
               Ready to upload
             </span>
-            <span className="chip" style={{ padding: "3px 9px" }}>
+            <span className="chip px-2.25 py-0.75">
               <b>{stagedSize}</b> selected
             </span>
             <span className="ml-auto text-[12px] text-(--ink-faint)">
@@ -780,7 +1134,7 @@ export default function CollectionView({
             <button
               className="btn btn-primary"
               onClick={uploadAll}
-              disabled={uploading || stagedSize === 0}
+              disabled={uploading || resolvingLink || stagedSize === 0}
             >
               {uploading ? (
                 <>
@@ -814,35 +1168,16 @@ export default function CollectionView({
       ) : (
         <div className="rounded-[15px] bg-(--paper-raised) border border-(--line) overflow-hidden">
           {files.map((f) => (
-            <div className="file" key={f.id}>
-              <span className={`ftype ${f.type}`}>{TYPE_LABEL[f.type]}</span>
-              <div className="finfo">
-                <button
-                  className="fname-link"
-                  onClick={() => openContribution(f.id)}
-                >
-                  <span className="fname">{f.name}</span>
-                </button>
-                <div className="fmeta">
-                  Added by <b>{f.who}</b> · {timeAgo(f.createdAt)} ·{" "}
-                  <span className="method-tag">
-                    {EXTRACTION_LABELS[f.method]}
-                  </span>
-                </div>
-              </div>
-              <div className="file-actions">
-                <StatusPill status={f.status} />
-                {canDelete && (
-                  <button
-                    className="icon-btn"
-                    style={{ color: "var(--ink-fainter)" }}
-                    onClick={() => removeFile(f.name, f.id)}
-                  >
-                    <TrashIcon />
-                  </button>
-                )}
-              </div>
-            </div>
+            <SourceRow
+              key={f.id}
+              f={f}
+              classId={classId}
+              topicId={topicId}
+              canDelete={canDelete}
+              onOpen={openContribution}
+              onRemove={removeFile}
+              onUpdate={updateFile}
+            />
           ))}
         </div>
       )}
@@ -850,154 +1185,3 @@ export default function CollectionView({
   );
 }
 
-/* ---- icons ---- */
-function UploadIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <path d="M17 8l-5-5-5 5" />
-      <path d="M12 3v12" />
-    </svg>
-  );
-}
-function LinkIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-    </svg>
-  );
-}
-function PlusIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
-function ChevIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m9 18 6-6-6-6" />
-    </svg>
-  );
-}
-function TrashIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
-}
-function CheckIcon() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-function WarnIcon() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-      <path d="M12 9v4M12 17h.01" />
-    </svg>
-  );
-}
-function InfoIcon() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 16v-4M12 8h.01" />
-    </svg>
-  );
-}
-function CollectionIcon() {
-  return (
-    <svg
-      width="26"
-      height="26"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-    </svg>
-  );
-}

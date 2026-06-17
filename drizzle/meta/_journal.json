@@ -50,6 +50,20 @@
       "when": 1781661211502,
       "tag": "0006_abandoned_mattie_franklin",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781712265604,
+      "tag": "0007_careless_tyger_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781714600681,
+      "tag": "0008_quiet_mikhail_rasputin",
+      "breakpoints": true
     }
   ]
 }

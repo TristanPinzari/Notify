@@ -58,10 +58,12 @@ A class's `"owner"` rank can only be granted at `createClass` time.
 `changeUserRank` can never promote to `"owner"`, and the owner can't
 `leaveClass`. If the owner's account is lost, the class has no recovery path.
 
-## Stuck `pending` contributions can't be reconciled
+## Stuck `processing` contributions need a cleanup job
 
-If a client never calls `setContributionStatus` (e.g. tab closed mid-upload),
-a contribution stays `pending` forever — there's no server-side timeout job
-to flip it to `failed`. `"failed"` can't be verified the way `"processing"`
-is (no positive trace to check), so this needs a reconciliation job, not
-client trust.
+If the DB is down when Temporal tries to write the final status, the workflow
+fails but the contribution stays `"processing"` forever. Fix: a periodic
+cleanup job that queries for contributions stuck in `"processing"` beyond a
+threshold (e.g. 30 minutes), then restarts their Temporal workflow via the
+client API using a new `workflowId` (e.g. `extract-${id}-retry-${Date.now()}`).
+Alternatively, raise `maximumAttempts` and `maximumInterval` in the retry
+policy so transient DB outages heal themselves before Temporal gives up.

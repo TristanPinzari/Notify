@@ -129,9 +129,7 @@ export function MasterDocView({
       </div>
 
       {showConfig && (
-        <div
-          className="rounded-[15px] bg-(--paper-raised) border border-(--line) px-[18px] mb-6"
-        >
+        <div className="rounded-[15px] bg-(--paper-raised) border border-(--line) px-4.5 mb-6">
           {SETTINGS.map(({ key, title, desc }) => (
             <div className="set-row" key={key}>
               <div className="set-row-label">
@@ -162,7 +160,11 @@ export function MasterDocView({
                   className={opts.format === v ? "on" : ""}
                   onClick={() => setOpts((o) => ({ ...o, format: v }))}
                 >
-                  {v === "bullets" ? "Bullets" : v === "prose" ? "Prose" : "Both"}
+                  {v === "bullets"
+                    ? "Bullets"
+                    : v === "prose"
+                      ? "Prose"
+                      : "Both"}
                 </button>
               ))}
             </div>
