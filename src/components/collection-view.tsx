@@ -29,7 +29,7 @@ import {
   XIcon,
 } from "@/components/icons";
 
-const POLL_INTERVAL_MS = 10000;
+const POLL_INTERVAL_MS = 5000;
 
 export type ContributionRow = {
   contributionId: string;
@@ -301,7 +301,9 @@ function SourceRow({
           </div>
         </div>
         <div className="file-actions">
-          {!panelOpen && <StatusPill status={f.status} failureReason={f.failureReason} />}
+          {!panelOpen && (
+            <StatusPill status={f.status} failureReason={f.failureReason} />
+          )}
           {inspectable && (
             <button
               className="icon-btn"
@@ -550,7 +552,12 @@ export default function CollectionView({
     if (file.type === "application/pdf") return "pdf";
     if (file.type.startsWith("image/")) return "image";
     if (file.type.startsWith("audio/")) return "audio";
-    if (file.type === "text/plain") return "text";
+    if (
+      file.type === "text/plain" ||
+      file.type === "text/markdown" ||
+      file.type === "text/x-markdown"
+    )
+      return "text";
     return "pdf";
   }
 
@@ -913,7 +920,7 @@ export default function CollectionView({
             type="file"
             className="hidden"
             multiple
-            accept=".pdf,.txt,image/*,audio/*"
+            accept=".pdf,.txt,.md,.markdown,image/*,audio/*"
             onChange={handleFileInput}
           />
           <div
@@ -936,7 +943,7 @@ export default function CollectionView({
               <UploadIcon />
             </div>
             <h4>Drop files here, or click to select</h4>
-            <p>PDF, TXT, image, audio · up to 25 MB each</p>
+            <p>PDF, TXT, MD, image, audio · up to 25 MB each</p>
           </div>
 
           <div className="flex gap-2.5 my-3.5">
@@ -1184,4 +1191,3 @@ export default function CollectionView({
     </div>
   );
 }
-
