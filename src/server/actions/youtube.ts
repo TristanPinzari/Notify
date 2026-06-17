@@ -1,5 +1,8 @@
 "use server";
 
+import { auth } from "@/server/auth";
+import { headers } from "next/headers";
+
 interface YoutubeVideoItem {
   id: string;
   snippet: { title: string };
@@ -34,6 +37,9 @@ function parseDuration(iso: string): string {
 }
 
 export async function getVideoInfo(url: string) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return { error: "Not authenticated." };
+
   const videoId = extractVideoId(url);
   if (!videoId) return { error: "Invalid YouTube URL." };
 
@@ -54,6 +60,9 @@ export async function getVideoInfo(url: string) {
 }
 
 export async function getPlaylistInfo(url: string) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return { error: "Not authenticated." };
+
   const playlistId = extractPlaylistId(url);
   if (!playlistId) return { error: "Invalid playlist URL." };
 

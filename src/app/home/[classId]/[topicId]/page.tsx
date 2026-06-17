@@ -4,8 +4,9 @@ import {
   contributions,
   compileLogs,
   topics,
+  userClasses,
 } from "@/server/db/schema";
-import { eq, count, countDistinct, desc } from "drizzle-orm";
+import { and, eq, count, countDistinct, desc } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
@@ -16,7 +17,7 @@ export default async function MasterDocPage({
 }: {
   params: Promise<{ classId: string; topicId: string }>;
 }) {
-  const { topicId } = await params;
+  const { classId, topicId } = await params;
 
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) notFound();
@@ -25,7 +26,8 @@ export default async function MasterDocPage({
     db
       .select({ name: topics.name })
       .from(topics)
-      .where(eq(topics.id, topicId))
+      .innerJoin(userClasses, and(eq(userClasses.classId, topics.classId), eq(userClasses.userId, session.user.id)))
+      .where(and(eq(topics.id, topicId), eq(topics.classId, classId)))
       .limit(1),
     db
       .select({ content: masterDocuments.content })

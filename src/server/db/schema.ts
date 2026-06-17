@@ -146,27 +146,31 @@ export const masterDocuments = pgTable("master_documents", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const contributions = pgTable("contributions", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  topicId: text("topic_id")
-    .notNull()
-    .references(() => topics.id, { onDelete: "cascade" }),
-  uploadedBy: text("uploaded_by")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  type: contributionType("type").notNull(),
-  extractionMethod: extractionMethod("extraction_method").notNull(),
-  processingStatus: processingStatus("processing_status")
-    .notNull()
-    .default("processing"),
-  text: text("text"),
-  s3Key: text("s3_key"),
-  url: text("url"),
-  isCompiled: boolean("is_compiled").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const contributions = pgTable(
+  "contributions",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    topicId: text("topic_id")
+      .notNull()
+      .references(() => topics.id, { onDelete: "cascade" }),
+    uploadedBy: text("uploaded_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    type: contributionType("type").notNull(),
+    extractionMethod: extractionMethod("extraction_method").notNull(),
+    processingStatus: processingStatus("processing_status")
+      .notNull()
+      .default("processing"),
+    text: text("text"),
+    s3Key: text("s3_key"),
+    url: text("url"),
+    isCompiled: boolean("is_compiled").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.topicId, t.url)],
+);
 
 export const compileLogs = pgTable("compile_logs", {
   id: text("id").primaryKey(),

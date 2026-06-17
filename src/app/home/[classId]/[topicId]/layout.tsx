@@ -1,6 +1,6 @@
 import { db } from "@/server/db";
 import { classes, topics } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { TopicTabs } from "@/components/topic-tabs";
 import type { ReactNode } from "react";
@@ -55,7 +55,7 @@ export default async function TopicLayout({
     db
       .select({ name: topics.name })
       .from(topics)
-      .where(eq(topics.id, topicId))
+      .where(and(eq(topics.id, topicId), eq(topics.classId, classId)))
       .limit(1),
   ]);
 

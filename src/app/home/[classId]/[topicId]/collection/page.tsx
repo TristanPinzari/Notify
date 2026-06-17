@@ -5,6 +5,7 @@ import {
   classes,
   contributions,
   RANK_VALUE,
+  topics,
   user,
   userClasses,
 } from "@/server/db/schema";
@@ -37,7 +38,8 @@ export default async function CollectionPage({
       })
       .from(contributions)
       .innerJoin(user, eq(contributions.uploadedBy, user.id))
-      .where(eq(contributions.topicId, topicId))
+      .innerJoin(topics, eq(contributions.topicId, topics.id))
+      .where(and(eq(contributions.topicId, topicId), eq(topics.classId, classId)))
       .orderBy(desc(contributions.createdAt)),
     db
       .select({

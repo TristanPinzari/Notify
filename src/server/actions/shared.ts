@@ -55,7 +55,9 @@ export async function getUserRank(classId: string, userId: string) {
 }
 
 export function isUniqueViolation(e: unknown): boolean {
-  return typeof e === "object" && e !== null && (e as { code?: string }).code === "23505";
+  if (typeof e !== "object" || e === null) return false;
+  const err = e as { code?: string; cause?: { code?: string } };
+  return err.code === "23505" || err.cause?.code === "23505";
 }
 
 export async function requireRank(

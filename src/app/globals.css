@@ -2502,6 +2502,7 @@ h1.head em {
 .ftype.text   { background: var(--paper-deep); color: var(--ink-nav); }
 .finfo { flex: 1; min-width: 0; }
 .fname {
+  display: block;
   font-size: 14px;
   font-weight: 500;
   color: var(--ink-heading);
@@ -2512,6 +2513,7 @@ h1.head em {
 .fname-link {
   display: block;
   width: 100%;
+  overflow: hidden;
   text-align: left;
   background: none;
   border: none;

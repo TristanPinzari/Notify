@@ -9,7 +9,7 @@ import {
   getContributionUrl,
 } from "@/server/actions/contributions";
 import { toast } from "sonner";
-import { getPlaylistInfo } from "@/server/actions/youtube";
+import { getPlaylistInfo, getVideoInfo } from "@/server/actions/youtube";
 
 const POLL_INTERVAL_MS = 10000;
 
@@ -76,6 +76,7 @@ type StagedLink = {
   kind: "link";
   type: "youtube" | "link";
   name: string;
+  dur?: string;
   url: string;
   method: EMethod;
 };
@@ -225,6 +226,14 @@ export default function CollectionView({
     }
   }
 
+  function isStagedUrl(u: string): boolean {
+    return staged.some((s) => {
+      if (s.kind === "link") return s.url === u;
+      if (s.kind === "playlist") return s.videos.some((v) => v.url === u);
+      return false;
+    });
+  }
+
   async function stageLink() {
     if (!url.trim() || resolvingLink) return;
     const isPlaylist = /[?&]list=|playlist/i.test(url);
@@ -233,7 +242,17 @@ export default function CollectionView({
       const playlist = await getPlaylistInfo(url);
       setResolvingLink(false);
       if ("error" in playlist) return toast.error(playlist.error);
-      const videos = playlist.videos.map((v) => ({
+      const fresh = playlist.videos.filter((v) => !isStagedUrl(v.url));
+      const skipped = playlist.videos.length - fresh.length;
+      if (fresh.length === 0) {
+        toast.error("All videos in this playlist are already staged.");
+        return;
+      }
+      if (skipped > 0)
+        toast.warning(
+          `${skipped} already-staged video${skipped > 1 ? "s" : ""} skipped.`,
+        );
+      const videos = fresh.map((v) => ({
         id: ++stageSeq,
         ...v,
         checked: true,
@@ -250,18 +269,41 @@ export default function CollectionView({
         },
       ]);
     } else {
+      if (isStagedUrl(url)) {
+        toast.error("This link is already staged.");
+        return;
+      }
       const type: CType = /youtu/i.test(url) ? "youtube" : "link";
-      setStaged((st) => [
-        ...st,
-        {
-          id: ++stageSeq,
-          kind: "link",
-          type,
-          name: url.replace(/^https?:\/\//, ""),
-          url,
-          method: METHODS_FOR_TYPE[type][0],
-        },
-      ]);
+      if (type === "youtube") {
+        setResolvingLink(true);
+        const video = await getVideoInfo(url);
+        setResolvingLink(false);
+        if ("error" in video) return toast.error(video.error);
+        setStaged((st) => [
+          ...st,
+          {
+            id: ++stageSeq,
+            kind: "link",
+            type,
+            name: video.title,
+            dur: video.duration,
+            url,
+            method: METHODS_FOR_TYPE[type][0],
+          },
+        ]);
+      } else {
+        setStaged((st) => [
+          ...st,
+          {
+            id: ++stageSeq,
+            kind: "link",
+            type,
+            name: url.replace(/^https?:\/\//, ""),
+            url,
+            method: METHODS_FOR_TYPE[type][0],
+          },
+        ]);
+      }
     }
     setUrl("");
   }
@@ -356,7 +398,7 @@ export default function CollectionView({
 
     if ("error" in created) {
       setStagingState((st) => ({ ...st, [s.id]: "error" }));
-      toast.error(`Something went wrong while adding ${s.name}.`);
+      toast.error(created.error);
       return;
     }
 
@@ -673,7 +715,8 @@ export default function CollectionView({
                 <div className="finfo">
                   <div className="fname">{s.name}</div>
                   <div className="fmeta">
-                    {s.kind === "link" ? "Link" : "File"} ·{" "}
+                    {s.kind === "link" ? "Link" : "File"}
+                    {s.kind === "link" && s.dur ? ` · ${s.dur}` : ""} ·{" "}
                     <span
                       className={
                         stagingState[s.id] === "error"

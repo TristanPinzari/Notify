@@ -4,7 +4,6 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
-  HeadObjectCommand,
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -20,7 +19,12 @@ import {
 import { and, eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
-import { getUserRank, requireRank, topicBelongsToClass } from "./shared";
+import {
+  getUserRank,
+  isUniqueViolation,
+  requireRank,
+  topicBelongsToClass,
+} from "./shared";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION! });
 
@@ -137,6 +141,10 @@ export async function createContribution(
         console.error("ERROR cleaning up orphaned S3 object: ", cleanupError);
       }
     }
+    if (isUniqueViolation(e))
+      return {
+        error: `${data.name} has already been contributed to this topic.`,
+      };
     console.error("ERROR: ", e);
     return { error: "Something went wrong." };
   }
@@ -170,7 +178,9 @@ export async function getContributionUrl(
 
     const rank = await getUserRank(classId, session.user.id);
     if (!rank) {
-      console.error(`ERROR: user ${session.user.id} is not a member of class ${classId}`);
+      console.error(
+        `ERROR: user ${session.user.id} is not a member of class ${classId}`,
+      );
       return { error: "You are not a member of this class." };
     }
 
@@ -197,7 +207,10 @@ export async function getContributionUrl(
   }
 }
 
-export async function getContributionStatuses(classId: string, topicId: string) {
+export async function getContributionStatuses(
+  classId: string,
+  topicId: string,
+) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
     console.error("ERROR: getContributionStatuses called with no session");
@@ -247,7 +260,10 @@ export async function deleteContribution(
 
   try {
     const [contribution] = await db
-      .select({ uploadedBy: contributions.uploadedBy, s3Key: contributions.s3Key })
+      .select({
+        uploadedBy: contributions.uploadedBy,
+        s3Key: contributions.s3Key,
+      })
       .from(contributions)
       .innerJoin(topics, eq(contributions.topicId, topics.id))
       .where(
