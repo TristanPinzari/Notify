@@ -7,7 +7,7 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { db } from "@/server/db";
 import { contributions } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 import { YoutubeTranscript } from "youtube-transcript";
 import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
@@ -199,7 +199,26 @@ export async function cleanOrphanedFiles() {
   );
 }
 
+export async function cleanStuckContributions() {
+  const STUCK_THRESHOLD_MS = 15 * 60 * 1000;
+  const cutoff = new Date(Date.now() - STUCK_THRESHOLD_MS);
+
+  await db
+    .update(contributions)
+    .set({
+      processingStatus: "failed",
+      failureReason: "Processing timed out — worker may have crashed.",
+    })
+    .where(
+      and(
+        eq(contributions.processingStatus, "processing"),
+        lt(contributions.createdAt, cutoff),
+      ),
+    );
+}
+
 export type Activities = {
   extractText: typeof extractText;
   cleanOrphanedFiles: typeof cleanOrphanedFiles;
+  cleanStuckContributions: typeof cleanStuckContributions;
 };

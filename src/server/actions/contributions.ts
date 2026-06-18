@@ -44,7 +44,7 @@ async function startExtraction(
   };
   await temporalClient.workflow.start("extractContribution", {
     args: [input],
-    taskQueue: "extraction",
+    taskQueue: "main",
     workflowId: `extract-${id}-${Date.now()}`,
   });
 }

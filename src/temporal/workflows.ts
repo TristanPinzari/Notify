@@ -10,7 +10,7 @@ const { extractText } = proxyActivities<Activities>({
   },
 });
 
-const { cleanOrphanedFiles } = proxyActivities<Activities>({
+const { cleanOrphanedFiles, cleanStuckContributions } = proxyActivities<Activities>({
   startToCloseTimeout: "5 minutes",
   retry: { maximumAttempts: 1 },
 });
@@ -30,4 +30,8 @@ export async function extractContribution(
 
 export async function reconcileStorage(): Promise<void> {
   await cleanOrphanedFiles();
+}
+
+export async function reconcileDatabase(): Promise<void> {
+  await cleanStuckContributions();
 }

@@ -1,6 +1,6 @@
 import { Worker, NativeConnection } from "@temporalio/worker";
 import { Client, Connection } from "@temporalio/client";
-import { extractText, cleanOrphanedFiles } from "./activities";
+import { extractText, cleanOrphanedFiles, cleanStuckContributions } from "./activities";
 
 async function main() {
   const connection = await NativeConnection.connect({
@@ -9,8 +9,8 @@ async function main() {
 
   const worker = await Worker.create({
     workflowsPath: require.resolve("./workflows"),
-    activities: { extractText, cleanOrphanedFiles },
-    taskQueue: "extraction",
+    activities: { extractText, cleanOrphanedFiles, cleanStuckContributions },
+    taskQueue: "main",
     namespace: process.env.TEMPORAL_NAMESPACE ?? "default",
     connection,
   });
@@ -30,7 +30,7 @@ async function main() {
       action: {
         type: "startWorkflow",
         workflowType: "reconcileStorage",
-        taskQueue: "extraction",
+        taskQueue: "main",
       },
     });
   } catch (e: unknown) {
@@ -41,7 +41,25 @@ async function main() {
     }
   }
 
-  console.log("Temporal worker started, listening on task queue: extraction");
+  try {
+    await client.schedule.create({
+      scheduleId: "database-reconcile",
+      spec: { cronExpressions: ["*/30 * * * *"] },
+      action: {
+        type: "startWorkflow",
+        workflowType: "reconcileDatabase",
+        taskQueue: "main",
+      },
+    });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message.includes("already exists")) {
+      // schedule persists across restarts, this is expected
+    } else {
+      console.error("ERROR: Failed to create reconcileDatabase schedule: ", e);
+    }
+  }
+
+  console.log("Temporal worker started, listening on task queue: main");
   await worker.run();
 }
 
