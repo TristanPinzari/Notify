@@ -25,6 +25,7 @@ export const contributionType = pgEnum("contribution_type", [
   "youtube",
   "link",
   "text",
+  "custom",
 ]);
 export const extractionMethod = pgEnum("extraction_method", [
   "text_extraction",

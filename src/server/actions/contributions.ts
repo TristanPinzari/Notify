@@ -54,7 +54,7 @@ export async function createContribution(
   topicId: string,
   data: {
     name: string;
-    type: CType;
+    type: Exclude<CType, "custom">;
     extractionMethod: EMethod;
     url?: string;
     file?: File;
@@ -153,6 +153,76 @@ export async function createContribution(
       return {
         error: `${data.name} has already been contributed to this topic.`,
       };
+    console.error("ERROR: ", e);
+    return { error: "Something went wrong." };
+  }
+}
+
+export async function createCustomContribution(
+  classId: string,
+  topicId: string,
+  data: {
+    name: string;
+    text: string;
+  },
+) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    console.error("ERROR: createCustomContribution called with no session");
+    return { error: "Not authenticated." };
+  }
+
+  try {
+    if (!(await topicBelongsToClass(classId, topicId))) {
+      console.error(
+        `ERROR: topic ${topicId} does not belong to class ${classId}`,
+      );
+      return { error: "Topic does not exist in this class." };
+    }
+
+    const [cls] = await db
+      .select({ minRankUploadContribution: classes.minRankUploadContribution })
+      .from(classes)
+      .where(eq(classes.id, classId))
+      .limit(1);
+    if (!cls) {
+      console.error(`ERROR: class ${classId} does not exist`);
+      return { error: "Class does not exist." };
+    }
+
+    const allowed = await requireRank(
+      classId,
+      session.user.id,
+      cls.minRankUploadContribution,
+      "upload",
+    );
+    if ("error" in allowed) {
+      console.error(`ERROR: ${allowed.error}`);
+      return allowed;
+    }
+
+    if (!data.text) {
+      console.error("ERROR: createCustomContribution called without text");
+      return { error: "No text provided." };
+    }
+
+    const id = crypto.randomUUID();
+    const [row] = await db
+      .insert(contributions)
+      .values({
+        id,
+        topicId,
+        uploadedBy: session.user.id,
+        name: data.name,
+        type: "custom",
+        extractionMethod: "text_extraction",
+        processingStatus: "ready",
+        text: data.text,
+      })
+      .returning({ createdAt: contributions.createdAt });
+
+    return { id, createdAt: row.createdAt.toISOString() };
+  } catch (e) {
     console.error("ERROR: ", e);
     return { error: "Something went wrong." };
   }
@@ -382,12 +452,15 @@ export async function restartExtraction(
         extractionMethod: contributions.extractionMethod,
         s3Key: contributions.s3Key,
         url: contributions.url,
+        processingStatus: contributions.processingStatus,
       })
       .from(contributions)
       .where(eq(contributions.id, contributionId))
       .limit(1);
 
     if (!contribution[0]) return { error: "This contribution does not exist." };
+    if (contribution[0].processingStatus === "processing")
+      return { error: "This contribution is already being processed." };
 
     await db
       .update(contributions)

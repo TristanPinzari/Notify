@@ -186,7 +186,7 @@ export async function cleanOrphanedFiles() {
       if (now - (obj.LastModified?.getTime() ?? now) > GRACE_MS)
         orphans.push(obj.Key);
     }
-    continuationToken = res.IsTruncated ? res.NextContinuationToken : undefined;
+    continuationToken = res.IsTruncated && res.NextContinuationToken ? res.NextContinuationToken : undefined;
   } while (continuationToken);
 
   if (orphans.length === 0) return;
@@ -200,7 +200,7 @@ export async function cleanOrphanedFiles() {
 }
 
 export async function cleanStuckContributions() {
-  const STUCK_THRESHOLD_MS = 15 * 60 * 1000;
+  const STUCK_THRESHOLD_MS = 30 * 60 * 1000;
   const cutoff = new Date(Date.now() - STUCK_THRESHOLD_MS);
 
   await db

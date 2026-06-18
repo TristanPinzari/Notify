@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import type { CType, EMethod, PStatus } from "@/server/db/schema";
 import {
   createContribution,
+  createCustomContribution,
   deleteContribution,
   editContribution,
   getContributionStatuses,
@@ -57,6 +58,7 @@ const TYPE_LABEL: Record<CType, string> = {
   youtube: "YT",
   link: "LINK",
   text: "TXT",
+  custom: "CUST",
 };
 
 const EXTRACTION_LABELS: Record<EMethod, string> = {
@@ -74,6 +76,7 @@ const METHODS_FOR_TYPE: Record<CType, EMethod[]> = {
   youtube: ["youtube_transcript"],
   link: ["web_scrape"],
   text: ["text_extraction"],
+  custom: ["text_extraction"],
 };
 
 type FileRow = {
@@ -97,7 +100,8 @@ type StagedFile = {
   name: string;
   size: string;
   method: EMethod;
-  file: File;
+  file?: File;
+  text?: string;
 };
 type StagedLink = {
   id: number;
@@ -374,26 +378,28 @@ function SourceRow({
                       placeholder="Source name"
                     />
                   </div>
-                  <div className="iform-fld">
-                    <label>Extraction method</label>
-                    <select
-                      className="tsel"
-                      value={dMethod}
-                      disabled={methods.length === 1}
-                      onChange={(e) => setDMethod(e.target.value as EMethod)}
-                    >
-                      {methods.map((m) => (
-                        <option key={m} value={m}>
-                          {EXTRACTION_LABELS[m]}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="iform-hint">
-                      {methods.length > 1
-                        ? "Changing this will re-extract on save."
-                        : "Only one method applies to this source type."}
+                  {f.type !== "custom" && (
+                    <div className="iform-fld">
+                      <label>Extraction method</label>
+                      <select
+                        className="tsel"
+                        value={dMethod}
+                        disabled={methods.length === 1}
+                        onChange={(e) => setDMethod(e.target.value as EMethod)}
+                      >
+                        {methods.map((m) => (
+                          <option key={m} value={m}>
+                            {EXTRACTION_LABELS[m]}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="iform-hint">
+                        {methods.length > 1
+                          ? "Changing this will re-extract on save."
+                          : "Only one method applies to this source type."}
+                      </div>
                     </div>
-                  </div>
+                  )}
                   <div className="iform-fld">
                     <label>Extracted text</label>
                     <textarea
@@ -453,15 +459,20 @@ function SourceRow({
             ) : (
               <>
                 <div className="inspect-bar">
-                  <span className="il">Extraction result</span>
+                  {f.type !== "custom" && <span className="il">Extraction result</span>}
                   <span className="status done">
                     <CheckIcon />
                     Ready
                   </span>
-                  <span className="inspect-meta">
-                    <b>{EXTRACTION_LABELS[f.method]}</b>
-                    {text != null && ` · ${text.length.toLocaleString()} chars`}
-                  </span>
+                  {f.type !== "custom" && (
+                    <span className="inspect-meta">
+                      <b>{EXTRACTION_LABELS[f.method]}</b>
+                      {text != null && ` · ${text.length.toLocaleString()} chars`}
+                    </span>
+                  )}
+                  {f.type === "custom" && text != null && (
+                    <span className="inspect-meta">{text.length.toLocaleString()} chars</span>
+                  )}
                   <div className="inspect-actions">
                     <button
                       className="ibtn ibtn-edit"
@@ -470,14 +481,16 @@ function SourceRow({
                     >
                       <CopyIcon /> {copied ? "Copied!" : "Copy"}
                     </button>
-                    <button
-                      className="ibtn ibtn-edit"
-                      onClick={retry}
-                      disabled={retrying || loadingText}
-                    >
-                      <RetryIcon />
-                      {retrying ? "Re-extracting…" : "Re-extract"}
-                    </button>
+                    {f.type !== "custom" && (
+                      <button
+                        className="ibtn ibtn-edit"
+                        onClick={retry}
+                        disabled={retrying || loadingText}
+                      >
+                        <RetryIcon />
+                        {retrying ? "Re-extracting…" : "Re-extract"}
+                      </button>
+                    )}
                     <button
                       className="ibtn ibtn-edit"
                       onClick={startEdit}
@@ -553,6 +566,9 @@ export default function CollectionView({
   const [url, setUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const [resolvingLink, setResolvingLink] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customName, setCustomName] = useState("");
+  const [customText, setCustomText] = useState("");
   const [stagingState, setStagingState] = useState<
     Record<number, "uploading" | "error">
   >({});
@@ -589,7 +605,11 @@ export default function CollectionView({
 
   function detectType(file: File): CType {
     if (file.type === "application/pdf") return "pdf";
-    if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") return "pdf";
+    if (
+      file.type ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+      return "pdf";
     if (file.type.startsWith("image/")) return "image";
     if (file.type.startsWith("audio/")) return "audio";
     if (
@@ -639,7 +659,9 @@ export default function CollectionView({
 
   async function stageLink() {
     if (!url.trim() || resolvingLink) return;
-    const normalizedUrl = url.trim().match(/^https?:\/\//) ? url.trim() : `https://${url.trim()}`;
+    const normalizedUrl = url.trim().match(/^https?:\/\//)
+      ? url.trim()
+      : `https://${url.trim()}`;
     const isPlaylist = /[?&]list=|playlist/i.test(normalizedUrl);
     if (isPlaylist) {
       setResolvingLink(true);
@@ -712,6 +734,27 @@ export default function CollectionView({
     setUrl("");
   }
 
+  function stageCustom() {
+    if (!customText.trim()) return;
+    const name = customName.trim() || "Custom note";
+    setStaged((st) => [
+      ...st,
+      {
+        id: ++stageSeq,
+        kind: "file",
+        type: "custom",
+        name,
+        size: `${customText.trim().length.toLocaleString()} chars`,
+        method: "text_extraction",
+        file: undefined,
+        text: customText.trim(),
+      } as StagedFile,
+    ]);
+    setCustomName("");
+    setCustomText("");
+    setCustomOpen(false);
+  }
+
   const unstage = (id: number) =>
     setStaged((st) => st.filter((s) => s.id !== id));
 
@@ -760,12 +803,18 @@ export default function CollectionView({
   async function uploadFile(s: StagedFile) {
     setStagingState((st) => ({ ...st, [s.id]: "uploading" }));
 
-    const created = await createContribution(classId, topicId, {
-      name: s.name,
-      type: s.type,
-      extractionMethod: s.method,
-      file: s.file,
-    });
+    const created =
+      s.type === "custom"
+        ? await createCustomContribution(classId, topicId, {
+            name: s.name,
+            text: s.text || "",
+          })
+        : await createContribution(classId, topicId, {
+            name: s.name,
+            type: s.type,
+            extractionMethod: s.method,
+            file: s.file,
+          });
 
     if ("error" in created) {
       setStagingState((st) => ({ ...st, [s.id]: "error" }));
@@ -784,7 +833,7 @@ export default function CollectionView({
         uploaderId: currentUserId,
         createdAt: created.createdAt,
         method: s.method,
-        status: "processing",
+        status: s.type === "custom" ? "ready" : "processing",
         failureReason: null,
         manuallyEdited: false,
         isCompiled: false,
@@ -1021,7 +1070,63 @@ export default function CollectionView({
                 </>
               )}
             </button>
+            <button
+              className="btn btn-ghost"
+              onClick={() => setCustomOpen((o) => !o)}
+            >
+              <PlusIcon />
+              Add custom
+            </button>
           </div>
+
+          {customOpen && (
+            <div className="max-w-none bg-(--paper-raised) border border-(--line) rounded-[15px] overflow-hidden my-3">
+              <div className="flex items-center gap-2.5 px-4 py-3 border-b border-(--line-soft)">
+                <span className="text-[13px] font-semibold text-(--ink-heading)">Add custom text</span>
+                <span className="ml-auto text-[12px] text-(--ink-faint)">Typed in directly — no extraction needed</span>
+              </div>
+              <div className="flex flex-col gap-3.5 p-3.5">
+                <div>
+                  <label className="block text-[12px] font-semibold text-(--ink-nav) mb-1.5">Name</label>
+                  <input
+                    className="tin w-full"
+                    placeholder="e.g. My summary notes"
+                    value={customName}
+                    onChange={(e) => setCustomName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-semibold text-(--ink-nav) mb-1.5">Text</label>
+                  <textarea
+                    className="extracted-edit border border-(--line) rounded-[9px] min-h-35"
+                    placeholder="Write or paste your notes here…"
+                    value={customText}
+                    onChange={(e) => setCustomText(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[12px] text-(--ink-faint) mr-auto">
+                    {customText.trim().length.toLocaleString()} characters
+                  </span>
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() => { setCustomOpen(false); setCustomName(""); setCustomText(""); }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={stageCustom}
+                    disabled={!customText.trim()}
+                  >
+                    <PlusIcon />
+                    Add to selection
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -1120,21 +1225,11 @@ export default function CollectionView({
                 <div className="finfo">
                   <div className="fname">{s.name}</div>
                   <div className="fmeta">
-                    {s.kind === "link" ? "Link" : "File"}
-                    {s.kind === "link" && s.dur ? ` · ${s.dur}` : ""} ·{" "}
-                    <span
-                      className={
-                        stagingState[s.id] === "error"
-                          ? "text-(--danger) font-semibold"
-                          : "text-(--accent-text) font-semibold"
-                      }
-                    >
-                      {stagingState[s.id] === "uploading"
-                        ? "uploading…"
-                        : stagingState[s.id] === "error"
-                          ? "error"
-                          : "pending"}
-                    </span>
+                    {s.kind === "link" ? "Link" : s.type === "custom" ? "Custom" : "File"}
+                    {s.kind === "link" && s.dur ? ` · ${s.dur}` : ""}
+                    {stagingState[s.id] === "error" && (
+                      <> · <span className="text-(--danger) font-semibold">error</span></>
+                    )}
                   </div>
                 </div>
                 <div className="file-actions">
