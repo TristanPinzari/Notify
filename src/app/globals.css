@@ -2724,8 +2724,22 @@ h1.head em {
   padding: 14px 16px;
   max-height: 280px;
   overflow-y: auto;
-  white-space: pre-wrap;
   word-break: break-word;
+}
+.extracted h1, .extracted h2, .extracted h3, .extracted h4 {
+  margin: 0.6em 0 0.2em;
+  font-size: 1em;
+  font-weight: 600;
+}
+.extracted p {
+  margin: 0.2em 0;
+}
+.extracted ul, .extracted ol {
+  margin: 0.2em 0;
+  padding-left: 1.4em;
+}
+.extracted li {
+  margin: 0.1em 0;
 }
 .extracted-edit {
   width: 100%;

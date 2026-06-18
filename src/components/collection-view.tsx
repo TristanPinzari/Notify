@@ -27,7 +27,12 @@ import {
   EditPencilIcon,
   RetryIcon,
   XIcon,
+  CopyIcon,
 } from "@/components/icons";
+import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -193,6 +198,14 @@ function SourceRow({
   const [dText, setDText] = useState("");
   const [saving, setSaving] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function copyText() {
+    if (!text) return;
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   const methods = METHODS_FOR_TYPE[f.type];
   const inspectable = f.status === "ready" || f.status === "failed";
@@ -448,6 +461,13 @@ function SourceRow({
                   <div className="inspect-actions">
                     <button
                       className="ibtn ibtn-edit"
+                      onClick={copyText}
+                      disabled={loadingText || !text}
+                    >
+                      <CopyIcon /> {copied ? "Copied!" : "Copy"}
+                    </button>
+                    <button
+                      className="ibtn ibtn-edit"
                       onClick={retry}
                       disabled={retrying || loadingText}
                     >
@@ -472,7 +492,14 @@ function SourceRow({
                     Loading…
                   </div>
                 ) : (
-                  <div className="extracted">{text}</div>
+                  <div className="extracted">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkMath]}
+                      rehypePlugins={[rehypeKatex]}
+                    >
+                      {text ?? ""}
+                    </ReactMarkdown>
+                  </div>
                 )}
               </>
             )}
