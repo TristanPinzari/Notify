@@ -943,7 +943,7 @@ export default function CollectionView({
               <UploadIcon />
             </div>
             <h4>Drop files here, or click to select</h4>
-            <p>PDF, TXT, MD, image, audio · up to 25 MB each</p>
+            <p>PDF, TXT, MD, image, audio · up to 50 MB each</p>
           </div>
 
           <div className="flex gap-2.5 my-3.5">

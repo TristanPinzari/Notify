@@ -1,10 +1,12 @@
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { db } from "@/server/db";
 import { contributions } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { YoutubeTranscript } from "youtube-transcript";
 import { PDFParse } from "pdf-parse";
 import type { ExtractionInput } from "./workflows";
+import { Mistral } from "@mistralai/mistralai";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION! });
 
@@ -66,9 +68,23 @@ async function runExtraction(input: ExtractionInput): Promise<string> {
       return text;
     }
 
-    case "handwriting_ocr":
-      // TODO: integrate an OCR API (e.g. AWS Textract, Google Vision)
-      throw new Error("handwriting_ocr not yet implemented.");
+    case "handwriting_ocr": {
+      if (!s3Key) throw new Error("s3Key required for handwriting_ocr.");
+      const signedUrl = await getSignedUrl(
+        s3,
+        new GetObjectCommand({
+          Bucket: process.env.AWS_S3_BUCKET!,
+          Key: s3Key,
+        }),
+        { expiresIn: 300 },
+      );
+      const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
+      const ocrResponse = await client.ocr.process({
+        model: "mistral-ocr-latest",
+        document: { type: "document_url", documentUrl: signedUrl },
+      });
+      return ocrResponse.pages.map((p) => p.markdown).join("\n\n");
+    }
 
     case "speech_to_text":
       // TODO: integrate a transcription API (e.g. AWS Transcribe, OpenAI Whisper)
