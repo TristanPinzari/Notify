@@ -86,9 +86,23 @@ async function runExtraction(input: ExtractionInput): Promise<string> {
       return ocrResponse.pages.map((p) => p.markdown).join("\n\n");
     }
 
-    case "speech_to_text":
-      // TODO: integrate a transcription API (e.g. AWS Transcribe, OpenAI Whisper)
-      throw new Error("speech_to_text not yet implemented.");
+    case "speech_to_text": {
+      if (!s3Key) throw new Error("s3Key required for speech_to_text.");
+      const signedUrl = await getSignedUrl(
+        s3,
+        new GetObjectCommand({
+          Bucket: process.env.AWS_S3_BUCKET!,
+          Key: s3Key,
+        }),
+        { expiresIn: 300 },
+      );
+      const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
+      const transcriptionResponse = await client.audio.transcriptions.complete({
+        model: "voxtral-mini-latest",
+        fileUrl: signedUrl,
+      });
+      return transcriptionResponse.text;
+    }
 
     default:
       throw new Error(`Unknown extraction method: ${extractionMethod}`);
