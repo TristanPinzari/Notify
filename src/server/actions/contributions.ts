@@ -244,6 +244,7 @@ export async function getContributionStatuses(
     const rows = await db
       .select({
         id: contributions.id,
+        name: contributions.name,
         status: contributions.processingStatus,
         failureReason: contributions.failureReason,
       })

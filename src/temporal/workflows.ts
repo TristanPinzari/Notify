@@ -10,6 +10,11 @@ const { extractText } = proxyActivities<Activities>({
   },
 });
 
+const { cleanOrphanedFiles } = proxyActivities<Activities>({
+  startToCloseTimeout: "5 minutes",
+  retry: { maximumAttempts: 1 },
+});
+
 export interface ExtractionInput {
   contributionId: string;
   extractionMethod: string;
@@ -21,4 +26,8 @@ export async function extractContribution(
   input: ExtractionInput,
 ): Promise<void> {
   await extractText(input);
+}
+
+export async function reconcileStorage(): Promise<void> {
+  await cleanOrphanedFiles();
 }

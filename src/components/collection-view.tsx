@@ -81,6 +81,7 @@ type FileRow = {
   type: CType;
   name: string;
   who: string;
+  uploaderId: string;
   createdAt: string;
   method: EMethod;
   status: PStatus;
@@ -171,6 +172,7 @@ function StatusPill({
 /* ---- SourceRow: committed source with expandable inspection panel ---- */
 type SourceRowProps = {
   f: FileRow;
+  currentUserId: string;
   classId: string;
   topicId: string;
   canDelete: boolean;
@@ -181,6 +183,7 @@ type SourceRowProps = {
 
 function SourceRow({
   f,
+  currentUserId,
   classId,
   topicId,
   canDelete,
@@ -308,7 +311,8 @@ function SourceRow({
             <span className="fname">{f.name}</span>
           </button>
           <div className="fmeta">
-            Added by <b>{f.who}</b> · {timeAgo(f.createdAt)} ·{" "}
+            Added by <b>{f.uploaderId === currentUserId ? "You" : f.who}</b> ·{" "}
+            {timeAgo(f.createdAt)} ·{" "}
             <span className="method-tag">{EXTRACTION_LABELS[f.method]}</span>
             {f.manuallyEdited && <span className="method-tag"> · Edited</span>}
           </div>
@@ -516,6 +520,7 @@ type Props = {
   canDelete: boolean;
   topicId: string;
   classId: string;
+  currentUserId: string;
 };
 
 export default function CollectionView({
@@ -524,6 +529,7 @@ export default function CollectionView({
   canDelete,
   topicId,
   classId,
+  currentUserId,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -533,6 +539,7 @@ export default function CollectionView({
       type: c.contributionType,
       name: c.contributionName,
       who: c.uploaderName,
+      uploaderId: c.uploaderId,
       createdAt: c.createdAt,
       method: c.extractionMethod,
       status: c.status,
@@ -567,7 +574,12 @@ export default function CollectionView({
         fs.map((f) => {
           const s = byId.get(f.id);
           if (!s) return f;
-          return { ...f, status: s.status, failureReason: s.failureReason };
+          return {
+            ...f,
+            name: s.name,
+            status: s.status,
+            failureReason: s.failureReason,
+          };
         }),
       );
     }, POLL_INTERVAL_MS);
@@ -577,6 +589,7 @@ export default function CollectionView({
 
   function detectType(file: File): CType {
     if (file.type === "application/pdf") return "pdf";
+    if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") return "pdf";
     if (file.type.startsWith("image/")) return "image";
     if (file.type.startsWith("audio/")) return "audio";
     if (
@@ -626,10 +639,11 @@ export default function CollectionView({
 
   async function stageLink() {
     if (!url.trim() || resolvingLink) return;
-    const isPlaylist = /[?&]list=|playlist/i.test(url);
+    const normalizedUrl = url.trim().match(/^https?:\/\//) ? url.trim() : `https://${url.trim()}`;
+    const isPlaylist = /[?&]list=|playlist/i.test(normalizedUrl);
     if (isPlaylist) {
       setResolvingLink(true);
-      const playlist = await getPlaylistInfo(url);
+      const playlist = await getPlaylistInfo(normalizedUrl);
       setResolvingLink(false);
       if ("error" in playlist) return toast.error(playlist.error);
       const fresh = playlist.videos.filter((v) => !isStagedUrl(v.url));
@@ -653,20 +667,20 @@ export default function CollectionView({
           id: ++stageSeq,
           kind: "playlist",
           name: playlist.name,
-          url: url.replace(/^https?:\/\//, ""),
+          url: normalizedUrl.replace(/^https?:\/\//, ""),
           videos,
           collapsed: false,
         },
       ]);
     } else {
-      if (isStagedUrl(url)) {
+      if (isStagedUrl(normalizedUrl)) {
         toast.error("This link is already staged.");
         return;
       }
-      const type: CType = /youtu/i.test(url) ? "youtube" : "link";
+      const type: CType = /youtu/i.test(normalizedUrl) ? "youtube" : "link";
       if (type === "youtube") {
         setResolvingLink(true);
-        const video = await getVideoInfo(url);
+        const video = await getVideoInfo(normalizedUrl);
         setResolvingLink(false);
         if ("error" in video) return toast.error(video.error);
         setStaged((st) => [
@@ -677,7 +691,7 @@ export default function CollectionView({
             type,
             name: video.title,
             dur: video.duration,
-            url,
+            url: normalizedUrl,
             method: METHODS_FOR_TYPE[type][0],
           },
         ]);
@@ -688,8 +702,8 @@ export default function CollectionView({
             id: ++stageSeq,
             kind: "link",
             type,
-            name: url.replace(/^https?:\/\//, ""),
-            url,
+            name: normalizedUrl.replace(/^https?:\/\//, ""),
+            url: normalizedUrl,
             method: METHODS_FOR_TYPE[type][0],
           },
         ]);
@@ -767,6 +781,7 @@ export default function CollectionView({
         type: s.type,
         name: s.name,
         who: "You",
+        uploaderId: currentUserId,
         createdAt: created.createdAt,
         method: s.method,
         status: "processing",
@@ -802,6 +817,7 @@ export default function CollectionView({
         type: s.type,
         name: s.name,
         who: "You",
+        uploaderId: currentUserId,
         createdAt: created.createdAt,
         method: s.method,
         status: "processing",
@@ -845,6 +861,7 @@ export default function CollectionView({
         type: "youtube" as CType,
         name: checked[i].title,
         who: "You",
+        uploaderId: currentUserId,
         createdAt: c.createdAt,
         method: "youtube_transcript" as EMethod,
         status: "processing" as PStatus,
@@ -902,7 +919,7 @@ export default function CollectionView({
         : n + 1,
     0,
   );
-  const uniqueContributors = new Set(files.map((f) => f.who)).size;
+  const uniqueContributors = new Set(files.map((f) => f.uploaderId)).size;
 
   return (
     <div className="pane">
@@ -947,7 +964,7 @@ export default function CollectionView({
             type="file"
             className="hidden"
             multiple
-            accept=".pdf,.txt,.md,.markdown,image/*,audio/*"
+            accept=".pdf,.docx,.txt,.md,.markdown,image/*,audio/*"
             onChange={handleFileInput}
           />
           <div
@@ -970,7 +987,7 @@ export default function CollectionView({
               <UploadIcon />
             </div>
             <h4>Drop files here, or click to select</h4>
-            <p>PDF, TXT, MD, image, MP3, M4A, WAV · up to 50 MB each</p>
+            <p>PDF, DOCX, TXT, MD, image, MP3, M4A, WAV · up to 50 MB each</p>
           </div>
 
           <div className="flex gap-2.5 my-3.5">
@@ -1205,6 +1222,7 @@ export default function CollectionView({
             <SourceRow
               key={f.id}
               f={f}
+              currentUserId={currentUserId}
               classId={classId}
               topicId={topicId}
               canDelete={canDelete}

@@ -84,6 +84,7 @@ export default async function CollectionPage({
       canDelete={canDelete}
       classId={classId}
       topicId={topicId}
+      currentUserId={session.user.id}
     />
   );
 }
