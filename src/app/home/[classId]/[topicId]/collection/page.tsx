@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import CollectionView from "@/components/collection-view";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
@@ -12,6 +13,20 @@ import {
 import { and, desc, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ classId: string; topicId: string }>;
+}): Promise<Metadata> {
+  const { topicId } = await params;
+  const [topic] = await db
+    .select({ name: topics.name })
+    .from(topics)
+    .where(eq(topics.id, topicId))
+    .limit(1);
+  return { title: topic ? `${topic.name} · Collection` : "Collection" };
+}
 
 export default async function CollectionPage({
   params,

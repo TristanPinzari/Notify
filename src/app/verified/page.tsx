@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = { title: "Email verified" };
 import { redirect } from "next/navigation";
 
 export default async function VerifiedPage({

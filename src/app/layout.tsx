@@ -17,7 +17,7 @@ const dmSerifDisplay = DM_Serif_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Notify",
+  title: { default: "Notify", template: "%s | Notify" },
   description: "Collaborative notes for students",
 };
 
@@ -27,7 +27,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`h-full antialiased ${dmSans.variable} ${dmSerifDisplay.variable}`}>
+    <html
+      lang="en"
+      className={`h-full antialiased ${dmSans.variable} ${dmSerifDisplay.variable}`}
+    >
       <body className="min-h-full flex flex-col">
         {children}
         <Toaster

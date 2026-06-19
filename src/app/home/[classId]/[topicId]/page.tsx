@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { db } from "@/server/db";
 import {
   masterDocuments,
@@ -11,6 +12,20 @@ import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { MasterDocView } from "@/components/master-doc-view";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ classId: string; topicId: string }>;
+}): Promise<Metadata> {
+  const { topicId } = await params;
+  const [topic] = await db
+    .select({ name: topics.name })
+    .from(topics)
+    .where(eq(topics.id, topicId))
+    .limit(1);
+  return { title: topic?.name ?? "Notes" };
+}
 
 export default async function MasterDocPage({
   params,
