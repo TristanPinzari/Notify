@@ -459,7 +459,9 @@ function SourceRow({
             ) : (
               <>
                 <div className="inspect-bar">
-                  {f.type !== "custom" && <span className="il">Extraction result</span>}
+                  {f.type !== "custom" && (
+                    <span className="il">Extraction result</span>
+                  )}
                   <span className="status done">
                     <CheckIcon />
                     Ready
@@ -467,11 +469,14 @@ function SourceRow({
                   {f.type !== "custom" && (
                     <span className="inspect-meta">
                       <b>{EXTRACTION_LABELS[f.method]}</b>
-                      {text != null && ` · ${text.length.toLocaleString()} chars`}
+                      {text != null &&
+                        ` · ${text.length.toLocaleString()} chars`}
                     </span>
                   )}
                   {f.type === "custom" && text != null && (
-                    <span className="inspect-meta">{text.length.toLocaleString()} chars</span>
+                    <span className="inspect-meta">
+                      {text.length.toLocaleString()} chars
+                    </span>
                   )}
                   <div className="inspect-actions">
                     <button
@@ -1082,12 +1087,18 @@ export default function CollectionView({
           {customOpen && (
             <div className="max-w-none bg-(--paper-raised) border border-(--line) rounded-[15px] overflow-hidden my-3">
               <div className="flex items-center gap-2.5 px-4 py-3 border-b border-(--line-soft)">
-                <span className="text-[13px] font-semibold text-(--ink-heading)">Add custom text</span>
-                <span className="ml-auto text-[12px] text-(--ink-faint)">Typed in directly — no extraction needed</span>
+                <span className="text-[13px] font-semibold text-(--ink-heading)">
+                  Add custom text
+                </span>
+                <span className="ml-auto text-[12px] text-(--ink-faint)">
+                  Typed in directly — no extraction needed
+                </span>
               </div>
               <div className="flex flex-col gap-3.5 p-3.5">
                 <div>
-                  <label className="block text-[12px] font-semibold text-(--ink-nav) mb-1.5">Name</label>
+                  <label className="block text-[12px] font-semibold text-(--ink-nav) mb-1.5">
+                    Name
+                  </label>
                   <input
                     className="tin w-full"
                     placeholder="e.g. My summary notes"
@@ -1096,7 +1107,9 @@ export default function CollectionView({
                   />
                 </div>
                 <div>
-                  <label className="block text-[12px] font-semibold text-(--ink-nav) mb-1.5">Text</label>
+                  <label className="block text-[12px] font-semibold text-(--ink-nav) mb-1.5">
+                    Text
+                  </label>
                   <textarea
                     className="extracted-edit border border-(--line) rounded-[9px] min-h-35"
                     placeholder="Write or paste your notes here…"
@@ -1111,7 +1124,11 @@ export default function CollectionView({
                   </span>
                   <button
                     className="btn btn-ghost"
-                    onClick={() => { setCustomOpen(false); setCustomName(""); setCustomText(""); }}
+                    onClick={() => {
+                      setCustomOpen(false);
+                      setCustomName("");
+                      setCustomText("");
+                    }}
                   >
                     Cancel
                   </button>
@@ -1225,10 +1242,20 @@ export default function CollectionView({
                 <div className="finfo">
                   <div className="fname">{s.name}</div>
                   <div className="fmeta">
-                    {s.kind === "link" ? "Link" : s.type === "custom" ? "Custom" : "File"}
+                    {s.kind === "link"
+                      ? "Link"
+                      : s.type === "custom"
+                        ? "Custom"
+                        : "File"}
                     {s.kind === "link" && s.dur ? ` · ${s.dur}` : ""}
                     {stagingState[s.id] === "error" && (
-                      <> · <span className="text-(--danger) font-semibold">error</span></>
+                      <>
+                        {" "}
+                        ·{" "}
+                        <span className="text-(--danger) font-semibold">
+                          error
+                        </span>
+                      </>
                     )}
                   </div>
                 </div>

@@ -3,6 +3,15 @@
 Things that are noted but intentionally not fixed yet. Not bugs in the sense
 of "broken," but gaps worth closing eventually.
 
+## Sentry `tracesSampleRate` set to 1 in all environments
+
+`tracesSampleRate: 1` traces 100% of requests. Acceptable in development but
+will burn through Sentry's free quota quickly in production (50K traces/month
+on the free tier). Lower to `0.1` (10%) before deploying.
+
+Fix: set `tracesSampleRate` to `0.1` in all three Sentry config files
+(`sentry.server.config.ts`, `sentry.edge.config.ts`, `src/instrumentation-client.ts`).
+
 ## No cookie consent banner
 
 PostHog analytics runs without user consent. GDPR (EU) and PIPEDA (Canada)
