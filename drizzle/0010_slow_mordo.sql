@@ -1,0 +1,1 @@
+ALTER TABLE "master_documents" ADD CONSTRAINT "master_documents_topic_id_unique" UNIQUE("topic_id");

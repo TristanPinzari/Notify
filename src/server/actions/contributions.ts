@@ -133,7 +133,9 @@ export async function createContribution(
       })
       .returning({ createdAt: contributions.createdAt });
 
-    startExtraction(id, data.extractionMethod, s3Key, data.url);
+    startExtraction(id, data.extractionMethod, s3Key, data.url).catch((e) =>
+      console.error(`ERROR: failed to start extraction for contribution ${id}: `, e),
+    );
 
     return { id, createdAt: row.createdAt.toISOString() };
   } catch (e) {
@@ -506,6 +508,14 @@ export async function getContributionText(
         `ERROR: contribution ${contributionId} does not belong to class ${classId}`,
       );
       return { error: "Contribution not found." };
+    }
+
+    const rank = await getUserRank(classId, session.user.id);
+    if (!rank) {
+      console.error(
+        `ERROR: user ${session.user.id} is not a member of class ${classId}`,
+      );
+      return { error: "You are not a member of this class." };
     }
 
     return { text: contribution.text };

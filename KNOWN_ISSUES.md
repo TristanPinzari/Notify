@@ -3,6 +3,16 @@
 Things that are noted but intentionally not fixed yet. Not bugs in the sense
 of "broken," but gaps worth closing eventually.
 
+## No cookie consent banner
+
+PostHog analytics runs without user consent. GDPR (EU) and PIPEDA (Canada)
+require informed consent before setting tracking cookies or localStorage.
+Skip for now; add before any public launch.
+
+Fix idea: use PostHog's consent mode (`persistence: "memory"` until accepted,
+then `posthog.opt_in_capturing()` on consent) paired with a simple banner
+component shown to new visitors.
+
 ## No rate limiting anywhere
 
 None of the server actions (`classes.ts`, `topics.ts`, `contributions.ts`)

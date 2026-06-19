@@ -150,20 +150,24 @@ export const topics = pgTable("topics", {
     .defaultNow(),
 });
 
-export const masterDocuments = pgTable("master_documents", {
-  id: text("id").primaryKey(),
-  topicId: text("topic_id")
-    .notNull()
-    .references(() => topics.id, { onDelete: "cascade" }),
-  content: text("content").notNull(),
-  previousContent: text("previous_content"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const masterDocuments = pgTable(
+  "master_documents",
+  {
+    id: text("id").primaryKey(),
+    topicId: text("topic_id")
+      .notNull()
+      .references(() => topics.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    previousContent: text("previous_content"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [unique().on(t.topicId)],
+);
 
 export const contributions = pgTable(
   "contributions",

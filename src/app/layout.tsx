@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, DM_Serif_Display } from "next/font/google";
 import { Toaster } from "sonner";
+import { PostHogProvider } from "@/components/posthog-provider";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -32,7 +33,9 @@ export default function RootLayout({
       className={`h-full antialiased ${dmSans.variable} ${dmSerifDisplay.variable}`}
     >
       <body className="min-h-full flex flex-col">
-        {children}
+        <PostHogProvider>
+          {children}
+        </PostHogProvider>
         <Toaster
           position="bottom-right"
           duration={2500}

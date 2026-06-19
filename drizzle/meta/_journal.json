@@ -71,6 +71,13 @@
       "when": 1781802364378,
       "tag": "0009_open_landau",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1781874626164,
+      "tag": "0010_slow_mordo",
+      "breakpoints": true
     }
   ]
 }
