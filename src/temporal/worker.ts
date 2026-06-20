@@ -1,6 +1,6 @@
 import { Worker, NativeConnection } from "@temporalio/worker";
 import { Client, Connection } from "@temporalio/client";
-import { extractText, cleanOrphanedFiles, cleanStuckContributions } from "./activities";
+import { extractText, cleanOrphanedFiles, cleanStuckContributions, runCompilation } from "./activities";
 
 async function main() {
   const connection = await NativeConnection.connect({
@@ -9,7 +9,7 @@ async function main() {
 
   const worker = await Worker.create({
     workflowsPath: require.resolve("./workflows"),
-    activities: { extractText, cleanOrphanedFiles, cleanStuckContributions },
+    activities: { extractText, cleanOrphanedFiles, cleanStuckContributions, runCompilation },
     taskQueue: "main",
     namespace: process.env.TEMPORAL_NAMESPACE ?? "default",
     connection,

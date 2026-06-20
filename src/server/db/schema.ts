@@ -40,7 +40,7 @@ export const contributionStatus = pgEnum("contribution_status", [
   "compiled",
   "failed",
 ]);
-export const docStatus = pgEnum("doc_status", ["compiling", "ready"]);
+export const docStatus = pgEnum("doc_status", ["compiling", "ready", "failed"]);
 export const docOutputType = pgEnum("doc_output_type", [
   "prose",
   "bullet",
@@ -184,6 +184,7 @@ export const masterDocuments = pgTable("master_documents", {
     .default("trust_pinned"),
   factChecking: docFactCheck("fact_check").notNull().default("flag"),
   sourcesInline: boolean("sources_inline").notNull().default(false),
+  failureReason: text("failure_reason"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

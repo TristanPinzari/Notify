@@ -1,5 +1,6 @@
 import { proxyActivities } from "@temporalio/workflow";
 import type { Activities } from "./activities";
+import { CompilationSettings } from "@/server/actions/master-documents";
 
 const { extractText } = proxyActivities<Activities>({
   startToCloseTimeout: "10 minutes",
@@ -10,10 +11,16 @@ const { extractText } = proxyActivities<Activities>({
   },
 });
 
-const { cleanOrphanedFiles, cleanStuckContributions } = proxyActivities<Activities>({
-  startToCloseTimeout: "5 minutes",
+const { runCompilation } = proxyActivities<Activities>({
+  startToCloseTimeout: "30 minutes",
   retry: { maximumAttempts: 1 },
 });
+
+const { cleanOrphanedFiles, cleanStuckContributions } =
+  proxyActivities<Activities>({
+    startToCloseTimeout: "5 minutes",
+    retry: { maximumAttempts: 1 },
+  });
 
 export interface ExtractionInput {
   contributionId: string;
@@ -26,6 +33,14 @@ export async function extractContribution(
   input: ExtractionInput,
 ): Promise<void> {
   await extractText(input);
+}
+
+export async function compileContributions(
+  masterDocumentId: string,
+  topicId: string,
+  settings: CompilationSettings,
+): Promise<void> {
+  await runCompilation(masterDocumentId, topicId, settings);
 }
 
 export async function reconcileStorage(): Promise<void> {

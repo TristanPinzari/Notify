@@ -6,13 +6,21 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { db } from "@/server/db";
-import { contributions } from "@/server/db/schema";
-import { and, eq, lt } from "drizzle-orm";
+import {
+  contributions,
+  compilationSources,
+  masterDocuments,
+  user,
+} from "@/server/db/schema";
+import { and, desc, eq, lt } from "drizzle-orm";
 import { YoutubeTranscript } from "youtube-transcript";
 import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
 import type { ExtractionInput } from "./workflows";
 import { Mistral } from "@mistralai/mistralai";
+import { CompilationSettings } from "@/server/actions/master-documents";
+import { Gemini } from "@/lib/ai";
+import { buildPrompt } from "@/lib/prompt";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION! });
 
@@ -161,6 +169,115 @@ export async function extractText(input: ExtractionInput): Promise<void> {
     .where(eq(contributions.id, input.contributionId));
 }
 
+export async function runCompilation(
+  masterDocumentId: string,
+  topicId: string,
+  settings: CompilationSettings,
+): Promise<void> {
+  const rows = await db
+    .select({
+      id: contributions.id,
+      name: contributions.name,
+      text: contributions.text,
+      uploaderName: user.name,
+      pinned: contributions.pinned,
+      type: contributions.type,
+      uploadedBy: contributions.uploadedBy,
+    })
+    .from(contributions)
+    .innerJoin(user, eq(user.id, contributions.uploadedBy))
+    .where(
+      and(
+        eq(contributions.topicId, topicId),
+        eq(contributions.status, "ready"),
+      ),
+    )
+    .orderBy(desc(contributions.pinned));
+
+  const forPrompt = rows
+    .filter((r) => r.text !== null)
+    .map((r) => ({ ...r, text: r.text! }));
+
+  if (forPrompt.length === 0) {
+    await db
+      .update(masterDocuments)
+      .set({
+        status: "failed",
+        content: null,
+        failureReason: "Nothing to compile.",
+      })
+      .where(eq(masterDocuments.id, masterDocumentId));
+    return;
+  }
+
+  const ai = new Gemini(process.env.GEMINI_API_KEY!);
+
+  async function failWith(reason: string) {
+    await db
+      .update(masterDocuments)
+      .set({ status: "failed", content: null, failureReason: reason })
+      .where(eq(masterDocuments.id, masterDocumentId));
+    throw new Error(reason);
+  }
+
+  const fullPrompt = buildPrompt(forPrompt, settings, "", true);
+  const totalTokens = await ai.countTokens(fullPrompt);
+
+  let content: string;
+
+  if (totalTokens <= 800_000) {
+    content = await ai.generate(fullPrompt);
+  } else if (totalTokens <= 1_600_000) {
+    const half = Math.ceil(forPrompt.length / 2);
+    const firstPrompt = buildPrompt(
+      forPrompt.slice(0, half),
+      settings,
+      "",
+      false,
+    );
+    const contextBlock = await ai.generate(firstPrompt);
+    const secondPrompt = buildPrompt(
+      forPrompt.slice(half),
+      settings,
+      contextBlock,
+      true,
+    );
+    content = await ai.generate(secondPrompt);
+  } else {
+    await failWith(
+      "Topic has too many contributions to compile. Try removing some contributions or splitting into multiple topics.",
+    );
+    return;
+  }
+
+  await db
+    .update(masterDocuments)
+    .set({ content, status: "ready" })
+    .where(eq(masterDocuments.id, masterDocumentId));
+
+  await db.insert(compilationSources).values(
+    rows.map((r) => ({
+      id: crypto.randomUUID(),
+      masterDocumentId,
+      contributionId: r.id,
+      snapshotName: r.name,
+      snapshotType: r.type,
+      snapshotUploadedBy: r.uploadedBy,
+      snapshotUploaderName: r.uploaderName,
+    })),
+  );
+
+  await db
+    .update(contributions)
+    .set({ status: "compiled" })
+    .where(
+      and(
+        eq(contributions.topicId, topicId),
+        eq(contributions.status, "ready"),
+      ),
+    );
+}
+
 export async function cleanOrphanedFiles() {
   const rows = await db
     .select({ s3Key: contributions.s3Key })
@@ -186,7 +303,10 @@ export async function cleanOrphanedFiles() {
       if (now - (obj.LastModified?.getTime() ?? now) > GRACE_MS)
         orphans.push(obj.Key);
     }
-    continuationToken = res.IsTruncated && res.NextContinuationToken ? res.NextContinuationToken : undefined;
+    continuationToken =
+      res.IsTruncated && res.NextContinuationToken
+        ? res.NextContinuationToken
+        : undefined;
   } while (continuationToken);
 
   if (orphans.length === 0) return;
@@ -219,6 +339,7 @@ export async function cleanStuckContributions() {
 
 export type Activities = {
   extractText: typeof extractText;
+  runCompilation: typeof runCompilation;
   cleanOrphanedFiles: typeof cleanOrphanedFiles;
   cleanStuckContributions: typeof cleanStuckContributions;
 };
