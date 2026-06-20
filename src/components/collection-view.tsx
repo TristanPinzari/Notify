@@ -11,6 +11,7 @@ import {
   getContributionText,
   getContributionUrl,
   restartExtraction,
+  setContributionPin,
 } from "@/server/actions/contributions";
 import { toast } from "sonner";
 import { getPlaylistInfo, getVideoInfo } from "@/server/actions/youtube";
@@ -29,6 +30,7 @@ import {
   RetryIcon,
   XIcon,
   CopyIcon,
+  PinIcon,
 } from "@/components/icons";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
@@ -45,6 +47,7 @@ export type ContributionRow = {
   status: CStatus;
   failureReason: string | null;
   manuallyEdited: boolean;
+  pinned: boolean;
   uploaderName: string;
   uploaderId: string;
   createdAt: string;
@@ -89,6 +92,7 @@ type FileRow = {
   status: CStatus;
   failureReason: string | null;
   manuallyEdited: boolean;
+  pinned: boolean;
 };
 
 type StagedFile = {
@@ -178,6 +182,7 @@ type SourceRowProps = {
   classId: string;
   topicId: string;
   canDelete: boolean;
+  canPin: boolean;
   onOpen: (id: string) => void;
   onRemove: (name: string, id: string) => void;
   onUpdate: (id: string, patch: Partial<FileRow>) => void;
@@ -189,6 +194,7 @@ function SourceRow({
   classId,
   topicId,
   canDelete,
+  canPin,
   onOpen,
   onRemove,
   onUpdate,
@@ -204,6 +210,16 @@ function SourceRow({
   const [saving, setSaving] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [pinning, setPinning] = useState(false);
+
+  async function togglePin() {
+    if (pinning) return;
+    setPinning(true);
+    const res = await setContributionPin(classId, f.id, !f.pinned);
+    if ("error" in res) toast.error(res.error);
+    else onUpdate(f.id, { pinned: !f.pinned });
+    setPinning(false);
+  }
 
   async function copyText() {
     if (!text) return;
@@ -317,11 +333,23 @@ function SourceRow({
             {timeAgo(f.createdAt)} ·{" "}
             <span className="method-tag">{EXTRACTION_LABELS[f.method]}</span>
             {f.manuallyEdited && <span className="method-tag"> · Edited</span>}
+            {f.pinned && <span className="method-tag pin-tag"> · Pinned</span>}
           </div>
         </div>
         <div className="file-actions">
           {!panelOpen && (
             <StatusPill status={f.status} failureReason={f.failureReason} />
+          )}
+          {canPin && (
+            <button
+              className="icon-btn"
+              title={f.pinned ? "Unpin" : "Pin"}
+              style={f.pinned ? { color: "var(--accent-text)" } : undefined}
+              disabled={pinning}
+              onClick={togglePin}
+            >
+              <PinIcon filled={f.pinned} />
+            </button>
           )}
           {inspectable && (
             <button
@@ -534,6 +562,7 @@ type Props = {
   contributions: ContributionRow[];
   canUpload: boolean;
   canDelete: boolean;
+  canPin: boolean;
   topicId: string;
   classId: string;
   currentUserId: string;
@@ -543,6 +572,7 @@ export default function CollectionView({
   contributions,
   canUpload,
   canDelete,
+  canPin,
   topicId,
   classId,
   currentUserId,
@@ -561,6 +591,7 @@ export default function CollectionView({
       status: c.status,
       failureReason: c.failureReason,
       manuallyEdited: c.manuallyEdited,
+      pinned: c.pinned,
     })),
   );
   const [staged, setStaged] = useState<StagedItem[]>([]);
@@ -838,6 +869,7 @@ export default function CollectionView({
         status: s.type === "custom" ? "ready" : "processing",
         failureReason: null,
         manuallyEdited: false,
+        pinned: false,
       },
       ...fs,
     ]);
@@ -873,6 +905,7 @@ export default function CollectionView({
         status: "processing",
         failureReason: null,
         manuallyEdited: false,
+        pinned: false,
       },
       ...fs,
     ]);
@@ -916,6 +949,7 @@ export default function CollectionView({
         status: "processing" as CStatus,
         failureReason: null,
         manuallyEdited: false,
+        pinned: false,
       })),
       ...fs,
     ]);
@@ -1342,6 +1376,7 @@ export default function CollectionView({
               classId={classId}
               topicId={topicId}
               canDelete={canDelete}
+              canPin={canPin}
               onOpen={openContribution}
               onRemove={removeFile}
               onUpdate={updateFile}

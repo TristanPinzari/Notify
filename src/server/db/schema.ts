@@ -40,6 +40,19 @@ export const contributionStatus = pgEnum("contribution_status", [
   "compiled",
   "failed",
 ]);
+export const docStatus = pgEnum("doc_status", ["compiling", "ready"]);
+export const docOutputType = pgEnum("doc_output_type", [
+  "prose",
+  "bullet",
+  "both",
+]);
+export const docDepth = pgEnum("doc_depth", ["concise", "standard", "detailed"]);
+export const docConflictResolution = pgEnum("doc_conflict_resolution", [
+  "trust_pinned",
+  "trust_majority",
+  "flag_all",
+]);
+export const docFactCheck = pgEnum("doc_fact_check", ["none", "flag", "replace"]);
 
 export type CType = (typeof contributionType.enumValues)[number];
 export type CStatus = (typeof contributionStatus.enumValues)[number];
@@ -84,6 +97,9 @@ export const classes = pgTable("classes", {
   minRankBanUsers: rank("min_rank_ban_users").notNull().default("admin"),
   minRankKickUsers: rank("min_rank_kick_users").notNull().default("admin"),
   minRankChangeRanks: rank("min_rank_change_ranks").notNull().default("admin"),
+  minRankPinContribution: rank("min_rank_pin_contribution")
+    .notNull()
+    .default("admin"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -151,24 +167,30 @@ export const topics = pgTable("topics", {
     .defaultNow(),
 });
 
-export const masterDocuments = pgTable(
-  "master_documents",
-  {
-    id: text("id").primaryKey(),
-    topicId: text("topic_id")
-      .notNull()
-      .references(() => topics.id, { onDelete: "cascade" }),
-    content: text("content").notNull(),
-    previousContent: text("previous_content"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (t) => [unique().on(t.topicId)],
-);
+export const masterDocuments = pgTable("master_documents", {
+  id: text("id").primaryKey(),
+  topicId: text("topic_id")
+    .notNull()
+    .references(() => topics.id, { onDelete: "cascade" }),
+  triggeredBy: text("triggered_by")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  content: text("content"),
+  status: docStatus("status").notNull().default("compiling"),
+  outputType: docOutputType("output_type").notNull().default("both"),
+  depth: docDepth("depth").notNull().default("standard"),
+  conflictResolution: docConflictResolution("conflict_resolution")
+    .notNull()
+    .default("trust_pinned"),
+  factChecking: docFactCheck("fact_check").notNull().default("flag"),
+  sourcesInline: boolean("sources_inline").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
 
 export const contributions = pgTable(
   "contributions",
@@ -189,6 +211,7 @@ export const contributions = pgTable(
     url: text("url"),
     failureReason: text("failure_reason"),
     manuallyEdited: boolean("manually_edited").notNull().default(false),
+    pinned: boolean("pinned").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -199,22 +222,40 @@ export const contributions = pgTable(
   (t) => [unique().on(t.topicId, t.url)],
 );
 
-export const compileLogs = pgTable("compile_logs", {
+export const compilationSources = pgTable(
+  "compilation_sources",
+  {
+    id: text("id").primaryKey(),
+    masterDocumentId: text("master_document_id")
+      .notNull()
+      .references(() => masterDocuments.id, { onDelete: "cascade" }),
+    contributionId: text("contribution_id").references(() => contributions.id, {
+      onDelete: "set null",
+    }),
+    // Snapshot fields — null while contribution exists, populated on deletion
+    snapshotName: text("snapshot_name"),
+    snapshotType: contributionType("snapshot_type"),
+    snapshotUploadedBy: text("snapshot_uploaded_by"),
+    snapshotUploaderName: text("snapshot_uploader_name"),
+  },
+  (t) => [index("compilation_sources_master_doc_idx").on(t.masterDocumentId)],
+);
+
+export const activityLogs = pgTable("activity_logs", {
   id: text("id").primaryKey(),
   classId: text("class_id")
     .notNull()
     .references(() => classes.id, { onDelete: "cascade" }),
-  topicId: text("topic_id")
-    .notNull()
-    .references(() => topics.id, { onDelete: "cascade" }),
-  triggeredBy: text("triggered_by")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
+  topicId: text("topic_id").references(() => topics.id, { onDelete: "set null" }),
+  userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+  action: text("action").notNull(),
+  metadata: text("metadata"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
 });
 
+// BetterAuth
 export const session = pgTable(
   "session",
   {
@@ -318,5 +359,6 @@ export type ClassSettings = Partial<
     | "minRankBanUsers"
     | "minRankKickUsers"
     | "minRankChangeRanks"
+    | "minRankPinContribution"
   >
 >;

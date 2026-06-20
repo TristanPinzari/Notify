@@ -19,6 +19,7 @@ import { and, eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import {
+  contributionBelongsToClass,
   getUserRank,
   isUniqueViolation,
   requireRank,
@@ -134,7 +135,10 @@ export async function createContribution(
       .returning({ createdAt: contributions.createdAt });
 
     startExtraction(id, data.extractionMethod, s3Key, data.url).catch((e) =>
-      console.error(`ERROR: failed to start extraction for contribution ${id}: `, e),
+      console.error(
+        `ERROR: failed to start extraction for contribution ${id}: `,
+        e,
+      ),
     );
 
     return { id, createdAt: row.createdAt.toISOString() };
@@ -598,6 +602,54 @@ export async function editContribution(
           ? { status: "ready", failureReason: null }
           : {}),
       })
+      .where(eq(contributions.id, contributionId));
+
+    return { success: true };
+  } catch (e) {
+    console.error("ERROR: ", e);
+    return { error: "Something went wrong." };
+  }
+}
+
+export async function setContributionPin(
+  classId: string,
+  contributionId: string,
+  pinned: boolean,
+) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    console.error("ERROR: setContributionPin called with no session");
+    return { error: "Not authenticated." };
+  }
+
+  try {
+    const [cls] = await db
+      .select({ minRankPinContribution: classes.minRankPinContribution })
+      .from(classes)
+      .where(eq(classes.id, classId))
+      .limit(1);
+    if (!cls) {
+      console.error(`ERROR: class ${classId} does not exist`);
+      return { error: "Class does not exist." };
+    }
+
+    const allowed = await requireRank(
+      classId,
+      session.user.id,
+      cls.minRankPinContribution,
+      "pin",
+    );
+    if ("error" in allowed) {
+      console.error(`ERROR: ${allowed.error}`);
+      return allowed;
+    }
+
+    if (!(await contributionBelongsToClass(classId, contributionId)))
+      return { error: "This contribution doesn't belong to this class." };
+
+    await db
+      .update(contributions)
+      .set({ pinned })
       .where(eq(contributions.id, contributionId));
 
     return { success: true };

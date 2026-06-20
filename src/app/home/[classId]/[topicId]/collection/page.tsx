@@ -48,6 +48,7 @@ export default async function CollectionPage({
         status: contributions.status,
         failureReason: contributions.failureReason,
         manuallyEdited: contributions.manuallyEdited,
+        pinned: contributions.pinned,
         uploaderName: user.name,
         uploaderId: user.id,
         createdAt: contributions.createdAt,
@@ -63,6 +64,7 @@ export default async function CollectionPage({
       .select({
         minRankUploadContribution: classes.minRankUploadContribution,
         minRankDeleteContribution: classes.minRankDeleteContribution,
+        minRankPinContribution: classes.minRankPinContribution,
       })
       .from(classes)
       .where(eq(classes.id, classId))
@@ -85,6 +87,8 @@ export default async function CollectionPage({
     RANK_VALUE[member.rank] >= RANK_VALUE[cls.minRankUploadContribution];
   const canDelete =
     RANK_VALUE[member.rank] >= RANK_VALUE[cls.minRankDeleteContribution];
+  const canPin =
+    RANK_VALUE[member.rank] >= RANK_VALUE[cls.minRankPinContribution];
 
   const serialized = rows.map((r) => ({
     ...r,
@@ -96,6 +100,7 @@ export default async function CollectionPage({
       contributions={serialized}
       canUpload={canUpload}
       canDelete={canDelete}
+      canPin={canPin}
       classId={classId}
       topicId={topicId}
       currentUserId={session.user.id}

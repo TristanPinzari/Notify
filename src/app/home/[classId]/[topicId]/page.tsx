@@ -3,7 +3,6 @@ import { db } from "@/server/db";
 import {
   masterDocuments,
   contributions,
-  compileLogs,
   topics,
   userClasses,
 } from "@/server/db/schema";
@@ -57,10 +56,10 @@ export default async function MasterDocPage({
       .from(contributions)
       .where(eq(contributions.topicId, topicId)),
     db
-      .select({ createdAt: compileLogs.createdAt })
-      .from(compileLogs)
-      .where(eq(compileLogs.topicId, topicId))
-      .orderBy(desc(compileLogs.createdAt))
+      .select({ createdAt: masterDocuments.createdAt })
+      .from(masterDocuments)
+      .where(eq(masterDocuments.topicId, topicId))
+      .orderBy(desc(masterDocuments.createdAt))
       .limit(1),
   ]);
 

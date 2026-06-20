@@ -3,6 +3,13 @@
 Things that are noted but intentionally not fixed yet. Not bugs in the sense
 of "broken," but gaps worth closing eventually.
 
+## Master doc language translation not yet implemented
+
+Post-compile translation is the planned approach — run the finished master doc
+text through a translation API (e.g. DeepL or Google Translate) rather than
+prompting the AI to write in a target language. Add as a standalone action on
+an existing master doc.
+
 ## Sentry `tracesSampleRate` set to 1 in all environments
 
 `tracesSampleRate: 1` traces 100% of requests. Acceptable in development but
