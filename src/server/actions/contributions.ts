@@ -129,7 +129,7 @@ export async function createContribution(
         extractionMethod: data.extractionMethod,
         url: data.url,
         s3Key,
-        processingStatus: "processing",
+        status: "processing",
       })
       .returning({ createdAt: contributions.createdAt });
 
@@ -218,7 +218,7 @@ export async function createCustomContribution(
         name: data.name,
         type: "custom",
         extractionMethod: "text_extraction",
-        processingStatus: "ready",
+        status: "ready",
         text: data.text,
       })
       .returning({ createdAt: contributions.createdAt });
@@ -317,7 +317,7 @@ export async function getContributionStatuses(
       .select({
         id: contributions.id,
         name: contributions.name,
-        status: contributions.processingStatus,
+        status: contributions.status,
         failureReason: contributions.failureReason,
       })
       .from(contributions)
@@ -454,19 +454,19 @@ export async function restartExtraction(
         extractionMethod: contributions.extractionMethod,
         s3Key: contributions.s3Key,
         url: contributions.url,
-        processingStatus: contributions.processingStatus,
+        status: contributions.status,
       })
       .from(contributions)
       .where(eq(contributions.id, contributionId))
       .limit(1);
 
     if (!contribution[0]) return { error: "This contribution does not exist." };
-    if (contribution[0].processingStatus === "processing")
+    if (contribution[0].status === "processing")
       return { error: "This contribution is already being processed." };
 
     await db
       .update(contributions)
-      .set({ processingStatus: "processing" })
+      .set({ status: "processing" })
       .where(eq(contributions.id, contributionId));
 
     await startExtraction(
@@ -571,7 +571,7 @@ export async function editContribution(
     }
 
     const [contribution] = await db
-      .select({ processingStatus: contributions.processingStatus })
+      .select({ status: contributions.status })
       .from(contributions)
       .innerJoin(topics, eq(contributions.topicId, topics.id))
       .where(
@@ -584,7 +584,7 @@ export async function editContribution(
       );
       return { error: "This contribution does not exist." };
     }
-    if (contribution.processingStatus === "processing")
+    if (contribution.status === "processing")
       return { error: "This contribution is still being processed." };
 
     await db
@@ -595,7 +595,7 @@ export async function editContribution(
         text: data.text,
         manuallyEdited: true,
         ...(data.text !== undefined
-          ? { processingStatus: "ready", failureReason: null }
+          ? { status: "ready", failureReason: null }
           : {}),
       })
       .where(eq(contributions.id, contributionId));

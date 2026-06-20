@@ -143,7 +143,7 @@ export async function extractText(input: ExtractionInput): Promise<void> {
     await db
       .update(contributions)
       .set({
-        processingStatus: "failed",
+        status: "failed",
         failureReason,
         ...(res.title ? { name: res.title } : {}),
       })
@@ -155,7 +155,7 @@ export async function extractText(input: ExtractionInput): Promise<void> {
     .update(contributions)
     .set({
       text: res.text,
-      processingStatus: "ready",
+      status: "ready",
       ...(res.title ? { name: res.title } : {}),
     })
     .where(eq(contributions.id, input.contributionId));
@@ -206,12 +206,12 @@ export async function cleanStuckContributions() {
   await db
     .update(contributions)
     .set({
-      processingStatus: "failed",
+      status: "failed",
       failureReason: "Processing timed out — worker may have crashed.",
     })
     .where(
       and(
-        eq(contributions.processingStatus, "processing"),
+        eq(contributions.status, "processing"),
         lt(contributions.createdAt, cutoff),
       ),
     );

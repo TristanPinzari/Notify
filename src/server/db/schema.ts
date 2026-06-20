@@ -34,14 +34,15 @@ export const extractionMethod = pgEnum("extraction_method", [
   "youtube_transcript",
   "web_scrape",
 ]);
-export const processingStatus = pgEnum("processing_status", [
+export const contributionStatus = pgEnum("contribution_status", [
   "processing",
   "ready",
+  "compiled",
   "failed",
 ]);
 
 export type CType = (typeof contributionType.enumValues)[number];
-export type PStatus = (typeof processingStatus.enumValues)[number];
+export type CStatus = (typeof contributionStatus.enumValues)[number];
 export type EMethod = (typeof extractionMethod.enumValues)[number];
 
 export const user = pgTable("user", {
@@ -182,15 +183,12 @@ export const contributions = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     type: contributionType("type").notNull(),
     extractionMethod: extractionMethod("extraction_method").notNull(),
-    processingStatus: processingStatus("processing_status")
-      .notNull()
-      .default("processing"),
+    status: contributionStatus("status").notNull().default("processing"),
     text: text("text"),
     s3Key: text("s3_key"),
     url: text("url"),
     failureReason: text("failure_reason"),
     manuallyEdited: boolean("manually_edited").notNull().default(false),
-    isCompiled: boolean("is_compiled").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import type { CType, EMethod, PStatus } from "@/server/db/schema";
+import type { CType, CStatus, EMethod } from "@/server/db/schema";
 import {
   createContribution,
   createCustomContribution,
@@ -42,8 +42,7 @@ export type ContributionRow = {
   contributionName: string;
   contributionType: CType;
   extractionMethod: EMethod;
-  isCompiled: boolean;
-  status: PStatus;
+  status: CStatus;
   failureReason: string | null;
   manuallyEdited: boolean;
   uploaderName: string;
@@ -87,10 +86,9 @@ type FileRow = {
   uploaderId: string;
   createdAt: string;
   method: EMethod;
-  status: PStatus;
+  status: CStatus;
   failureReason: string | null;
   manuallyEdited: boolean;
-  isCompiled: boolean;
 };
 
 type StagedFile = {
@@ -145,7 +143,7 @@ function StatusPill({
   status,
   failureReason,
 }: {
-  status: PStatus;
+  status: CStatus;
   failureReason?: string | null;
 }) {
   if (status === "processing")
@@ -563,7 +561,6 @@ export default function CollectionView({
       status: c.status,
       failureReason: c.failureReason,
       manuallyEdited: c.manuallyEdited,
-      isCompiled: c.isCompiled,
     })),
   );
   const [staged, setStaged] = useState<StagedItem[]>([]);
@@ -841,7 +838,6 @@ export default function CollectionView({
         status: s.type === "custom" ? "ready" : "processing",
         failureReason: null,
         manuallyEdited: false,
-        isCompiled: false,
       },
       ...fs,
     ]);
@@ -877,7 +873,6 @@ export default function CollectionView({
         status: "processing",
         failureReason: null,
         manuallyEdited: false,
-        isCompiled: false,
       },
       ...fs,
     ]);
@@ -918,10 +913,9 @@ export default function CollectionView({
         uploaderId: currentUserId,
         createdAt: c.createdAt,
         method: "youtube_transcript" as EMethod,
-        status: "processing" as PStatus,
+        status: "processing" as CStatus,
         failureReason: null,
         manuallyEdited: false,
-        isCompiled: false,
       })),
       ...fs,
     ]);
@@ -963,7 +957,7 @@ export default function CollectionView({
   }
 
   const uncompiled = files.filter(
-    (f) => !f.isCompiled && f.status === "ready",
+    (f) => f.status === "ready",
   ).length;
   const processing = files.filter((f) => f.status === "processing").length;
   const stagedSize = staged.reduce(
