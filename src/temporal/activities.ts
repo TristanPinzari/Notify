@@ -140,6 +140,7 @@ async function runExtraction(
 }
 
 export async function extractText(input: ExtractionInput): Promise<void> {
+  console.log(`[extractText] start — contribution ${input.contributionId} method=${input.extractionMethod}`);
   let res: { title?: string; text: string } = { text: "" };
 
   try {
@@ -148,6 +149,7 @@ export async function extractText(input: ExtractionInput): Promise<void> {
       throw new Error("Extraction succeeded but returned no text.");
   } catch (e) {
     const failureReason = e instanceof Error ? e.message : String(e);
+    console.error(`[extractText] failed — contribution ${input.contributionId}: ${failureReason}`);
     await db
       .update(contributions)
       .set({
@@ -159,6 +161,7 @@ export async function extractText(input: ExtractionInput): Promise<void> {
     throw e;
   }
 
+  console.log(`[extractText] done — contribution ${input.contributionId} (${res.text.length} chars)`);
   await db
     .update(contributions)
     .set({
@@ -174,6 +177,7 @@ export async function runCompilation(
   topicId: string,
   settings: CompilationSettings,
 ): Promise<void> {
+  console.log(`[runCompilation] start — masterDocument ${masterDocumentId} topic=${topicId}`);
   const rows = await db
     .select({
       id: contributions.id,
@@ -199,6 +203,7 @@ export async function runCompilation(
     .map((r) => ({ ...r, text: r.text! }));
 
   if (forPrompt.length === 0) {
+    console.error(`[runCompilation] no contributions to compile — masterDocument ${masterDocumentId}`);
     await db
       .update(masterDocuments)
       .set({
@@ -210,6 +215,7 @@ export async function runCompilation(
     return;
   }
 
+  console.log(`[runCompilation] ${forPrompt.length} contributions loaded, counting tokens…`);
   const ai = new Gemini(process.env.GEMINI_API_KEY!);
 
   async function failWith(reason: string) {
@@ -222,12 +228,15 @@ export async function runCompilation(
 
   const fullPrompt = buildPrompt(forPrompt, settings, "", true);
   const totalTokens = await ai.countTokens(fullPrompt);
+  console.log(`[runCompilation] token count: ${totalTokens.toLocaleString()}`);
 
   let content: string;
 
   if (totalTokens <= 800_000) {
+    console.log(`[runCompilation] single-pass generation…`);
     content = await ai.generate(fullPrompt);
   } else if (totalTokens <= 1_600_000) {
+    console.log(`[runCompilation] two-pass generation (pass 1/2)…`);
     const half = Math.ceil(forPrompt.length / 2);
     const firstPrompt = buildPrompt(
       forPrompt.slice(0, half),
@@ -236,6 +245,7 @@ export async function runCompilation(
       false,
     );
     const contextBlock = await ai.generate(firstPrompt);
+    console.log(`[runCompilation] two-pass generation (pass 2/2)…`);
     const secondPrompt = buildPrompt(
       forPrompt.slice(half),
       settings,
@@ -250,6 +260,7 @@ export async function runCompilation(
     return;
   }
 
+  console.log(`[runCompilation] generation done (${content.length} chars), saving…`);
   await db
     .update(masterDocuments)
     .set({ content, status: "ready" })
@@ -276,9 +287,12 @@ export async function runCompilation(
         eq(contributions.status, "ready"),
       ),
     );
+
+  console.log(`[runCompilation] complete — masterDocument ${masterDocumentId}`);
 }
 
 export async function cleanOrphanedFiles() {
+  console.log(`[cleanOrphanedFiles] start`);
   const rows = await db
     .select({ s3Key: contributions.s3Key })
     .from(contributions);
@@ -309,17 +323,23 @@ export async function cleanOrphanedFiles() {
         : undefined;
   } while (continuationToken);
 
-  if (orphans.length === 0) return;
+  if (orphans.length === 0) {
+    console.log(`[cleanOrphanedFiles] nothing to delete`);
+    return;
+  }
 
+  console.log(`[cleanOrphanedFiles] deleting ${orphans.length} orphan(s)…`);
   await s3.send(
     new DeleteObjectsCommand({
       Bucket: process.env.AWS_S3_BUCKET!,
       Delete: { Objects: orphans.map((key) => ({ Key: key })) },
     }),
   );
+  console.log(`[cleanOrphanedFiles] done`);
 }
 
 export async function cleanStuckContributions() {
+  console.log(`[cleanStuckContributions] start`);
   const STUCK_THRESHOLD_MS = 30 * 60 * 1000;
   const cutoff = new Date(Date.now() - STUCK_THRESHOLD_MS);
 
@@ -335,6 +355,7 @@ export async function cleanStuckContributions() {
         lt(contributions.createdAt, cutoff),
       ),
     );
+  console.log(`[cleanStuckContributions] done`);
 }
 
 export type Activities = {

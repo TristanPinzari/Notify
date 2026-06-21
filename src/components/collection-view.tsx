@@ -167,6 +167,13 @@ function StatusPill({
         Failed
       </span>
     );
+  if (status === "compiled")
+    return (
+      <span className="status compiled">
+        <CheckIcon />
+        Compiled
+      </span>
+    );
   return (
     <span className="status done">
       <CheckIcon />
@@ -229,7 +236,7 @@ function SourceRow({
   }
 
   const methods = METHODS_FOR_TYPE[f.type];
-  const inspectable = f.status === "ready" || f.status === "failed";
+  const inspectable = f.status === "ready" || f.status === "compiled" || f.status === "failed";
   const panelOpen = open && inspectable;
 
   async function togglePanel() {
@@ -239,7 +246,7 @@ function SourceRow({
       return;
     }
     setOpen(true);
-    if (f.status === "ready" && text === undefined) {
+    if ((f.status === "ready" || f.status === "compiled") && text === undefined) {
       setLoadingText(true);
       const res = await getContributionText(classId, f.id);
       if ("text" in res) setText(res.text);
@@ -488,10 +495,17 @@ function SourceRow({
                   {f.type !== "custom" && (
                     <span className="il">Extraction result</span>
                   )}
-                  <span className="status done">
-                    <CheckIcon />
-                    Ready
-                  </span>
+                  {f.status === "compiled" ? (
+                    <span className="status compiled">
+                      <CheckIcon />
+                      Compiled
+                    </span>
+                  ) : (
+                    <span className="status done">
+                      <CheckIcon />
+                      Ready
+                    </span>
+                  )}
                   {f.type !== "custom" && (
                     <span className="inspect-meta">
                       <b>{EXTRACTION_LABELS[f.method]}</b>

@@ -27,13 +27,13 @@ export type CompilationSettings = {
   conflictResolution: DocConflictResolution;
   factChecking: DocFactCheck;
   sourcesInline: boolean;
+  fromScratch: boolean;
 };
 
 export async function createMasterDocument(
   classId: string,
   topicId: string,
   settings: CompilationSettings,
-  fromScratch: boolean,
 ) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
@@ -71,11 +71,12 @@ export async function createMasterDocument(
     }
 
     const masterDocumentId = crypto.randomUUID();
+    const { fromScratch, ...docSettings } = settings;
     await db.insert(masterDocuments).values({
       id: masterDocumentId,
       triggeredBy: session.user.id,
       topicId,
-      ...settings,
+      ...docSettings,
     });
 
     if (fromScratch)
@@ -101,4 +102,22 @@ export async function createMasterDocument(
     console.error("ERROR: ", e);
     return { error: "Something went wrong." };
   }
+}
+
+export async function getMasterDocumentStatus(masterDocumentId: string) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return { error: "Not authenticated." };
+
+  const [doc] = await db
+    .select({
+      status: masterDocuments.status,
+      content: masterDocuments.content,
+      failureReason: masterDocuments.failureReason,
+    })
+    .from(masterDocuments)
+    .where(eq(masterDocuments.id, masterDocumentId))
+    .limit(1);
+
+  if (!doc) return { error: "Document not found." };
+  return doc;
 }

@@ -2640,6 +2640,10 @@ h1.head em {
   color: var(--success);
   background: var(--success-bg);
 }
+.status.compiled {
+  color: var(--ink-faint);
+  background: var(--paper-deep);
+}
 .status.proc {
   color: var(--accent-text);
   background: var(--accent-soft);
