@@ -336,7 +336,7 @@ function SourceRow({
   return (
     <>
       <div
-        className={`file${panelOpen ? " expanded" : ""}${dimmed ? " dimmed" : ""}`}
+        className={`file${panelOpen ? " expanded" : ""}${dimmed && !panelOpen ? " dimmed" : ""}`}
       >
         <span className={`ftype ${f.type}`}>{TYPE_LABEL[f.type]}</span>
         <div className="finfo">
@@ -1403,7 +1403,10 @@ export default function CollectionView({
                 onOpen={openContribution}
                 onRemove={removeFile}
                 onUpdate={updateFile}
-                dimmed={highlightSources !== undefined && !highlightSources.includes(f.id)}
+                dimmed={
+                  highlightSources !== undefined &&
+                  !highlightSources.includes(f.id)
+                }
               />
             );
           })}
