@@ -1403,7 +1403,7 @@ export default function CollectionView({
                 onOpen={openContribution}
                 onRemove={removeFile}
                 onUpdate={updateFile}
-                dimmed={!(highlightSources?.includes(f.id) ?? false)}
+                dimmed={highlightSources !== undefined && !highlightSources.includes(f.id)}
               />
             );
           })}

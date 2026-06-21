@@ -80,7 +80,7 @@ export default async function TopicLayout({
         </div>
       </div>
       <TopicTabs base={base} />
-      <div style={{ flex: 1, overflowY: "auto" }}>{children}</div>
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", scrollbarGutter: "stable" }}>{children}</div>
     </div>
   );
 }

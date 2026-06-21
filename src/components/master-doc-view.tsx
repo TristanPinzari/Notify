@@ -91,8 +91,6 @@ export function MasterDocView({
   );
   const [showConfig, setShowConfig] = useState(false);
   const [compileStep, setCompileStep] = useState<CompileStep | null>(null);
-  const [tokens, setTokens] = useState(0);
-  const tokenTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const activeDoc = docs.find((d) => d.id === activeId) ?? null;
   const isCompiling = activeDoc?.status === "compiling";
@@ -112,12 +110,6 @@ export function MasterDocView({
   );
 
   useEffect(() => {
-    return () => {
-      if (tokenTimer.current) clearInterval(tokenTimer.current);
-    };
-  }, []);
-
-  useEffect(() => {
     const compilingDoc = docs.find((d) => d.status === "compiling");
     if (!compilingDoc) return;
 
@@ -126,10 +118,6 @@ export function MasterDocView({
       if ("error" in res) return;
       if (res.status !== "compiling") {
         clearInterval(interval);
-        if (tokenTimer.current) {
-          clearInterval(tokenTimer.current);
-          tokenTimer.current = null;
-        }
         setCompileStep("saving");
         setTimeout(() => {
           setDocs((prev) =>
@@ -147,7 +135,6 @@ export function MasterDocView({
             ),
           );
           setCompileStep(null);
-          setTokens(0);
         }, 750);
       }
     }, 3000);
@@ -189,9 +176,6 @@ export function MasterDocView({
     }
 
     setCompileStep("generating");
-    tokenTimer.current = setInterval(() => {
-      setTokens((t) => t + Math.floor(90 + Math.random() * 200));
-    }, 110);
 
     const docSettings: Omit<CompilationSettings, "fromScratch"> = {
       outputType: draft.outputType,
@@ -366,7 +350,7 @@ export function MasterDocView({
 
       {/* Compile settings panel */}
       {showConfig && !inProgress && (
-        <div className="cfg rounded-[15px] bg-(--paper-raised) border border-(--line) px-[18px] mb-6">
+        <div className="cfg rounded-[15px] bg-(--paper-raised) border border-(--line) px-4.5 mb-6">
           <div className="set-row">
             <div className="sl">
               <div className="st">Format</div>
@@ -518,9 +502,6 @@ export function MasterDocView({
               </Fragment>
             );
           })}
-          {compileStep === "generating" && (
-            <span className="hb-tok">{tokens.toLocaleString()} tokens</span>
-          )}
         </div>
       )}
 
@@ -648,24 +629,6 @@ function ClockIcon() {
     >
       <circle cx="12" cy="12" r="10" />
       <path d="M12 6v6l4 2" />
-    </svg>
-  );
-}
-
-function SparkleIcon() {
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
-      <path d="M19 3l.9 2.1L22 6l-2.1.9L19 9l-.9-2.1L16 6l2.1-.9z" />
     </svg>
   );
 }
