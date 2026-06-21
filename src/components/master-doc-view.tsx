@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Fragment } from "react";
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
+import { CompiledDoc } from "@/components/doc-render";
 import { toast } from "sonner";
 import {
   createMasterDocument,
@@ -23,8 +23,10 @@ type MasterDoc = {
   factChecking: CompilationSettings["factChecking"];
   sourcesInline: boolean;
   createdAt: string;
+  sources: { id: string; name: string }[];
   sourceIds: string[];
   contributorIds: string[];
+  deletedSources: number;
 };
 
 type Props = {
@@ -191,8 +193,10 @@ export function MasterDocView({
       failureReason: null,
       ...docSettings,
       createdAt: new Date().toISOString(),
+      sources: [],
       sourceIds: [],
       contributorIds: [],
+      deletedSources: 0,
     };
     setDocs((prev) => [newDoc, ...prev].slice(0, 4));
     setActiveId(res.masterDocumentId);
@@ -316,6 +320,11 @@ export function MasterDocView({
             </b>
             <ChevronExtIcon />
           </Link>
+          {activeDoc.deletedSources > 0 && (
+            <span className="chip">
+              <b>{activeDoc.deletedSources} deleted</b>
+            </span>
+          )}
           {activeDoc.status !== "compiling" && (
             <span className="chip">
               <ClockIcon />
@@ -520,9 +529,12 @@ export function MasterDocView({
             )}
           </div>
         ) : activeDoc?.content ? (
-          <article className="doc">
-            <ReactMarkdown>{activeDoc.content}</ReactMarkdown>
-          </article>
+          <CompiledDoc
+            markdown={activeDoc.content}
+            classId={classId}
+            topicId={topicId}
+            allSources={activeDoc.sources}
+          />
         ) : (
           <div className="flex flex-col items-center text-center py-16 gap-3">
             <DocEmptyIcon />

@@ -33,7 +33,7 @@ const CONFLICT_RESOLUTION = {
 
 const FACT_CHECK = {
   none: "Do not fact-check or alter any claims — reproduce what the sources say.",
-  flag: "If a claim seems factually dubious, wrap it in <flagged>...</flagged> but keep it in the document.",
+  flag: "If a claim seems factually dubious, wrap it in <flagged>...</flagged> but keep the original text unchanged inside the tags. Do not use the original= attribute — that is only for replace mode.",
   replace:
     "If a claim is factually incorrect, replace it with the correct information but wrap it in <flagged original=\"what the source said\">corrected claim</flagged> so the reader knows it was changed.",
 };
@@ -42,8 +42,8 @@ const XML_TAG_REFERENCE = `
 ## Custom XML Tags
 Use these tags within your markdown output:
 
-- <conflict>Source A says X. Source B says Y.</conflict>
-  Use when two or more sources disagree on a claim.
+- <conflict a="Name of first source" b="Name of second source">Source A says X. Source B says Y.</conflict>
+  Use when two or more sources disagree on a claim. The a and b attributes are optional short labels for each side.
 
 - <flagged>suspicious claim here</flagged>
   Use when a claim appears factually dubious.

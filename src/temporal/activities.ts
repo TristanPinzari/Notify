@@ -12,7 +12,7 @@ import {
   masterDocuments,
   user,
 } from "@/server/db/schema";
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq, inArray, lt } from "drizzle-orm";
 import { YoutubeTranscript } from "youtube-transcript";
 import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
@@ -228,9 +228,10 @@ export async function runCompilation(
 
   // Fetch the previous ready document for incremental merging (not from scratch)
   let existingDocument: string | undefined;
+  let prevDocId: string | undefined;
   if (!settings.fromScratch) {
     const [prev] = await db
-      .select({ content: masterDocuments.content })
+      .select({ id: masterDocuments.id, content: masterDocuments.content })
       .from(masterDocuments)
       .where(
         and(
@@ -242,6 +243,7 @@ export async function runCompilation(
       .limit(1);
     if (prev?.content) {
       existingDocument = prev.content;
+      prevDocId = prev.id;
       console.log(`[runCompilation] incremental mode — existing doc is ${existingDocument.length} chars`);
     }
   }
@@ -288,8 +290,19 @@ export async function runCompilation(
     .set({ content, status: "ready" })
     .where(eq(masterDocuments.id, masterDocumentId));
 
-  await db.insert(compilationSources).values(
-    rows.map((r) => ({
+  const newContribIds = new Set(rows.map((r) => r.id));
+  const prevSources = prevDocId
+    ? await db
+        .select()
+        .from(compilationSources)
+        .where(eq(compilationSources.masterDocumentId, prevDocId))
+    : [];
+  const inheritedSources = prevSources.filter(
+    (s) => s.contributionId === null || !newContribIds.has(s.contributionId),
+  );
+
+  await db.insert(compilationSources).values([
+    ...rows.map((r) => ({
       id: crypto.randomUUID(),
       masterDocumentId,
       contributionId: r.id,
@@ -298,7 +311,17 @@ export async function runCompilation(
       snapshotUploadedBy: r.uploadedBy,
       snapshotUploaderName: r.uploaderName,
     })),
-  );
+    ...inheritedSources.map((s) => ({ ...s, id: crypto.randomUUID(), masterDocumentId })),
+  ]);
+
+  const oldDocs = await db
+    .select({ id: masterDocuments.id })
+    .from(masterDocuments)
+    .where(and(eq(masterDocuments.topicId, topicId), eq(masterDocuments.status, "ready")))
+    .orderBy(desc(masterDocuments.createdAt))
+    .offset(3);
+  if (oldDocs.length > 0)
+    await db.delete(masterDocuments).where(inArray(masterDocuments.id, oldDocs.map((d) => d.id)));
 
   await db
     .update(contributions)

@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import {
   masterDocuments,
   compilationSources,
+  contributions,
   topics,
   userClasses,
   classes,
@@ -68,7 +69,7 @@ export default async function MasterDocPage({
       .from(masterDocuments)
       .where(eq(masterDocuments.topicId, topicId))
       .orderBy(desc(masterDocuments.createdAt))
-      .limit(4),
+      .limit(3),
 
     db
       .select({
@@ -94,9 +95,14 @@ export default async function MasterDocPage({
           .select({
             masterDocumentId: compilationSources.masterDocumentId,
             contributionId: compilationSources.contributionId,
+            contributionName: contributions.name,
             uploadedBy: compilationSources.snapshotUploadedBy,
           })
           .from(compilationSources)
+          .leftJoin(
+            contributions,
+            eq(compilationSources.contributionId, contributions.id),
+          )
           .where(
             inArray(
               compilationSources.masterDocumentId,
@@ -107,13 +113,18 @@ export default async function MasterDocPage({
 
   const sourcesByDoc: Record<
     string,
-    { sourceIds: string[]; contributorIds: string[] }
+    { sources: { id: string; name: string }[]; contributorIds: string[]; deletedSources: number }
   > = {};
   for (const r of allSourceRows) {
     if (!sourcesByDoc[r.masterDocumentId])
-      sourcesByDoc[r.masterDocumentId] = { sourceIds: [], contributorIds: [] };
-    if (r.contributionId)
-      sourcesByDoc[r.masterDocumentId].sourceIds.push(r.contributionId);
+      sourcesByDoc[r.masterDocumentId] = { sources: [], contributorIds: [], deletedSources: 0 };
+    if (r.contributionId && r.contributionName)
+      sourcesByDoc[r.masterDocumentId].sources.push({
+        id: r.contributionId,
+        name: r.contributionName,
+      });
+    else if (!r.contributionId)
+      sourcesByDoc[r.masterDocumentId].deletedSources++;
     if (
       r.uploadedBy &&
       !sourcesByDoc[r.masterDocumentId].contributorIds.includes(r.uploadedBy)
@@ -121,12 +132,17 @@ export default async function MasterDocPage({
       sourcesByDoc[r.masterDocumentId].contributorIds.push(r.uploadedBy);
   }
 
-  const serializedDocs = docRows.map((d) => ({
-    ...d,
-    createdAt: d.createdAt.toISOString(),
-    sourceIds: sourcesByDoc[d.id]?.sourceIds ?? [],
-    contributorIds: sourcesByDoc[d.id]?.contributorIds ?? [],
-  }));
+  const serializedDocs = docRows.map((d) => {
+    const byDoc = sourcesByDoc[d.id];
+    return {
+      ...d,
+      createdAt: d.createdAt.toISOString(),
+      sources: byDoc?.sources ?? [],
+      sourceIds: byDoc?.sources.map((s) => s.id) ?? [],
+      contributorIds: byDoc?.contributorIds ?? [],
+      deletedSources: byDoc?.deletedSources ?? 0,
+    };
+  });
 
   const member = memberRows[0];
   const canCompile = member

@@ -71,6 +71,15 @@ export async function createMasterDocument(
       return allowed;
     }
 
+    if (!settings.fromScratch) {
+      const [newContrib] = await db
+        .select({ id: contributions.id })
+        .from(contributions)
+        .where(and(eq(contributions.topicId, topicId), eq(contributions.status, "ready")))
+        .limit(1);
+      if (!newContrib) return { error: "No new contributions to compile." };
+    }
+
     const masterDocumentId = crypto.randomUUID();
     const { fromScratch, ...docSettings } = settings;
     await db.insert(masterDocuments).values({
