@@ -96,6 +96,7 @@ export default async function MasterDocPage({
             masterDocumentId: compilationSources.masterDocumentId,
             contributionId: compilationSources.contributionId,
             contributionName: contributions.name,
+            snapshotName: compilationSources.snapshotName,
             uploadedBy: compilationSources.snapshotUploadedBy,
           })
           .from(compilationSources)
@@ -113,18 +114,18 @@ export default async function MasterDocPage({
 
   const sourcesByDoc: Record<
     string,
-    { sources: { id: string; name: string }[]; contributorIds: string[]; deletedSources: number }
+    { sources: { id: string; name: string }[]; contributorIds: string[]; deletedSourceNames: string[] }
   > = {};
   for (const r of allSourceRows) {
     if (!sourcesByDoc[r.masterDocumentId])
-      sourcesByDoc[r.masterDocumentId] = { sources: [], contributorIds: [], deletedSources: 0 };
+      sourcesByDoc[r.masterDocumentId] = { sources: [], contributorIds: [], deletedSourceNames: [] };
     if (r.contributionId && r.contributionName)
       sourcesByDoc[r.masterDocumentId].sources.push({
         id: r.contributionId,
         name: r.contributionName,
       });
-    else if (!r.contributionId)
-      sourcesByDoc[r.masterDocumentId].deletedSources++;
+    else if (!r.contributionId && r.snapshotName)
+      sourcesByDoc[r.masterDocumentId].deletedSourceNames.push(r.snapshotName);
     if (
       r.uploadedBy &&
       !sourcesByDoc[r.masterDocumentId].contributorIds.includes(r.uploadedBy)
@@ -140,7 +141,7 @@ export default async function MasterDocPage({
       sources: byDoc?.sources ?? [],
       sourceIds: byDoc?.sources.map((s) => s.id) ?? [],
       contributorIds: byDoc?.contributorIds ?? [],
-      deletedSources: byDoc?.deletedSources ?? 0,
+      deletedSourceNames: byDoc?.deletedSourceNames ?? [],
     };
   });
 

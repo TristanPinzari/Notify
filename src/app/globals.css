@@ -2448,6 +2448,17 @@ h1.head em {
 }
 
 /* doc heading styles */
+.doc h1 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 36px;
+  color: var(--ink-heading);
+  margin: 48px 0 4px;
+  line-height: 1.15;
+}
+.doc h1:first-child {
+  margin-top: 0;
+}
 .doc h2 {
   font-family: var(--serif);
   font-weight: 400;
@@ -2541,6 +2552,53 @@ h1.head em {
 .src-cite:hover .tip {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+/* deleted sources chip tooltip */
+.deleted-chip {
+  position: relative;
+  cursor: help;
+}
+.deleted-chip .tip {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-3px);
+  opacity: 0;
+  pointer-events: none;
+  background: var(--ink-heading);
+  color: #f4efe4;
+  font-family: var(--sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 7px 11px;
+  border-radius: 8px;
+  box-shadow: 0 8px 22px -8px rgba(40, 30, 15, 0.6);
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  white-space: nowrap;
+  min-width: max-content;
+}
+.deleted-chip .tip::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-bottom-color: var(--ink-heading);
+}
+.deleted-chip:hover .tip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.del-name {
+  display: block;
 }
 
 /* flagged claim */
@@ -2650,7 +2708,7 @@ h1.head em {
   align-items: center;
   gap: 7px;
 }
-.conflict .versus .side {
+.conflict .versus .cside {
   font-size: 12px;
   font-weight: 600;
   color: var(--ink-heading);

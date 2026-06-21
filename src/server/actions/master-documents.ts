@@ -133,21 +133,28 @@ export async function getMasterDocumentStatus(masterDocumentId: string) {
   const sourceRows = await db
     .select({
       contributionId: compilationSources.contributionId,
+      contributionName: contributions.name,
+      snapshotName: compilationSources.snapshotName,
       uploadedBy: compilationSources.snapshotUploadedBy,
     })
     .from(compilationSources)
+    .leftJoin(contributions, eq(compilationSources.contributionId, contributions.id))
     .where(eq(compilationSources.masterDocumentId, masterDocumentId));
 
-  const sourceIds = sourceRows
-    .map((r) => r.contributionId)
-    .filter((id): id is string => id !== null);
-  const contributorIds = [
-    ...new Set(
-      sourceRows
-        .map((r) => r.uploadedBy)
-        .filter((id): id is string => id !== null),
-    ),
-  ];
+  const sources: { id: string; name: string }[] = [];
+  const deletedSourceNames: string[] = [];
+  const sourceIds: string[] = [];
+  const uploaderSet = new Set<string>();
 
-  return { ...doc, sourceIds, contributorIds };
+  for (const r of sourceRows) {
+    if (r.contributionId && r.contributionName) {
+      sources.push({ id: r.contributionId, name: r.contributionName });
+      sourceIds.push(r.contributionId);
+    } else if (!r.contributionId && r.snapshotName) {
+      deletedSourceNames.push(r.snapshotName);
+    }
+    if (r.uploadedBy) uploaderSet.add(r.uploadedBy);
+  }
+
+  return { ...doc, sources, sourceIds, deletedSourceNames, contributorIds: [...uploaderSet] };
 }

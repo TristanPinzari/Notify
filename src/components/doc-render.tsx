@@ -64,7 +64,7 @@ type LiItem = {
 
 type Block =
   | {
-      kind: "h2" | "h3" | "h4" | "p";
+      kind: "h1" | "h2" | "h3" | "h4" | "p";
       text: string;
       src: SrcRef | null;
       cite: SrcRef | null;
@@ -119,6 +119,13 @@ function parseBlocks(md: string): Block[] {
     if (/^##\s+/.test(line)) {
       const s = stripSources(line.replace(/^##\s+/, ""));
       blocks.push({ kind: "h2", text: s.text, src: s.src, cite: null });
+      i++;
+      continue;
+    }
+
+    if (/^#\s+/.test(line)) {
+      const s = stripSources(line.replace(/^#\s+/, ""));
+      blocks.push({ kind: "h1", text: s.text, src: s.src, cite: null });
       i++;
       continue;
     }
@@ -279,9 +286,9 @@ function Conflict({
         <span className="lbl">Sources disagree</span>
         {(a ?? b) && (
           <span className="versus">
-            {a && <span className="side">{a}</span>}
+            {a && <span className="cside">{a}</span>}
             {a && b && <span className="vs">vs</span>}
-            {b && <span className="side">{b}</span>}
+            {b && <span className="cside">{b}</span>}
           </span>
         )}
       </div>
@@ -359,6 +366,14 @@ function renderBlocks(
 
   for (const b of blocks) {
     switch (b.kind) {
+      case "h1":
+        out.push(
+          <h1 key={k++}>
+            {renderInline(b.text)}
+            {cite(b.cite)}
+          </h1>,
+        );
+        break;
       case "h2":
         out.push(
           <h2 key={k++}>

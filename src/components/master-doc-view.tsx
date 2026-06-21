@@ -26,7 +26,7 @@ type MasterDoc = {
   sources: { id: string; name: string }[];
   sourceIds: string[];
   contributorIds: string[];
-  deletedSources: number;
+  deletedSourceNames: string[];
 };
 
 type Props = {
@@ -130,7 +130,9 @@ export function MasterDocView({
                     status: res.status as DocStatus,
                     content: res.content,
                     failureReason: res.failureReason,
+                    sources: res.sources,
                     sourceIds: res.sourceIds,
+                    deletedSourceNames: res.deletedSourceNames,
                     contributorIds: res.contributorIds,
                   }
                 : d,
@@ -196,7 +198,7 @@ export function MasterDocView({
       sources: [],
       sourceIds: [],
       contributorIds: [],
-      deletedSources: 0,
+      deletedSourceNames: [],
     };
     setDocs((prev) => [newDoc, ...prev].slice(0, 4));
     setActiveId(res.masterDocumentId);
@@ -277,7 +279,7 @@ export function MasterDocView({
               </span>
             </button>
           ))}
-          <span className="doc-keep">Keeps last 3</span>
+          <span className="doc-keep">Saves last 3 only</span>
         </div>
       )}
 
@@ -320,9 +322,16 @@ export function MasterDocView({
             </b>
             <ChevronExtIcon />
           </Link>
-          {activeDoc.deletedSources > 0 && (
-            <span className="chip">
-              <b>{activeDoc.deletedSources} deleted</b>
+          {activeDoc.deletedSourceNames.length > 0 && (
+            <span className="chip deleted-chip">
+              <b>{activeDoc.deletedSourceNames.length} deleted</b>
+              <span className="tip">
+                {activeDoc.deletedSourceNames.map((n, i) => (
+                  <span key={i} className="del-name">
+                    {n}
+                  </span>
+                ))}
+              </span>
             </span>
           )}
           {activeDoc.status !== "compiling" && (

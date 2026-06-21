@@ -24,11 +24,11 @@ const DEPTH = {
 
 const CONFLICT_RESOLUTION = {
   trust_pinned:
-    "When sources conflict, trust the pinned contribution's version and write it as fact. Only use <conflict> when pinned sources themselves disagree with each other.",
+    "When two uploaded contributions state different facts about the same thing, trust the pinned contribution's version and write it as fact. Only use <conflict> when pinned contributions themselves disagree with each other on a factual point.",
   trust_majority:
-    "When sources conflict, go with the majority view and write it as fact. Use <conflict> to note significant minority positions.",
+    "When two uploaded contributions state different facts about the same thing, go with the majority version and write it as fact. Only use <conflict> to flag a significant factual discrepancy that cannot be resolved by majority.",
   flag_all:
-    "Do not resolve conflicts. Wrap every conflicting claim in <conflict>...</conflict> showing what each side says.",
+    "When two uploaded contributions state different facts about the same thing, wrap the discrepancy in <conflict>...</conflict>. The a and b attributes should be the names of the two contributions, not names of people being discussed.",
 };
 
 const FACT_CHECK = {
@@ -43,7 +43,7 @@ const XML_TAG_REFERENCE = `
 Use these tags within your markdown output:
 
 - <conflict a="Name of first source" b="Name of second source">Source A says X. Source B says Y.</conflict>
-  Use when two or more sources disagree on a claim. The a and b attributes are optional short labels for each side.
+  Use ONLY when two uploaded student contributions state different facts about the same thing — e.g. one source says a date is 1776 and another says 1778, or one source attributes a quote to person A and another to person B. The a and b attributes are the names of the conflicting contributions, not the names of historical figures or theorists being discussed. Do NOT use <conflict> for differences of opinion, philosophical disagreement, or academic debate — those are part of the subject matter and should be written as normal prose.
 
 - <flagged>suspicious claim here</flagged>
   Use when a claim appears factually dubious.
