@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, Fragment } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
