@@ -30,13 +30,19 @@ export async function generateMetadata({
 
 export default async function CollectionPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ classId: string; topicId: string }>;
+  searchParams: Promise<{ sources?: string }>;
 }) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) notFound();
 
   const { classId, topicId } = await params;
+  const { sources: sourcesParam } = await searchParams;
+  const highlightSources = sourcesParam
+    ? sourcesParam.split(",").filter(Boolean)
+    : undefined;
 
   const [rows, [cls], [member]] = await Promise.all([
     db
@@ -104,6 +110,7 @@ export default async function CollectionPage({
       classId={classId}
       topicId={topicId}
       currentUserId={session.user.id}
+      highlightSources={highlightSources}
     />
   );
 }

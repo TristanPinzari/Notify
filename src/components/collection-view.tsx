@@ -193,6 +193,7 @@ type SourceRowProps = {
   onOpen: (id: string) => void;
   onRemove: (name: string, id: string) => void;
   onUpdate: (id: string, patch: Partial<FileRow>) => void;
+  dimmed?: boolean;
 };
 
 function SourceRow({
@@ -205,6 +206,7 @@ function SourceRow({
   onOpen,
   onRemove,
   onUpdate,
+  dimmed,
 }: SourceRowProps) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -236,7 +238,8 @@ function SourceRow({
   }
 
   const methods = METHODS_FOR_TYPE[f.type];
-  const inspectable = f.status === "ready" || f.status === "compiled" || f.status === "failed";
+  const inspectable =
+    f.status === "ready" || f.status === "compiled" || f.status === "failed";
   const panelOpen = open && inspectable;
 
   async function togglePanel() {
@@ -246,7 +249,10 @@ function SourceRow({
       return;
     }
     setOpen(true);
-    if ((f.status === "ready" || f.status === "compiled") && text === undefined) {
+    if (
+      (f.status === "ready" || f.status === "compiled") &&
+      text === undefined
+    ) {
       setLoadingText(true);
       const res = await getContributionText(classId, f.id);
       if ("text" in res) setText(res.text);
@@ -329,7 +335,9 @@ function SourceRow({
 
   return (
     <>
-      <div className={`file${panelOpen ? " expanded" : ""}`}>
+      <div
+        className={`file${panelOpen ? " expanded" : ""}${dimmed ? " dimmed" : ""}`}
+      >
         <span className={`ftype ${f.type}`}>{TYPE_LABEL[f.type]}</span>
         <div className="finfo">
           <button className="fname-link" onClick={() => onOpen(f.id)}>
@@ -580,6 +588,7 @@ type Props = {
   topicId: string;
   classId: string;
   currentUserId: string;
+  highlightSources?: string[];
 };
 
 export default function CollectionView({
@@ -590,6 +599,7 @@ export default function CollectionView({
   topicId,
   classId,
   currentUserId,
+  highlightSources,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1004,9 +1014,7 @@ export default function CollectionView({
     setFiles((fs) => fs.map((f) => (f.id === id ? { ...f, ...patch } : f)));
   }
 
-  const uncompiled = files.filter(
-    (f) => f.status === "ready",
-  ).length;
+  const uncompiled = files.filter((f) => f.status === "ready").length;
   const processing = files.filter((f) => f.status === "processing").length;
   const stagedSize = staged.reduce(
     (n, s) =>
@@ -1382,20 +1390,23 @@ export default function CollectionView({
         </div>
       ) : (
         <div className="rounded-[15px] bg-(--paper-raised) border border-(--line) overflow-hidden">
-          {files.map((f) => (
-            <SourceRow
-              key={f.id}
-              f={f}
-              currentUserId={currentUserId}
-              classId={classId}
-              topicId={topicId}
-              canDelete={canDelete}
-              canPin={canPin}
-              onOpen={openContribution}
-              onRemove={removeFile}
-              onUpdate={updateFile}
-            />
-          ))}
+          {files.map((f) => {
+            return (
+              <SourceRow
+                key={f.id}
+                f={f}
+                currentUserId={currentUserId}
+                classId={classId}
+                topicId={topicId}
+                canDelete={canDelete}
+                canPin={canPin}
+                onOpen={openContribution}
+                onRemove={removeFile}
+                onUpdate={updateFile}
+                dimmed={!(highlightSources?.includes(f.id) ?? false)}
+              />
+            );
+          })}
         </div>
       )}
     </div>

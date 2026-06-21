@@ -8,6 +8,7 @@ import {
   docConflictResolution,
   docFactCheck,
   masterDocuments,
+  compilationSources,
   contributions,
 } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -119,5 +120,25 @@ export async function getMasterDocumentStatus(masterDocumentId: string) {
     .limit(1);
 
   if (!doc) return { error: "Document not found." };
-  return doc;
+
+  const sourceRows = await db
+    .select({
+      contributionId: compilationSources.contributionId,
+      uploadedBy: compilationSources.snapshotUploadedBy,
+    })
+    .from(compilationSources)
+    .where(eq(compilationSources.masterDocumentId, masterDocumentId));
+
+  const sourceIds = sourceRows
+    .map((r) => r.contributionId)
+    .filter((id): id is string => id !== null);
+  const contributorIds = [
+    ...new Set(
+      sourceRows
+        .map((r) => r.uploadedBy)
+        .filter((id): id is string => id !== null),
+    ),
+  ];
+
+  return { ...doc, sourceIds, contributorIds };
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
+import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import {
@@ -22,6 +23,8 @@ type MasterDoc = {
   factChecking: CompilationSettings["factChecking"];
   sourcesInline: boolean;
   createdAt: string;
+  sourceIds: string[];
+  contributorIds: string[];
 };
 
 type Props = {
@@ -29,9 +32,7 @@ type Props = {
   topicId: string;
   topicName: string;
   canCompile: boolean;
-  masterDoc: MasterDoc | null;
-  contributors: number;
-  sources: number;
+  masterDocs: MasterDoc[];
 };
 
 const DEFAULTS: CompilationSettings = {
@@ -43,6 +44,21 @@ const DEFAULTS: CompilationSettings = {
   fromScratch: false,
 };
 
+const LABEL = {
+  outputType: { bullet: "Bullets", prose: "Prose", both: "Both" } as const,
+  depth: {
+    concise: "Concise",
+    standard: "Standard",
+    detailed: "Detailed",
+  } as const,
+  conflictResolution: {
+    trust_pinned: "Trust Pinned",
+    trust_majority: "Majority",
+    flag_all: "Flag All",
+  } as const,
+  factChecking: { none: "None", flag: "Flag", replace: "Replace" } as const,
+};
+
 function timeAgo(iso: string): string {
   const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
   if (seconds < 60) return "just now";
@@ -50,87 +66,160 @@ function timeAgo(iso: string): string {
   if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "yesterday";
+  return `${days}d ago`;
 }
+
+type CompileStep = "fetching" | "generating" | "saving";
+const HB_STEPS: [CompileStep, string][] = [
+  ["fetching", "Fetching sources"],
+  ["generating", "Generating"],
+  ["saving", "Saving"],
+];
 
 export function MasterDocView({
   classId,
   topicId,
   topicName,
   canCompile,
-  masterDoc,
-  contributors,
-  sources,
+  masterDocs: initialDocs,
 }: Props) {
+  const [docs, setDocs] = useState<MasterDoc[]>(initialDocs);
+  const [activeId, setActiveId] = useState<string | null>(
+    initialDocs[0]?.id ?? null,
+  );
   const [showConfig, setShowConfig] = useState(false);
-  const [compiling, setCompiling] = useState(false);
+  const [compileStep, setCompileStep] = useState<CompileStep | null>(null);
+  const [tokens, setTokens] = useState(0);
+  const tokenTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const [settings, setSettings] = useState<CompilationSettings>(
-    masterDoc
+  const activeDoc = docs.find((d) => d.id === activeId) ?? null;
+  const isCompiling = activeDoc?.status === "compiling";
+  const inProgress = compileStep !== null || isCompiling;
+
+  const [draft, setDraft] = useState<CompilationSettings>(
+    initialDocs[0]
       ? {
-          outputType: masterDoc.outputType,
-          depth: masterDoc.depth,
-          conflictResolution: masterDoc.conflictResolution,
-          factChecking: masterDoc.factChecking,
-          sourcesInline: masterDoc.sourcesInline,
+          outputType: initialDocs[0].outputType,
+          depth: initialDocs[0].depth,
+          conflictResolution: initialDocs[0].conflictResolution,
+          factChecking: initialDocs[0].factChecking,
+          sourcesInline: initialDocs[0].sourcesInline,
           fromScratch: false,
         }
       : DEFAULTS,
   );
 
-  const [docId, setDocId] = useState<string | null>(masterDoc?.id ?? null);
-  const [status, setStatus] = useState<DocStatus | null>(
-    masterDoc?.status ?? null,
-  );
-  const [content, setContent] = useState<string | null>(
-    masterDoc?.content ?? null,
-  );
-  const [failureReason, setFailureReason] = useState<string | null>(
-    masterDoc?.failureReason ?? null,
-  );
-  const [compiledAt, setCompiledAt] = useState<string | null>(
-    masterDoc?.createdAt ?? null,
-  );
+  useEffect(() => {
+    return () => {
+      if (tokenTimer.current) clearInterval(tokenTimer.current);
+    };
+  }, []);
 
   useEffect(() => {
-    if (status !== "compiling" || !docId) return;
+    const compilingDoc = docs.find((d) => d.status === "compiling");
+    if (!compilingDoc) return;
+
     const interval = setInterval(async () => {
-      const res = await getMasterDocumentStatus(docId);
+      const res = await getMasterDocumentStatus(compilingDoc.id);
       if ("error" in res) return;
       if (res.status !== "compiling") {
-        setStatus(res.status);
-        setContent(res.content);
-        setFailureReason(res.failureReason);
-        if (res.status === "ready") setCompiledAt(new Date().toISOString());
+        clearInterval(interval);
+        if (tokenTimer.current) {
+          clearInterval(tokenTimer.current);
+          tokenTimer.current = null;
+        }
+        setCompileStep("saving");
+        setTimeout(() => {
+          setDocs((prev) =>
+            prev.map((d) =>
+              d.id === compilingDoc.id
+                ? {
+                    ...d,
+                    status: res.status as DocStatus,
+                    content: res.content,
+                    failureReason: res.failureReason,
+                    sourceIds: res.sourceIds,
+                    contributorIds: res.contributorIds,
+                  }
+                : d,
+            ),
+          );
+          setCompileStep(null);
+          setTokens(0);
+        }, 750);
       }
     }, 3000);
-    return () => clearInterval(interval);
-  }, [status, docId]);
 
-  async function compile() {
-    setCompiling(true);
-    const res = await createMasterDocument(classId, topicId, settings);
-    if ("error" in res) {
-      toast.error(res.error);
-      setCompiling(false);
-      return;
+    return () => clearInterval(interval);
+  }, [docs]);
+
+  function selectDoc(id: string) {
+    const d = docs.find((x) => x.id === id);
+    setActiveId(id);
+    if (d && d.status !== "compiling") {
+      setDraft({
+        outputType: d.outputType,
+        depth: d.depth,
+        conflictResolution: d.conflictResolution,
+        factChecking: d.factChecking,
+        sourcesInline: d.sourcesInline,
+        fromScratch: false,
+      });
     }
-    setDocId(res.masterDocumentId);
-    setStatus("compiling");
-    setContent(null);
-    setFailureReason(null);
-    setCompiling(false);
   }
 
   function setSetting<K extends keyof CompilationSettings>(
     key: K,
     value: CompilationSettings[K],
   ) {
-    setSettings((s) => ({ ...s, [key]: value }));
+    setDraft((s) => ({ ...s, [key]: value }));
   }
 
-  const hasDoc = masterDoc !== null;
-  const isCompiling = status === "compiling";
+  async function compile() {
+    setCompileStep("fetching");
+
+    const res = await createMasterDocument(classId, topicId, draft);
+
+    if ("error" in res) {
+      toast.error(res.error);
+      setCompileStep(null);
+      return;
+    }
+
+    setCompileStep("generating");
+    tokenTimer.current = setInterval(() => {
+      setTokens((t) => t + Math.floor(90 + Math.random() * 200));
+    }, 110);
+
+    const docSettings: Omit<CompilationSettings, "fromScratch"> = {
+      outputType: draft.outputType,
+      depth: draft.depth,
+      conflictResolution: draft.conflictResolution,
+      factChecking: draft.factChecking,
+      sourcesInline: draft.sourcesInline,
+    };
+    const newDoc: MasterDoc = {
+      id: res.masterDocumentId,
+      status: "compiling",
+      content: null,
+      failureReason: null,
+      ...docSettings,
+      createdAt: new Date().toISOString(),
+      sourceIds: [],
+      contributorIds: [],
+    };
+    setDocs((prev) => [newDoc, ...prev].slice(0, 4));
+    setActiveId(res.masterDocumentId);
+  }
+
+  const stepIndex = compileStep
+    ? HB_STEPS.findIndex(([k]) => k === compileStep)
+    : -1;
+  const sources = activeDoc?.sourceIds.length ?? 0;
+  const contributors = activeDoc?.contributorIds.length ?? 0;
+  const hasDoc = docs.length > 0;
 
   return (
     <div className="pane ruled">
@@ -140,11 +229,19 @@ export function MasterDocView({
           <h1 className="pane-title">{topicName}</h1>
         </div>
         {canCompile && (
-          <div className="flex gap-2 shrink-0 mt-2">
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexShrink: 0,
+              alignItems: "center",
+            }}
+          >
             <button
               className="btn btn-ghost"
               style={{ fontSize: 13.5, padding: "10px 16px", borderRadius: 10 }}
               onClick={() => setShowConfig((s) => !s)}
+              disabled={inProgress}
             >
               <SettingsIcon />
               Compile settings
@@ -153,12 +250,18 @@ export function MasterDocView({
               className="btn btn-primary"
               style={{ fontSize: 13.5, padding: "10px 16px", borderRadius: 10 }}
               onClick={compile}
-              disabled={compiling || isCompiling}
+              disabled={inProgress}
             >
-              {isCompiling || compiling ? (
+              {inProgress ? (
                 <>
                   <span className="mini-spin" />
-                  Compiling…
+                  {compileStep === "fetching"
+                    ? "Fetching sources…"
+                    : compileStep === "generating"
+                      ? "Generating"
+                      : compileStep === "saving"
+                        ? "Saving…"
+                        : "Compiling…"}
                 </>
               ) : (
                 <>
@@ -171,37 +274,103 @@ export function MasterDocView({
         )}
       </div>
 
-      <div
-        className="flex flex-wrap gap-2"
-        style={{ marginBottom: showConfig ? 18 : 24 }}
-      >
-        <span className="chip">
-          <MembersIcon />
-          From{" "}
-          <b>
-            {contributors} contributor{contributors !== 1 ? "s" : ""}
-          </b>
-        </span>
-        <span className="chip">
-          <CollectionIcon />
-          <b>
-            {sources} source{sources !== 1 ? "s" : ""}
-          </b>
-        </span>
-        {compiledAt && !isCompiling && (
-          <span className="chip">
-            <ClockIcon />
-            Compiled <b>{timeAgo(compiledAt)}</b>
-          </span>
-        )}
-      </div>
+      {/* Version switcher */}
+      {docs.length > 0 && (
+        <div className="doc-switch">
+          {docs.map((d) => (
+            <button
+              key={d.id}
+              className={`doc-pill${d.id === activeId ? " on" : ""}`}
+              onClick={() => selectDoc(d.id)}
+            >
+              <span className="dp-when">{timeAgo(d.createdAt)}</span>
+              <span className="dp-meta">
+                {LABEL.outputType[d.outputType]} · {d.sourceIds.length} sources
+              </span>
+            </button>
+          ))}
+          <span className="doc-keep">Keeps last 3</span>
+        </div>
+      )}
 
-      {showConfig && (
-        <div className="rounded-[15px] bg-(--paper-raised) border border-(--line) px-4.5 mb-6">
+      {/* Provenance chips */}
+      {activeDoc && (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            marginBottom: 24,
+          }}
+        >
+          <Link
+            className="chip link"
+            href={
+              contributors > 0
+                ? `/home/${classId}/${topicId}/collection?members=${activeDoc.contributorIds.join(",")}`
+                : `/home/${classId}/${topicId}/collection`
+            }
+          >
+            <MembersIcon />
+            From{" "}
+            <b>
+              {contributors} contributor{contributors !== 1 ? "s" : ""}
+            </b>
+            <ChevronExtIcon />
+          </Link>
+          <Link
+            className="chip link"
+            href={
+              sources > 0
+                ? `/home/${classId}/${topicId}/collection?sources=${activeDoc.sourceIds.join(",")}`
+                : `/home/${classId}/${topicId}/collection`
+            }
+          >
+            <CollectionIcon />
+            <b>
+              {sources} source{sources !== 1 ? "s" : ""}
+            </b>
+            <ChevronExtIcon />
+          </Link>
+          {activeDoc.status !== "compiling" && (
+            <span className="chip">
+              <ClockIcon />
+              Compiled <b>{timeAgo(activeDoc.createdAt)}</b>
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Specbar — read-only settings of the selected doc */}
+      {activeDoc && activeDoc.status !== "compiling" && (
+        <div className="specbar">
+          <span className="sb-lead">Compiled with</span>
+          <span className="spec">
+            <i>Format</i> {LABEL.outputType[activeDoc.outputType]}
+          </span>
+          <span className="spec">
+            <i>Depth</i> {LABEL.depth[activeDoc.depth]}
+          </span>
+          <span className="spec">
+            <i>Conflicts</i>{" "}
+            {LABEL.conflictResolution[activeDoc.conflictResolution]}
+          </span>
+          <span className="spec">
+            <i>Fact-check</i> {LABEL.factChecking[activeDoc.factChecking]}
+          </span>
+          <span className={`spec${activeDoc.sourcesInline ? "" : " off"}`}>
+            <i>Inline sources</i> {activeDoc.sourcesInline ? "On" : "Off"}
+          </span>
+        </div>
+      )}
+
+      {/* Compile settings panel */}
+      {showConfig && !inProgress && (
+        <div className="cfg rounded-[15px] bg-(--paper-raised) border border-(--line) px-[18px] mb-6">
           <div className="set-row">
-            <div className="set-row-label">
-              <div className="set-row-title">Format</div>
-              <div className="set-row-desc">
+            <div className="sl">
+              <div className="st">Format</div>
+              <div className="set-desc">
                 Bullet points, prose paragraphs, or a mix of both.
               </div>
             </div>
@@ -209,41 +378,35 @@ export function MasterDocView({
               {(["bullet", "prose", "both"] as const).map((v) => (
                 <button
                   key={v}
-                  className={settings.outputType === v ? "on" : ""}
+                  className={draft.outputType === v ? "on" : ""}
                   onClick={() => setSetting("outputType", v)}
                 >
-                  {v === "bullet"
-                    ? "Bullets"
-                    : v === "prose"
-                      ? "Prose"
-                      : "Both"}
+                  {LABEL.outputType[v]}
                 </button>
               ))}
             </div>
           </div>
-
           <div className="set-row">
-            <div className="set-row-label">
-              <div className="set-row-title">Depth</div>
-              <div className="set-row-desc">How much detail to include.</div>
+            <div className="sl">
+              <div className="st">Depth</div>
+              <div className="set-desc">How much detail to include.</div>
             </div>
             <div className="fmt-seg">
               {(["concise", "standard", "detailed"] as const).map((v) => (
                 <button
                   key={v}
-                  className={settings.depth === v ? "on" : ""}
+                  className={draft.depth === v ? "on" : ""}
                   onClick={() => setSetting("depth", v)}
                 >
-                  {v.charAt(0).toUpperCase() + v.slice(1)}
+                  {LABEL.depth[v]}
                 </button>
               ))}
             </div>
           </div>
-
           <div className="set-row">
-            <div className="set-row-label">
-              <div className="set-row-title">Conflicts</div>
-              <div className="set-row-desc">
+            <div className="sl">
+              <div className="st">Conflicts</div>
+              <div className="set-desc">
                 How to handle disagreements between sources.
               </div>
             </div>
@@ -252,24 +415,19 @@ export function MasterDocView({
                 (v) => (
                   <button
                     key={v}
-                    className={settings.conflictResolution === v ? "on" : ""}
+                    className={draft.conflictResolution === v ? "on" : ""}
                     onClick={() => setSetting("conflictResolution", v)}
                   >
-                    {v === "trust_pinned"
-                      ? "Trust Pinned"
-                      : v === "trust_majority"
-                        ? "Majority"
-                        : "Flag All"}
+                    {LABEL.conflictResolution[v]}
                   </button>
                 ),
               )}
             </div>
           </div>
-
           <div className="set-row">
-            <div className="set-row-label">
-              <div className="set-row-title">Fact-check</div>
-              <div className="set-row-desc">
+            <div className="sl">
+              <div className="st">Fact-check</div>
+              <div className="set-desc">
                 How to handle potentially incorrect claims.
               </div>
             </div>
@@ -277,96 +435,126 @@ export function MasterDocView({
               {(["none", "flag", "replace"] as const).map((v) => (
                 <button
                   key={v}
-                  className={settings.factChecking === v ? "on" : ""}
+                  className={draft.factChecking === v ? "on" : ""}
                   onClick={() => setSetting("factChecking", v)}
                 >
-                  {v.charAt(0).toUpperCase() + v.slice(1)}
+                  {LABEL.factChecking[v]}
                 </button>
               ))}
             </div>
           </div>
-
           <div className="set-row">
-            <div className="set-row-label">
-              <div className="set-row-title">Inline sources</div>
-              <div className="set-row-desc">
+            <div className="sl">
+              <div className="st">Inline sources</div>
+              <div className="set-desc">
                 Add source citations next to claims.
               </div>
             </div>
             <label className="toggle">
               <input
                 type="checkbox"
-                checked={settings.sourcesInline}
+                checked={draft.sourcesInline}
                 onChange={() =>
-                  setSetting("sourcesInline", !settings.sourcesInline)
+                  setSetting("sourcesInline", !draft.sourcesInline)
                 }
               />
               <span className="track" />
             </label>
           </div>
-
-          {hasDoc && (
-            <div className="set-row">
-              <div className="set-row-label">
-                <div className="set-row-title">Recompile from scratch</div>
-                <div className="set-row-desc">
-                  Include all sources, not just new ones since the last compile.
-                </div>
+          <div className={`set-row${hasDoc ? " scratch" : ""}`}>
+            <div className="sl">
+              <div className="st">Recompile from scratch</div>
+              <div className="set-desc">
+                Include all sources, not just new ones since the last compile.
               </div>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={settings.fromScratch}
-                  onChange={() =>
-                    setSetting("fromScratch", !settings.fromScratch)
-                  }
-                />
-                <span className="track" />
-              </label>
             </div>
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={draft.fromScratch}
+                onChange={() => setSetting("fromScratch", !draft.fromScratch)}
+              />
+              <span className="track" />
+            </label>
+          </div>
+        </div>
+      )}
+
+      {/* Compile heartbeat */}
+      {inProgress && (
+        <div className="card hb">
+          {HB_STEPS.map(([key, label], i) => {
+            const state =
+              stepIndex < 0
+                ? ""
+                : i < stepIndex
+                  ? "done"
+                  : i === stepIndex
+                    ? "on"
+                    : "";
+            return (
+              <Fragment key={key}>
+                {i > 0 && <span className="hb-line" />}
+                <span className={`hb-step${state ? ` ${state}` : ""}`}>
+                  <span className="hb-ic">
+                    {state === "done" ? (
+                      <CheckIcon />
+                    ) : state === "on" ? (
+                      <span className="spin-amber" />
+                    ) : (
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: 9,
+                          background: "var(--ink-fainter)",
+                        }}
+                      />
+                    )}
+                  </span>
+                  {label}
+                  {state === "on" && key === "generating" ? "…" : ""}
+                </span>
+              </Fragment>
+            );
+          })}
+          {compileStep === "generating" && (
+            <span className="hb-tok">{tokens.toLocaleString()} tokens</span>
           )}
         </div>
       )}
 
-      {isCompiling ? (
-        <div className="flex flex-col items-center text-center py-16 gap-3">
-          <span className="mini-spin" style={{ width: 28, height: 28 }} />
-          <p className="text-[15px] text-(--ink-heading) font-semibold m-0">
-            Compiling…
-          </p>
-          <p className="text-[13.5px] text-(--ink-faint) m-0 max-w-xs">
-            This may take a minute. The page will update automatically.
-          </p>
-        </div>
-      ) : status === "failed" ? (
-        <div className="flex flex-col items-center text-center py-16 gap-3">
-          <FailIcon />
-          <p className="text-[15px] text-(--ink-heading) font-semibold m-0">
-            Compilation failed
-          </p>
-          {failureReason && (
-            <p className="text-[13.5px] text-(--ink-faint) m-0 max-w-sm">
-              {failureReason}
+      {/* Content */}
+      {!inProgress &&
+        (activeDoc?.status === "failed" ? (
+          <div className="flex flex-col items-center text-center py-16 gap-3">
+            <FailIcon />
+            <p className="text-[15px] text-(--ink-heading) font-semibold m-0">
+              Compilation failed
             </p>
-          )}
-        </div>
-      ) : content ? (
-        <article className="doc">
-          <ReactMarkdown>{content}</ReactMarkdown>
-        </article>
-      ) : (
-        <div className="flex flex-col items-center text-center py-16 gap-3">
-          <DocEmptyIcon />
-          <p className="text-[15px] text-(--ink-heading) font-semibold m-0">
-            No document yet
-          </p>
-          <p className="text-[13.5px] text-(--ink-faint) m-0 max-w-xs">
-            Add sources in the Collection tab, then click{" "}
-            <strong>{hasDoc ? "Recompile" : "Compile"}</strong> to generate the
-            master document.
-          </p>
-        </div>
-      )}
+            {activeDoc.failureReason && (
+              <p className="text-[13.5px] text-(--ink-faint) m-0 max-w-sm">
+                {activeDoc.failureReason}
+              </p>
+            )}
+          </div>
+        ) : activeDoc?.content ? (
+          <article className="doc">
+            <ReactMarkdown>{activeDoc.content}</ReactMarkdown>
+          </article>
+        ) : (
+          <div className="flex flex-col items-center text-center py-16 gap-3">
+            <DocEmptyIcon />
+            <p className="text-[15px] text-(--ink-heading) font-semibold m-0">
+              No document yet
+            </p>
+            <p className="text-[13.5px] text-(--ink-faint) m-0 max-w-xs">
+              Add sources in the Collection tab, then click{" "}
+              <strong>{hasDoc ? "Recompile" : "Compile"}</strong> to generate
+              the master document.
+            </p>
+          </div>
+        ))}
     </div>
   );
 }
@@ -460,6 +648,59 @@ function ClockIcon() {
     >
       <circle cx="12" cy="12" r="10" />
       <path d="M12 6v6l4 2" />
+    </svg>
+  );
+}
+
+function SparkleIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+      <path d="M19 3l.9 2.1L22 6l-2.1.9L19 9l-.9-2.1L16 6l2.1-.9z" />
+    </svg>
+  );
+}
+
+function ChevronExtIcon() {
+  return (
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="ext"
+    >
+      <path d="M7 17L17 7M7 7h10v10" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 6L9 17l-5-5" />
     </svg>
   );
 }

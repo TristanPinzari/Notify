@@ -226,7 +226,27 @@ export async function runCompilation(
     throw new Error(reason);
   }
 
-  const fullPrompt = buildPrompt(forPrompt, settings, "", true);
+  // Fetch the previous ready document for incremental merging (not from scratch)
+  let existingDocument: string | undefined;
+  if (!settings.fromScratch) {
+    const [prev] = await db
+      .select({ content: masterDocuments.content })
+      .from(masterDocuments)
+      .where(
+        and(
+          eq(masterDocuments.topicId, topicId),
+          eq(masterDocuments.status, "ready"),
+        ),
+      )
+      .orderBy(desc(masterDocuments.createdAt))
+      .limit(1);
+    if (prev?.content) {
+      existingDocument = prev.content;
+      console.log(`[runCompilation] incremental mode — existing doc is ${existingDocument.length} chars`);
+    }
+  }
+
+  const fullPrompt = buildPrompt(forPrompt, settings, "", true, existingDocument);
   const totalTokens = await ai.countTokens(fullPrompt);
   console.log(`[runCompilation] token count: ${totalTokens.toLocaleString()}`);
 
@@ -243,6 +263,7 @@ export async function runCompilation(
       settings,
       "",
       false,
+      existingDocument,
     );
     const contextBlock = await ai.generate(firstPrompt);
     console.log(`[runCompilation] two-pass generation (pass 2/2)…`);
@@ -251,6 +272,7 @@ export async function runCompilation(
       settings,
       contextBlock,
       true,
+      existingDocument,
     );
     content = await ai.generate(secondPrompt);
   } else {

@@ -69,11 +69,14 @@ export function buildPrompt(
   settings: CompilationSettings,
   previousContext: string,
   isFinal: boolean,
+  existingDocument?: string,
 ): string {
   const sections: string[] = [];
 
   sections.push(
-    "You are compiling student contributions into a single master document for a university course topic.",
+    existingDocument
+      ? "You are updating a master document for a university course topic by merging in new student contributions."
+      : "You are compiling student contributions into a single master document for a university course topic.",
   );
 
   sections.push(XML_TAG_REFERENCE);
@@ -85,15 +88,23 @@ export function buildPrompt(
 - ${FACT_CHECK[settings.factChecking]}
 - ${settings.sourcesInline ? "Add <source /> tags inline after sentences that draw from a specific contribution." : "Do not add inline source citations."}`);
 
+  if (existingDocument) {
+    sections.push(
+      `## Existing Document\nThis is the current version. Preserve all its content unless a new contribution directly contradicts it with a higher-priority source or a factual correction.\n\n${existingDocument}`,
+    );
+  }
+
   if (previousContext) {
     sections.push(`## Context from Previous Pass\n${previousContext}`);
   }
 
-  sections.push(`## Contributions\n${formatContributions(contributions)}`);
+  sections.push(`## New Contributions\n${formatContributions(contributions)}`);
 
   if (isFinal) {
     sections.push(
-      "Write the complete master document in markdown now. Do not include any preamble or explanation — output only the document itself.",
+      existingDocument
+        ? "Write the updated master document in markdown now, integrating the new contributions into the existing document. Do not include any preamble or explanation — output only the document itself."
+        : "Write the complete master document in markdown now. Do not include any preamble or explanation — output only the document itself.",
     );
   } else {
     sections.push(

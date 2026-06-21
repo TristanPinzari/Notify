@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import { db } from "@/server/db";
 import {
   masterDocuments,
-  contributions,
+  compilationSources,
   topics,
   userClasses,
   classes,
   RANK_VALUE,
 } from "@/server/db/schema";
-import { and, eq, count, countDistinct, desc } from "drizzle-orm";
+import { and, eq, desc, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
@@ -38,7 +38,7 @@ export default async function MasterDocPage({
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) notFound();
 
-  const [topicRows, docRows, statsRows, memberRows] = await Promise.all([
+  const [topicRows, docRows, memberRows] = await Promise.all([
     db
       .select({ name: topics.name })
       .from(topics)
@@ -68,15 +68,7 @@ export default async function MasterDocPage({
       .from(masterDocuments)
       .where(eq(masterDocuments.topicId, topicId))
       .orderBy(desc(masterDocuments.createdAt))
-      .limit(1),
-
-    db
-      .select({
-        contributors: countDistinct(contributions.uploadedBy),
-        sources: count(contributions.id),
-      })
-      .from(contributions)
-      .where(eq(contributions.topicId, topicId)),
+      .limit(4),
 
     db
       .select({
@@ -96,12 +88,50 @@ export default async function MasterDocPage({
 
   if (!topicRows[0]) notFound();
 
+  const allSourceRows =
+    docRows.length > 0
+      ? await db
+          .select({
+            masterDocumentId: compilationSources.masterDocumentId,
+            contributionId: compilationSources.contributionId,
+            uploadedBy: compilationSources.snapshotUploadedBy,
+          })
+          .from(compilationSources)
+          .where(
+            inArray(
+              compilationSources.masterDocumentId,
+              docRows.map((d) => d.id),
+            ),
+          )
+      : [];
+
+  const sourcesByDoc: Record<
+    string,
+    { sourceIds: string[]; contributorIds: string[] }
+  > = {};
+  for (const r of allSourceRows) {
+    if (!sourcesByDoc[r.masterDocumentId])
+      sourcesByDoc[r.masterDocumentId] = { sourceIds: [], contributorIds: [] };
+    if (r.contributionId)
+      sourcesByDoc[r.masterDocumentId].sourceIds.push(r.contributionId);
+    if (
+      r.uploadedBy &&
+      !sourcesByDoc[r.masterDocumentId].contributorIds.includes(r.uploadedBy)
+    )
+      sourcesByDoc[r.masterDocumentId].contributorIds.push(r.uploadedBy);
+  }
+
+  const serializedDocs = docRows.map((d) => ({
+    ...d,
+    createdAt: d.createdAt.toISOString(),
+    sourceIds: sourcesByDoc[d.id]?.sourceIds ?? [],
+    contributorIds: sourcesByDoc[d.id]?.contributorIds ?? [],
+  }));
+
   const member = memberRows[0];
   const canCompile = member
     ? RANK_VALUE[member.rank] >= RANK_VALUE[member.minRankTriggerCompilation]
     : false;
-
-  const doc = docRows[0];
 
   return (
     <MasterDocView
@@ -109,13 +139,7 @@ export default async function MasterDocPage({
       topicId={topicId}
       topicName={topicRows[0].name}
       canCompile={canCompile}
-      masterDoc={
-        doc
-          ? { ...doc, createdAt: doc.createdAt.toISOString() }
-          : null
-      }
-      contributors={statsRows[0]?.contributors ?? 0}
-      sources={statsRows[0]?.sources ?? 0}
+      masterDocs={serializedDocs}
     />
   );
 }
