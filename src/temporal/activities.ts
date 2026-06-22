@@ -3,6 +3,7 @@ import {
   GetObjectCommand,
   ListObjectsV2Command,
   DeleteObjectsCommand,
+  PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { db } from "@/server/db";
@@ -21,6 +22,13 @@ import { Mistral } from "@mistralai/mistralai";
 import { CompilationSettings } from "@/server/actions/master-documents";
 import { Gemini } from "@/lib/ai";
 import { buildPrompt } from "@/lib/prompt";
+import { extractVideoId } from "@/lib/youtube";
+import puppeteer from "puppeteer";
+import { CompiledDoc } from "@/components/doc-render";
+import { renderToStaticMarkup } from "react-dom/server";
+import React from "react";
+import fs from "fs";
+import path from "path";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION! });
 
@@ -35,10 +43,6 @@ async function fetchS3Buffer(s3Key: string): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-function extractVideoId(url: string): string | null {
-  const match = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  return match ? match[1] : null;
-}
 
 async function runExtraction(
   input: ExtractionInput,
@@ -140,7 +144,9 @@ async function runExtraction(
 }
 
 export async function extractText(input: ExtractionInput): Promise<void> {
-  console.log(`[extractText] start — contribution ${input.contributionId} method=${input.extractionMethod}`);
+  console.log(
+    `[extractText] start — contribution ${input.contributionId} method=${input.extractionMethod}`,
+  );
   let res: { title?: string; text: string } = { text: "" };
 
   try {
@@ -149,7 +155,9 @@ export async function extractText(input: ExtractionInput): Promise<void> {
       throw new Error("Extraction succeeded but returned no text.");
   } catch (e) {
     const failureReason = e instanceof Error ? e.message : String(e);
-    console.error(`[extractText] failed — contribution ${input.contributionId}: ${failureReason}`);
+    console.error(
+      `[extractText] failed — contribution ${input.contributionId}: ${failureReason}`,
+    );
     await db
       .update(contributions)
       .set({
@@ -161,7 +169,9 @@ export async function extractText(input: ExtractionInput): Promise<void> {
     throw e;
   }
 
-  console.log(`[extractText] done — contribution ${input.contributionId} (${res.text.length} chars)`);
+  console.log(
+    `[extractText] done — contribution ${input.contributionId} (${res.text.length} chars)`,
+  );
   await db
     .update(contributions)
     .set({
@@ -177,7 +187,9 @@ export async function runCompilation(
   topicId: string,
   settings: CompilationSettings,
 ): Promise<void> {
-  console.log(`[runCompilation] start — masterDocument ${masterDocumentId} topic=${topicId}`);
+  console.log(
+    `[runCompilation] start — masterDocument ${masterDocumentId} topic=${topicId}`,
+  );
   const rows = await db
     .select({
       id: contributions.id,
@@ -203,7 +215,9 @@ export async function runCompilation(
     .map((r) => ({ ...r, text: r.text! }));
 
   if (forPrompt.length === 0) {
-    console.error(`[runCompilation] no contributions to compile — masterDocument ${masterDocumentId}`);
+    console.error(
+      `[runCompilation] no contributions to compile — masterDocument ${masterDocumentId}`,
+    );
     await db
       .update(masterDocuments)
       .set({
@@ -215,7 +229,9 @@ export async function runCompilation(
     return;
   }
 
-  console.log(`[runCompilation] ${forPrompt.length} contributions loaded, counting tokens…`);
+  console.log(
+    `[runCompilation] ${forPrompt.length} contributions loaded, counting tokens…`,
+  );
   const ai = new Gemini(process.env.GEMINI_API_KEY!);
 
   async function failWith(reason: string) {
@@ -244,11 +260,19 @@ export async function runCompilation(
     if (prev?.content) {
       existingDocument = prev.content;
       prevDocId = prev.id;
-      console.log(`[runCompilation] incremental mode — existing doc is ${existingDocument.length} chars`);
+      console.log(
+        `[runCompilation] incremental mode — existing doc is ${existingDocument.length} chars`,
+      );
     }
   }
 
-  const fullPrompt = buildPrompt(forPrompt, settings, "", true, existingDocument);
+  const fullPrompt = buildPrompt(
+    forPrompt,
+    settings,
+    "",
+    true,
+    existingDocument,
+  );
   const totalTokens = await ai.countTokens(fullPrompt);
   console.log(`[runCompilation] token count: ${totalTokens.toLocaleString()}`);
 
@@ -284,7 +308,9 @@ export async function runCompilation(
     return;
   }
 
-  console.log(`[runCompilation] generation done (${content.length} chars), saving…`);
+  console.log(
+    `[runCompilation] generation done (${content.length} chars), saving…`,
+  );
   await db
     .update(masterDocuments)
     .set({ content, status: "ready" })
@@ -311,17 +337,31 @@ export async function runCompilation(
       snapshotUploadedBy: r.uploadedBy,
       snapshotUploaderName: r.uploaderName,
     })),
-    ...inheritedSources.map((s) => ({ ...s, id: crypto.randomUUID(), masterDocumentId })),
+    ...inheritedSources.map((s) => ({
+      ...s,
+      id: crypto.randomUUID(),
+      masterDocumentId,
+    })),
   ]);
 
   const oldDocs = await db
     .select({ id: masterDocuments.id })
     .from(masterDocuments)
-    .where(and(eq(masterDocuments.topicId, topicId), eq(masterDocuments.status, "ready")))
+    .where(
+      and(
+        eq(masterDocuments.topicId, topicId),
+        eq(masterDocuments.status, "ready"),
+      ),
+    )
     .orderBy(desc(masterDocuments.createdAt))
     .offset(3);
   if (oldDocs.length > 0)
-    await db.delete(masterDocuments).where(inArray(masterDocuments.id, oldDocs.map((d) => d.id)));
+    await db.delete(masterDocuments).where(
+      inArray(
+        masterDocuments.id,
+        oldDocs.map((d) => d.id),
+      ),
+    );
 
   await db
     .update(contributions)
@@ -336,12 +376,107 @@ export async function runCompilation(
   console.log(`[runCompilation] complete — masterDocument ${masterDocumentId}`);
 }
 
+export async function generatePDF(
+  classId: string,
+  topicId: string,
+  masterDocumentId: string,
+) {
+  console.log(`[generatePDF] start — masterDocument ${masterDocumentId}`);
+  try {
+    const [doc] = await db
+      .select({ content: masterDocuments.content })
+      .from(masterDocuments)
+      .where(eq(masterDocuments.id, masterDocumentId))
+      .limit(1);
+    if (!doc) throw new Error("Master document does not exist.");
+    if (!doc.content) throw new Error("Master document has no content.");
+
+    const sourceRows = await db
+      .select({
+        contributionId: compilationSources.contributionId,
+        contributionName: contributions.name,
+        snapshotName: compilationSources.snapshotName,
+      })
+      .from(compilationSources)
+      .leftJoin(
+        contributions,
+        eq(compilationSources.contributionId, contributions.id),
+      )
+      .where(eq(compilationSources.masterDocumentId, masterDocumentId));
+
+    const allSources = sourceRows.map((r) => ({
+      id: r.contributionId ?? undefined,
+      name: r.contributionName ?? r.snapshotName ?? "Unknown",
+    }));
+
+    const css = fs.readFileSync(
+      path.join(process.cwd(), "src/app/globals.css"),
+      "utf-8",
+    );
+    const body = renderToStaticMarkup(
+      React.createElement(CompiledDoc, {
+        markdown: doc.content,
+        classId,
+        topicId,
+        allSources,
+      }),
+    );
+    const baseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+    const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8" /><base href="${baseUrl}" /><style>${css}@page{margin:20mm 18mm;background-color:#f4efe4}html,body{background:var(--paper)}</style></head><body>${body}</body></html>`;
+
+    const browser = await puppeteer.launch({ headless: "shell" });
+    let pdf: Buffer;
+    try {
+      const page = await browser.newPage();
+      await page.setContent(fullHtml, { waitUntil: "load" });
+      pdf = Buffer.from(
+        await page.pdf({
+          format: "A4",
+          printBackground: true,
+          margin: { top: "0", bottom: "0", left: "0", right: "0" },
+        }),
+      );
+    } finally {
+      await browser.close();
+    }
+
+    const s3Key = `pdfs/${masterDocumentId}.pdf`;
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET!,
+        Key: s3Key,
+        Body: pdf,
+        ContentType: "application/pdf",
+      }),
+    );
+
+    await db
+      .update(masterDocuments)
+      .set({ pdfStatus: "ready", pdfS3Key: s3Key })
+      .where(eq(masterDocuments.id, masterDocumentId));
+
+    console.log(`[generatePDF] complete — masterDocument ${masterDocumentId}`);
+  } catch (e) {
+    await db
+      .update(masterDocuments)
+      .set({ pdfStatus: "failed" })
+      .where(eq(masterDocuments.id, masterDocumentId));
+    throw e;
+  }
+}
+
 export async function cleanOrphanedFiles() {
   console.log(`[cleanOrphanedFiles] start`);
-  const rows = await db
+
+  const contribRows = await db
     .select({ s3Key: contributions.s3Key })
     .from(contributions);
-  const keySet = new Set(rows.map((r) => r.s3Key));
+  const contribKeySet = new Set(contribRows.map((r) => r.s3Key));
+
+  const pdfRows = await db
+    .select({ pdfS3Key: masterDocuments.pdfS3Key })
+    .from(masterDocuments);
+  const pdfKeySet = new Set(pdfRows.map((r) => r.pdfS3Key).filter(Boolean));
 
   const GRACE_MS = 10 * 60 * 1000;
   const now = Date.now();
@@ -357,9 +492,10 @@ export async function cleanOrphanedFiles() {
     );
     for (const obj of res.Contents ?? []) {
       if (!obj.Key) continue;
-      if (!obj.Key.startsWith("contributions/")) continue;
-      if (keySet.has(obj.Key)) continue;
-      if (now - (obj.LastModified?.getTime() ?? now) > GRACE_MS)
+      if (now - (obj.LastModified?.getTime() ?? now) <= GRACE_MS) continue;
+      if (obj.Key.startsWith("contributions/") && !contribKeySet.has(obj.Key))
+        orphans.push(obj.Key);
+      else if (obj.Key.startsWith("master-pdfs/") && !pdfKeySet.has(obj.Key))
         orphans.push(obj.Key);
     }
     continuationToken =
@@ -406,6 +542,7 @@ export async function cleanStuckContributions() {
 export type Activities = {
   extractText: typeof extractText;
   runCompilation: typeof runCompilation;
+  generatePDF: typeof generatePDF;
   cleanOrphanedFiles: typeof cleanOrphanedFiles;
   cleanStuckContributions: typeof cleanStuckContributions;
 };

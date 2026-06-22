@@ -46,13 +46,27 @@ export const docOutputType = pgEnum("doc_output_type", [
   "bullet",
   "both",
 ]);
-export const docDepth = pgEnum("doc_depth", ["concise", "standard", "detailed"]);
+export const docDepth = pgEnum("doc_depth", [
+  "concise",
+  "standard",
+  "detailed",
+]);
 export const docConflictResolution = pgEnum("doc_conflict_resolution", [
   "trust_pinned",
   "trust_majority",
   "flag_all",
 ]);
-export const docFactCheck = pgEnum("doc_fact_check", ["none", "flag", "replace"]);
+export const docFactCheck = pgEnum("doc_fact_check", [
+  "none",
+  "flag",
+  "replace",
+]);
+export const pdfStatus = pgEnum("pdf_status", [
+  "pending",
+  "generating",
+  "ready",
+  "failed",
+]);
 
 export type CType = (typeof contributionType.enumValues)[number];
 export type CStatus = (typeof contributionStatus.enumValues)[number];
@@ -185,6 +199,8 @@ export const masterDocuments = pgTable("master_documents", {
   factChecking: docFactCheck("fact_check").notNull().default("flag"),
   sourcesInline: boolean("sources_inline").notNull().default(false),
   failureReason: text("failure_reason"),
+  pdfS3Key: text("pdf_s3_key"),
+  pdfStatus: pdfStatus("pdf_status").notNull().default("pending"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -247,7 +263,9 @@ export const activityLogs = pgTable("activity_logs", {
   classId: text("class_id")
     .notNull()
     .references(() => classes.id, { onDelete: "cascade" }),
-  topicId: text("topic_id").references(() => topics.id, { onDelete: "set null" }),
+  topicId: text("topic_id").references(() => topics.id, {
+    onDelete: "set null",
+  }),
   userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
   action: text("action").notNull(),
   metadata: text("metadata"),

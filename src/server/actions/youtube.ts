@@ -2,6 +2,7 @@
 
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
+import { extractVideoId } from "@/lib/youtube";
 
 interface YoutubeVideoItem {
   id: string;
@@ -17,10 +18,6 @@ interface YoutubePlaylistItem {
   };
 }
 
-function extractVideoId(url: string): string | null {
-  const match = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  return match ? match[1] : null;
-}
 
 function extractPlaylistId(url: string): string | null {
   const match = url.match(/[?&]list=([a-zA-Z0-9_-]+)/);

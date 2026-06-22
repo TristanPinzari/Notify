@@ -64,6 +64,7 @@ export default async function MasterDocPage({
         conflictResolution: masterDocuments.conflictResolution,
         factChecking: masterDocuments.factChecking,
         sourcesInline: masterDocuments.sourcesInline,
+        pdfStatus: masterDocuments.pdfStatus,
         createdAt: masterDocuments.createdAt,
       })
       .from(masterDocuments)

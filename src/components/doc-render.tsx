@@ -434,7 +434,7 @@ export function CompiledDoc({
   markdown: string;
   classId: string;
   topicId: string;
-  allSources?: { id: string; name: string }[];
+  allSources?: { id?: string; name: string }[];
 }) {
   const { body, sources } = useMemo(() => {
     const reg = makeRegistry();

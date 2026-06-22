@@ -6,11 +6,13 @@ import { CompiledDoc } from "@/components/doc-render";
 import { toast } from "sonner";
 import {
   createMasterDocument,
+  createPDF,
   getMasterDocumentStatus,
 } from "@/server/actions/master-documents";
 import type { CompilationSettings } from "@/server/actions/master-documents";
 
 type DocStatus = "compiling" | "ready" | "failed";
+type PdfStatus = "pending" | "generating" | "ready" | "failed";
 
 type MasterDoc = {
   id: string;
@@ -27,6 +29,7 @@ type MasterDoc = {
   sourceIds: string[];
   contributorIds: string[];
   deletedSourceNames: string[];
+  pdfStatus: PdfStatus;
 };
 
 type Props = {
@@ -93,6 +96,7 @@ export function MasterDocView({
   );
   const [showConfig, setShowConfig] = useState(false);
   const [compileStep, setCompileStep] = useState<CompileStep | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const activeDoc = docs.find((d) => d.id === activeId) ?? null;
   const isCompiling = activeDoc?.status === "compiling";
@@ -134,6 +138,7 @@ export function MasterDocView({
                     sourceIds: res.sourceIds,
                     deletedSourceNames: res.deletedSourceNames,
                     contributorIds: res.contributorIds,
+                    pdfStatus: res.pdfStatus,
                   }
                 : d,
             ),
@@ -145,6 +150,54 @@ export function MasterDocView({
 
     return () => clearInterval(interval);
   }, [docs]);
+
+  useEffect(() => {
+    if (!activeDoc || activeDoc.pdfStatus !== "generating") return;
+    const id = activeDoc.id;
+
+    const interval = setInterval(async () => {
+      const res = await createPDF(classId, id, false);
+      if ("error" in res) return;
+      if (!res.generating) {
+        setDocs((prev) =>
+          prev.map((d) =>
+            d.id === id ? { ...d, pdfStatus: res.url ? "ready" : "failed" } : d,
+          ),
+        );
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [activeDoc, classId]);
+
+  async function handlePdf(force: boolean) {
+    if (!activeDoc) return;
+    const tab = force ? null : window.open("", "_blank");
+    setPdfLoading(true);
+    const res = await createPDF(classId, activeDoc.id, force);
+    setPdfLoading(false);
+    if ("error" in res) {
+      toast.error(res.error);
+      tab?.close();
+      return;
+    }
+    if (res.generating) {
+      tab?.close();
+      setDocs((prev) =>
+        prev.map((d) =>
+          d.id === activeDoc.id ? { ...d, pdfStatus: "generating" } : d,
+        ),
+      );
+    } else if (res.url) {
+      setDocs((prev) =>
+        prev.map((d) =>
+          d.id === activeDoc.id ? { ...d, pdfStatus: "ready" } : d,
+        ),
+      );
+      if (tab) tab.location.href = res.url;
+      else window.open(res.url, "_blank");
+    }
+  }
 
   function selectDoc(id: string) {
     const d = docs.find((x) => x.id === id);
@@ -199,6 +252,7 @@ export function MasterDocView({
       sourceIds: [],
       contributorIds: [],
       deletedSourceNames: [],
+      pdfStatus: "pending",
     };
     setDocs((prev) => [newDoc, ...prev].slice(0, 4));
     setActiveId(res.masterDocumentId);
@@ -218,50 +272,108 @@ export function MasterDocView({
           <div className="kicker">Master Document</div>
           <h1 className="pane-title">{topicName}</h1>
         </div>
-        {canCompile && (
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              flexShrink: 0,
-              alignItems: "center",
-            }}
-          >
-            <button
-              className="btn btn-ghost"
-              style={{ fontSize: 13.5, padding: "10px 16px", borderRadius: 10 }}
-              onClick={() => setShowConfig((s) => !s)}
-              disabled={inProgress}
-            >
-              <SettingsIcon />
-              Compile settings
-            </button>
-            <button
-              className="btn btn-primary"
-              style={{ fontSize: 13.5, padding: "10px 16px", borderRadius: 10 }}
-              onClick={compile}
-              disabled={inProgress}
-            >
-              {inProgress ? (
-                <>
-                  <span className="mini-spin" />
-                  {compileStep === "fetching"
-                    ? "Fetching sources…"
-                    : compileStep === "generating"
-                      ? "Generating"
-                      : compileStep === "saving"
-                        ? "Saving…"
-                        : "Compiling…"}
-                </>
-              ) : (
-                <>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            flexShrink: 0,
+            alignItems: "flex-end",
+          }}
+        >
+          {canCompile && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className="btn btn-ghost"
+                style={{
+                  fontSize: 13.5,
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                }}
+                onClick={() => setShowConfig((s) => !s)}
+                disabled={inProgress}
+              >
+                <SettingsIcon />
+                Compile settings
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{
+                  fontSize: 13.5,
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                }}
+                onClick={compile}
+                disabled={inProgress}
+              >
+                {inProgress ? (
+                  <>
+                    <span className="mini-spin" />
+                    {compileStep === "fetching"
+                      ? "Fetching sources…"
+                      : compileStep === "generating"
+                        ? "Generating"
+                        : compileStep === "saving"
+                          ? "Saving…"
+                          : "Compiling…"}
+                  </>
+                ) : (
+                  <>
+                    <RecompileIcon />
+                    {hasDoc ? "Recompile" : "Compile"}
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+          {activeDoc && activeDoc.status === "ready" && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className="btn btn-ghost"
+                style={{
+                  fontSize: 13.5,
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                }}
+                disabled={pdfLoading || activeDoc.pdfStatus === "generating"}
+                onClick={() => handlePdf(false)}
+              >
+                {pdfLoading || activeDoc.pdfStatus === "generating" ? (
+                  <>
+                    <span className="mini-spin" />
+                    Generating PDF…
+                  </>
+                ) : activeDoc.pdfStatus === "ready" ? (
+                  <>
+                    <DownloadIcon />
+                    Download PDF
+                  </>
+                ) : activeDoc.pdfStatus === "failed" ? (
+                  <>
+                    <RecompileIcon />
+                    Retry PDF
+                  </>
+                ) : (
+                  <>
+                    <PdfIcon />
+                    Generate PDF
+                  </>
+                )}
+              </button>
+              {activeDoc.pdfStatus === "ready" && (
+                <button
+                  className="btn btn-ghost"
+                  style={{ padding: "10px 11px", borderRadius: 10 }}
+                  title="Regenerate PDF"
+                  disabled={pdfLoading}
+                  onClick={() => handlePdf(true)}
+                >
                   <RecompileIcon />
-                  {hasDoc ? "Recompile" : "Compile"}
-                </>
+                </button>
               )}
-            </button>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Version switcher */}
@@ -724,6 +836,47 @@ function FailIcon() {
     >
       <circle cx="12" cy="12" r="10" />
       <path d="M15 9l-6 6M9 9l6 6" />
+    </svg>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
+function PdfIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
+      <path d="M9 15h1.5a1.5 1.5 0 0 0 0-3H9v6" />
+      <path d="M14 12v6" />
+      <path d="M14 12h2" />
+      <path d="M14 15h2" />
     </svg>
   );
 }

@@ -1,5 +1,5 @@
 import { proxyActivities } from "@temporalio/workflow";
-import type { Activities } from "./activities";
+import { type Activities } from "./activities";
 import { CompilationSettings } from "@/server/actions/master-documents";
 
 const { extractText } = proxyActivities<Activities>({
@@ -11,7 +11,7 @@ const { extractText } = proxyActivities<Activities>({
   },
 });
 
-const { runCompilation } = proxyActivities<Activities>({
+const { runCompilation, generatePDF } = proxyActivities<Activities>({
   startToCloseTimeout: "30 minutes",
   retry: { maximumAttempts: 1 },
 });
@@ -41,6 +41,14 @@ export async function compileContributions(
   settings: CompilationSettings,
 ): Promise<void> {
   await runCompilation(masterDocumentId, topicId, settings);
+}
+
+export async function runPDFGeneration(
+  classId: string,
+  topicId: string,
+  masterDocumentId: string,
+) {
+  await generatePDF(classId, topicId, masterDocumentId);
 }
 
 export async function reconcileStorage(): Promise<void> {

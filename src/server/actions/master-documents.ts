@@ -14,8 +14,14 @@ import {
 import { and, eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
-import { requireRank, topicBelongsToClass } from "./shared";
+import { getUserRank, requireRank, topicBelongsToClass } from "./shared";
 import { getTemporalClient } from "@/temporal/client";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 
 type DocOutputType = (typeof docOutputType.enumValues)[number];
 type DocDepth = (typeof docDepth.enumValues)[number];
@@ -30,6 +36,8 @@ export type CompilationSettings = {
   sourcesInline: boolean;
   fromScratch: boolean;
 };
+
+const s3 = new S3Client({ region: process.env.AWS_REGION! });
 
 export async function createMasterDocument(
   classId: string,
@@ -75,7 +83,12 @@ export async function createMasterDocument(
       const [newContrib] = await db
         .select({ id: contributions.id })
         .from(contributions)
-        .where(and(eq(contributions.topicId, topicId), eq(contributions.status, "ready")))
+        .where(
+          and(
+            eq(contributions.topicId, topicId),
+            eq(contributions.status, "ready"),
+          ),
+        )
         .limit(1);
       if (!newContrib) return { error: "No new contributions to compile." };
     }
@@ -123,6 +136,7 @@ export async function getMasterDocumentStatus(masterDocumentId: string) {
       status: masterDocuments.status,
       content: masterDocuments.content,
       failureReason: masterDocuments.failureReason,
+      pdfStatus: masterDocuments.pdfStatus,
     })
     .from(masterDocuments)
     .where(eq(masterDocuments.id, masterDocumentId))
@@ -138,7 +152,10 @@ export async function getMasterDocumentStatus(masterDocumentId: string) {
       uploadedBy: compilationSources.snapshotUploadedBy,
     })
     .from(compilationSources)
-    .leftJoin(contributions, eq(compilationSources.contributionId, contributions.id))
+    .leftJoin(
+      contributions,
+      eq(compilationSources.contributionId, contributions.id),
+    )
     .where(eq(compilationSources.masterDocumentId, masterDocumentId));
 
   const sources: { id: string; name: string }[] = [];
@@ -156,5 +173,86 @@ export async function getMasterDocumentStatus(masterDocumentId: string) {
     if (r.uploadedBy) uploaderSet.add(r.uploadedBy);
   }
 
-  return { ...doc, sources, sourceIds, deletedSourceNames, contributorIds: [...uploaderSet] };
+  return {
+    ...doc,
+    sources,
+    sourceIds,
+    deletedSourceNames,
+    contributorIds: [...uploaderSet],
+  };
+}
+
+export async function createPDF(
+  classId: string,
+  masterDocumentId: string,
+  force: boolean,
+): Promise<
+  { error: string } | { success: true; generating: boolean; url?: string }
+> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return { error: "Not authenticated." };
+
+  try {
+    const rank = await getUserRank(classId, session.user.id);
+    if (!rank) return { error: "You are not a member of this class." };
+
+    const row = await db
+      .select({
+        pdfStatus: masterDocuments.pdfStatus,
+        pdfS3Key: masterDocuments.pdfS3Key,
+        topicId: masterDocuments.topicId,
+      })
+      .from(masterDocuments)
+      .where(eq(masterDocuments.id, masterDocumentId))
+      .limit(1);
+    if (!row[0]) return { error: "This master document does not exist." };
+
+    if (row[0].pdfStatus === "generating")
+      return { success: true, generating: true };
+
+    if (row[0].pdfS3Key && !force) {
+      const signedUrl = await getSignedUrl(
+        s3,
+        new GetObjectCommand({
+          Bucket: process.env.AWS_S3_BUCKET!,
+          Key: row[0].pdfS3Key,
+        }),
+        { expiresIn: 300 },
+      );
+      return { success: true, generating: false, url: signedUrl };
+    }
+
+    await db
+      .update(masterDocuments)
+      .set({ pdfStatus: "generating", pdfS3Key: null })
+      .where(eq(masterDocuments.id, masterDocumentId));
+
+    if (row[0].pdfS3Key) {
+      try {
+        await s3.send(
+          new DeleteObjectCommand({
+            Bucket: process.env.AWS_S3_BUCKET!,
+            Key: row[0].pdfS3Key,
+          }),
+        );
+      } catch (cleanupError) {
+        console.error(
+          `ERROR deleting S3 object for master document ${row[0].pdfS3Key}: `,
+          cleanupError,
+        );
+      }
+    }
+
+    const temporalClient = await getTemporalClient();
+    await temporalClient.workflow.start("runPDFGeneration", {
+      args: [classId, row[0].topicId, masterDocumentId],
+      taskQueue: "main",
+      workflowId: `pdf-${masterDocumentId}-${Date.now()}`,
+    });
+
+    return { success: true, generating: true };
+  } catch (e) {
+    console.error("ERROR: ", e);
+    return { error: "Something went wrong." };
+  }
 }

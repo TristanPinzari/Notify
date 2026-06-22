@@ -2745,6 +2745,8 @@ h1.head em {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-fainter);
+  page-break-after: avoid;
+  break-after: avoid;
   margin-bottom: 10px;
 }
 .srcfoot ol {
