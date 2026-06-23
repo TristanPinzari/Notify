@@ -4,38 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { TopicTabs } from "@/components/topic-tabs";
 import type { ReactNode } from "react";
-
-const HomeIcon = () => (
-  <svg
-    width="14"
-    height="14"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.7"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-    <path d="M9 22V12h6v10" />
-  </svg>
-);
-
-const BellIcon = () => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.7"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-    <path d="M13.7 21a2 2 0 0 1-3.4 0" />
-  </svg>
-);
+import { HomeIcon, BellIcon } from "@/components/icons";
 
 export default async function TopicLayout({
   children,
@@ -64,7 +33,7 @@ export default async function TopicLayout({
   const base = `/home/${classId}/${topicId}`;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div className="flex flex-col h-full">
       <div className="h-14 shrink-0 flex items-center gap-3.5 px-5.5 border-b border-(--line-soft) bg-(--paper)">
         <div className="flex items-center gap-2.25 text-[13.5px] min-w-0">
           <span className="flex text-(--ink-fainter)"><HomeIcon /></span>
@@ -80,7 +49,7 @@ export default async function TopicLayout({
         </div>
       </div>
       <TopicTabs base={base} />
-      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", scrollbarGutter: "stable" }}>{children}</div>
+      <div className="flex-1 overflow-y-auto flex flex-col" style={{ scrollbarGutter: "stable" }}>{children}</div>
     </div>
   );
 }

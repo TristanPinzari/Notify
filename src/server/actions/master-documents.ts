@@ -10,6 +10,8 @@ import {
   masterDocuments,
   compilationSources,
   contributions,
+  userClasses,
+  RANK_VALUE,
 } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
@@ -251,6 +253,49 @@ export async function createPDF(
     });
 
     return { success: true, generating: true };
+  } catch (e) {
+    console.error("ERROR: ", e);
+    return { error: "Something went wrong." };
+  }
+}
+
+export async function updateMasterDocumentContent(
+  classId: string,
+  masterDocumentId: string,
+  content: string,
+): Promise<{ error: string } | { success: true }> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return { error: "Not authenticated." };
+
+  try {
+    const [membership] = await db
+      .select({
+        rank: userClasses.rank,
+        minRankEditCompilation: classes.minRankEditCompilation,
+      })
+      .from(userClasses)
+      .innerJoin(classes, eq(classes.id, userClasses.classId))
+      .where(
+        and(
+          eq(userClasses.userId, session.user.id),
+          eq(userClasses.classId, classId),
+        ),
+      )
+      .limit(1);
+
+    if (!membership) return { error: "You are not a member of this class." };
+    if (
+      RANK_VALUE[membership.rank] <
+      RANK_VALUE[membership.minRankEditCompilation]
+    )
+      return { error: "Your rank is not high enough to edit this document." };
+
+    await db
+      .update(masterDocuments)
+      .set({ content, pdfStatus: "pending", pdfS3Key: null })
+      .where(eq(masterDocuments.id, masterDocumentId));
+
+    return { success: true };
   } catch (e) {
     console.error("ERROR: ", e);
     return { error: "Something went wrong." };

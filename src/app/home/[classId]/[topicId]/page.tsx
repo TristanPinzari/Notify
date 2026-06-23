@@ -76,6 +76,7 @@ export default async function MasterDocPage({
       .select({
         rank: userClasses.rank,
         minRankTriggerCompilation: classes.minRankTriggerCompilation,
+        minRankEditCompilation: classes.minRankEditCompilation,
       })
       .from(userClasses)
       .innerJoin(classes, eq(classes.id, userClasses.classId))
@@ -150,6 +151,9 @@ export default async function MasterDocPage({
   const canCompile = member
     ? RANK_VALUE[member.rank] >= RANK_VALUE[member.minRankTriggerCompilation]
     : false;
+  const canEdit = member
+    ? RANK_VALUE[member.rank] >= RANK_VALUE[member.minRankEditCompilation]
+    : false;
 
   return (
     <MasterDocView
@@ -157,6 +161,7 @@ export default async function MasterDocPage({
       topicId={topicId}
       topicName={topicRows[0].name}
       canCompile={canCompile}
+      canEdit={canEdit}
       masterDocs={serializedDocs}
     />
   );

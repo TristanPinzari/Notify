@@ -8,8 +8,26 @@ import {
   createMasterDocument,
   createPDF,
   getMasterDocumentStatus,
+  updateMasterDocumentContent,
 } from "@/server/actions/master-documents";
 import type { CompilationSettings } from "@/server/actions/master-documents";
+import CodeMirror from "@uiw/react-codemirror";
+import { markdown } from "@codemirror/lang-markdown";
+import { oneDark } from "@codemirror/theme-one-dark";
+import {
+  SettingsIcon,
+  RecompileIcon,
+  MembersIcon,
+  CollectionIcon,
+  ClockIcon,
+  ChevronExtIcon,
+  EditIcon,
+  CheckIcon,
+  DocEmptyIcon,
+  FailIcon,
+  DownloadIcon,
+  PdfIcon,
+} from "@/components/icons";
 
 type DocStatus = "compiling" | "ready" | "failed";
 type PdfStatus = "pending" | "generating" | "ready" | "failed";
@@ -37,6 +55,7 @@ type Props = {
   topicId: string;
   topicName: string;
   canCompile: boolean;
+  canEdit: boolean;
   masterDocs: MasterDoc[];
 };
 
@@ -88,6 +107,7 @@ export function MasterDocView({
   topicId,
   topicName,
   canCompile,
+  canEdit,
   masterDocs: initialDocs,
 }: Props) {
   const [docs, setDocs] = useState<MasterDoc[]>(initialDocs);
@@ -97,6 +117,9 @@ export function MasterDocView({
   const [showConfig, setShowConfig] = useState(false);
   const [compileStep, setCompileStep] = useState<CompileStep | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editContent, setEditContent] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
 
   const activeDoc = docs.find((d) => d.id === activeId) ?? null;
   const isCompiling = activeDoc?.status === "compiling";
@@ -214,6 +237,42 @@ export function MasterDocView({
     }
   }
 
+  function enterEdit() {
+    if (!activeDoc?.content) return;
+    setEditContent(activeDoc.content);
+    setShowConfig(false);
+    setEditMode(true);
+  }
+
+  function cancelEdit() {
+    setEditMode(false);
+    setEditContent("");
+  }
+
+  async function saveEdit() {
+    if (!activeDoc) return;
+    setEditSaving(true);
+    const res = await updateMasterDocumentContent(
+      classId,
+      activeDoc.id,
+      editContent,
+    );
+    setEditSaving(false);
+    if ("error" in res) {
+      toast.error(res.error);
+      return;
+    }
+    setDocs((prev) =>
+      prev.map((d) =>
+        d.id === activeDoc.id
+          ? { ...d, content: editContent, pdfStatus: "pending" }
+          : d,
+      ),
+    );
+    setEditMode(false);
+    setEditContent("");
+  }
+
   function setSetting<K extends keyof CompilationSettings>(
     key: K,
     value: CompilationSettings[K],
@@ -266,7 +325,10 @@ export function MasterDocView({
   const hasDoc = docs.length > 0;
 
   return (
-    <div className="pane ruled">
+    <div
+      className="pane ruled"
+      style={editMode ? { maxWidth: 1200 } : undefined}
+    >
       <div className="pane-head">
         <div>
           <div className="kicker">Master Document</div>
@@ -281,7 +343,42 @@ export function MasterDocView({
             alignItems: "flex-end",
           }}
         >
-          {canCompile && (
+          {editMode ? (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className="btn btn-ghost"
+                style={{
+                  fontSize: 13.5,
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                }}
+                onClick={cancelEdit}
+                disabled={editSaving}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{
+                  fontSize: 13.5,
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                }}
+                onClick={saveEdit}
+                disabled={editSaving}
+              >
+                {editSaving ? (
+                  <>
+                    <span className="mini-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  "Save"
+                )}
+              </button>
+            </div>
+          ) : null}
+          {canCompile && !editMode && (
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 className="btn btn-ghost"
@@ -326,8 +423,28 @@ export function MasterDocView({
               </button>
             </div>
           )}
-          {activeDoc && activeDoc.status === "ready" && (
+          {activeDoc && activeDoc.status === "ready" && !editMode && (
             <div style={{ display: "flex", gap: 8 }}>
+              {canEdit &&
+                activeDoc?.status === "ready" &&
+                activeDoc.content &&
+                !editMode && (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      className="btn btn-ghost"
+                      style={{
+                        fontSize: 13.5,
+                        padding: "10px 16px",
+                        borderRadius: 10,
+                      }}
+                      onClick={enterEdit}
+                      disabled={inProgress}
+                    >
+                      <EditIcon />
+                      Edit
+                    </button>
+                  </div>
+                )}
               <button
                 className="btn btn-ghost"
                 style={{
@@ -635,8 +752,50 @@ export function MasterDocView({
         </div>
       )}
 
+      {/* Edit split view */}
+      {editMode && (
+        <div style={{ display: "flex", gap: 16 }}>
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              height: "calc(100vh - 150px)",
+              overflow: "hidden",
+              borderRadius: 10,
+            }}
+          >
+            <CodeMirror
+              value={editContent}
+              onChange={setEditContent}
+              extensions={[markdown()]}
+              theme={oneDark}
+              height="calc(100vh - 150px)"
+              style={{ fontSize: 13 }}
+              basicSetup={{ lineNumbers: false, foldGutter: false }}
+            />
+          </div>
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              height: "calc(100vh - 150px)",
+              overflowY: "auto",
+              overflowX: "hidden",
+            }}
+          >
+            <CompiledDoc
+              markdown={editContent}
+              classId={classId}
+              topicId={topicId}
+              allSources={activeDoc?.sources}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Content */}
-      {!inProgress &&
+      {!editMode &&
+        !inProgress &&
         (activeDoc?.status === "failed" ? (
           <div className="flex flex-col items-center text-center py-16 gap-3">
             <FailIcon />
@@ -673,210 +832,3 @@ export function MasterDocView({
   );
 }
 
-function SettingsIcon() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  );
-}
-
-function RecompileIcon() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-      <path d="M21 3v5h-5" />
-      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-      <path d="M8 16H3v5" />
-    </svg>
-  );
-}
-
-function MembersIcon() {
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
-
-function CollectionIcon() {
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 6v6l4 2" />
-    </svg>
-  );
-}
-
-function ChevronExtIcon() {
-  return (
-    <svg
-      width="11"
-      height="11"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="ext"
-    >
-      <path d="M7 17L17 7M7 7h10v10" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20 6L9 17l-5-5" />
-    </svg>
-  );
-}
-
-function DocEmptyIcon() {
-  return (
-    <svg
-      width="40"
-      height="40"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      style={{ color: "var(--line-strong)" }}
-    >
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6" />
-      <path d="M16 13H8M16 17H8M10 9H8" />
-    </svg>
-  );
-}
-
-function FailIcon() {
-  return (
-    <svg
-      width="40"
-      height="40"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      style={{ color: "var(--line-strong)" }}
-    >
-      <circle cx="12" cy="12" r="10" />
-      <path d="M15 9l-6 6M9 9l6 6" />
-    </svg>
-  );
-}
-
-function DownloadIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
-    </svg>
-  );
-}
-
-function PdfIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6" />
-      <path d="M9 15h1.5a1.5 1.5 0 0 0 0-3H9v6" />
-      <path d="M14 12v6" />
-      <path d="M14 12h2" />
-      <path d="M14 15h2" />
-    </svg>
-  );
-}
