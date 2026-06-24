@@ -82,9 +82,8 @@ export function TopicModal({ classId, onClose }: Props) {
         )}
 
         <button
-          className="submit"
+          className="submit mt-0"
           type="button"
-          style={{ marginTop: 0 }}
           disabled={loading || !name.trim()}
           onClick={handleCreate}
         >

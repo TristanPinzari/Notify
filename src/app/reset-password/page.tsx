@@ -158,30 +158,19 @@ function ResetPasswordForm() {
           {!token ? (
             <>
               <div
-                className="icon-top amber"
-                style={{
-                  background: "var(--danger-bg)",
-                  color: "var(--danger)",
-                  borderColor: "rgba(180,69,47,0.2)",
-                }}
+                className="icon-top amber bg-(--danger-bg) text-(--danger)"
+                style={{ borderColor: "rgba(180,69,47,0.2)" }}
               >
                 <WarnIcon />
               </div>
               <h2 className="form-h">Invalid link</h2>
-              <p className="form-sub" style={{ marginBottom: 24 }}>
+              <p className="form-sub mb-6">
                 This password reset link is missing or invalid. Please request a
                 new one.
               </p>
               <Link
                 href="/sign-in"
-                className="submit"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 9,
-                  textDecoration: "none",
-                }}
+                className="submit flex items-center justify-center gap-2.25 no-underline"
               >
                 Back to sign in <ArrowIcon />
               </Link>
@@ -192,19 +181,12 @@ function ResetPasswordForm() {
                 <CheckBigIcon />
               </div>
               <h2 className="form-h">Password updated!</h2>
-              <p className="form-sub" style={{ marginBottom: 24 }}>
+              <p className="form-sub mb-6">
                 Your new password is set. You can now sign in.
               </p>
               <Link
                 href="/sign-in"
-                className="submit"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 9,
-                  textDecoration: "none",
-                }}
+                className="submit flex items-center justify-center gap-2.25 no-underline"
               >
                 Sign in <ArrowIcon />
               </Link>
@@ -307,13 +289,7 @@ function ResetPasswordForm() {
 
               <Link
                 href="/sign-in"
-                className="forgot"
-                style={{
-                  marginTop: 20,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 5,
-                }}
+                className="forgot mt-5 inline-flex items-center gap-1.25"
               >
                 <BackIcon /> Back to sign in
               </Link>

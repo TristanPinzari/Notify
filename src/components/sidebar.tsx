@@ -100,14 +100,7 @@ export function Sidebar({ user, classes }: Props) {
         </div>
 
         {classes.length === 0 && (
-          <p
-            style={{
-              padding: "6px 10px 4px",
-              fontSize: 12,
-              color: "var(--ink-faint)",
-              margin: 0,
-            }}
-          >
+          <p className="px-2.5 pt-1.5 pb-1 text-[12px] text-(--ink-faint) m-0">
             No classes yet.
           </p>
         )}

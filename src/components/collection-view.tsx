@@ -357,9 +357,8 @@ function SourceRow({
           )}
           {canPin && (
             <button
-              className="icon-btn"
+              className={`icon-btn${f.pinned ? " text-(--accent-text)" : ""}`}
               title={f.pinned ? "Unpin" : "Pin"}
-              style={f.pinned ? { color: "var(--accent-text)" } : undefined}
               disabled={pinning}
               onClick={togglePin}
             >
@@ -368,9 +367,8 @@ function SourceRow({
           )}
           {inspectable && (
             <button
-              className="icon-btn"
+              className={`icon-btn${panelOpen ? " text-(--accent-text)" : ""}`}
               title={panelOpen ? "Close" : "Inspect extraction"}
-              style={panelOpen ? { color: "var(--accent-text)" } : undefined}
               onClick={togglePanel}
             >
               <InspectIcon />
@@ -555,10 +553,7 @@ function SourceRow({
                   </div>
                 </div>
                 {loadingText ? (
-                  <div
-                    className="extracted"
-                    style={{ color: "var(--ink-faint)" }}
-                  >
+                  <div className="extracted text-(--ink-faint)">
                     Loading…
                   </div>
                 ) : (

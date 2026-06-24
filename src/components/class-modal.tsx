@@ -129,9 +129,8 @@ export function ClassModal({ onClose }: Props) {
             )}
 
             <button
-              className="submit"
+              className="submit mt-0"
               type="button"
-              style={{ marginTop: 0 }}
               disabled={loading || !className.trim()}
               onClick={handleCreate}
             >
@@ -171,9 +170,8 @@ export function ClassModal({ onClose }: Props) {
             )}
 
             <button
-              className="submit"
+              className="submit mt-0"
               type="button"
-              style={{ marginTop: 0 }}
               disabled={loading || !joinCode.trim()}
               onClick={handleJoin}
             >

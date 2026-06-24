@@ -440,7 +440,7 @@ export function AuthForm({ defaultMode }: { defaultMode: "login" | "signup" }) {
                 <h2 className="form-h">Check your inbox</h2>
                 <p className="form-sub">
                   We sent a reset link to{" "}
-                  <strong style={{ color: "var(--ink)", fontWeight: 600 }}>
+                  <strong className="text-(--ink) font-semibold">
                     {email}
                   </strong>
                   .
@@ -464,13 +464,7 @@ export function AuthForm({ defaultMode }: { defaultMode: "login" | "signup" }) {
                   </button>
                 </div>
                 <button
-                  className="forgot"
-                  style={{
-                    marginTop: 20,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
-                  }}
+                  className="forgot mt-5 inline-flex items-center gap-1.25"
                   onClick={() => {
                     setForgotDone(false);
                     setCooldown(0);
@@ -527,13 +521,7 @@ export function AuthForm({ defaultMode }: { defaultMode: "login" | "signup" }) {
                   </span>
                 </div>
                 <button
-                  className="forgot"
-                  style={{
-                    marginTop: 20,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
-                  }}
+                  className="forgot mt-5 inline-flex items-center gap-1.25"
                   onClick={() => switchMode("login")}
                 >
                   <BackIcon /> Back to sign in
@@ -573,12 +561,7 @@ export function AuthForm({ defaultMode }: { defaultMode: "login" | "signup" }) {
                   {unverified && (
                     <button
                       type="button"
-                      className="btn btn-ghost"
-                      style={{
-                        marginLeft: "auto",
-                        padding: "3px 10px",
-                        fontSize: "12px",
-                      }}
+                      className="btn btn-ghost ml-auto px-2.5 py-0.75 text-[12px]"
                       disabled={loading || cooldown > 0}
                       onClick={resendVerification}
                     >

@@ -334,36 +334,18 @@ export function MasterDocView({
           <div className="kicker">Master Document</div>
           <h1 className="pane-title">{topicName}</h1>
         </div>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            flexShrink: 0,
-            alignItems: "flex-end",
-          }}
-        >
+        <div className="flex flex-col gap-2 shrink-0 items-end">
           {editMode ? (
-            <div style={{ display: "flex", gap: 8 }}>
+            <div className="flex gap-2">
               <button
-                className="btn btn-ghost"
-                style={{
-                  fontSize: 13.5,
-                  padding: "10px 16px",
-                  borderRadius: 10,
-                }}
+                className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px]"
                 onClick={cancelEdit}
                 disabled={editSaving}
               >
                 Cancel
               </button>
               <button
-                className="btn btn-primary"
-                style={{
-                  fontSize: 13.5,
-                  padding: "10px 16px",
-                  borderRadius: 10,
-                }}
+                className="btn btn-primary text-[13.5px] px-4 py-2.5 rounded-[10px]"
                 onClick={saveEdit}
                 disabled={editSaving}
               >
@@ -379,14 +361,9 @@ export function MasterDocView({
             </div>
           ) : null}
           {canCompile && !editMode && (
-            <div style={{ display: "flex", gap: 8 }}>
+            <div className="flex gap-2">
               <button
-                className="btn btn-ghost"
-                style={{
-                  fontSize: 13.5,
-                  padding: "10px 16px",
-                  borderRadius: 10,
-                }}
+                className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px]"
                 onClick={() => setShowConfig((s) => !s)}
                 disabled={inProgress}
               >
@@ -394,12 +371,7 @@ export function MasterDocView({
                 Compile settings
               </button>
               <button
-                className="btn btn-primary"
-                style={{
-                  fontSize: 13.5,
-                  padding: "10px 16px",
-                  borderRadius: 10,
-                }}
+                className="btn btn-primary text-[13.5px] px-4 py-2.5 rounded-[10px]"
                 onClick={compile}
                 disabled={inProgress}
               >
@@ -424,19 +396,14 @@ export function MasterDocView({
             </div>
           )}
           {activeDoc && activeDoc.status === "ready" && !editMode && (
-            <div style={{ display: "flex", gap: 8 }}>
+            <div className="flex gap-2">
               {canEdit &&
                 activeDoc?.status === "ready" &&
                 activeDoc.content &&
                 !editMode && (
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div className="flex gap-2">
                     <button
-                      className="btn btn-ghost"
-                      style={{
-                        fontSize: 13.5,
-                        padding: "10px 16px",
-                        borderRadius: 10,
-                      }}
+                      className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px]"
                       onClick={enterEdit}
                       disabled={inProgress}
                     >
@@ -446,12 +413,7 @@ export function MasterDocView({
                   </div>
                 )}
               <button
-                className="btn btn-ghost"
-                style={{
-                  fontSize: 13.5,
-                  padding: "10px 16px",
-                  borderRadius: 10,
-                }}
+                className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px]"
                 disabled={pdfLoading || activeDoc.pdfStatus === "generating"}
                 onClick={() => handlePdf(false)}
               >
@@ -479,8 +441,7 @@ export function MasterDocView({
               </button>
               {activeDoc.pdfStatus === "ready" && (
                 <button
-                  className="btn btn-ghost"
-                  style={{ padding: "10px 11px", borderRadius: 10 }}
+                  className="btn btn-ghost px-2.75 py-2.5 rounded-[10px]"
                   title="Regenerate PDF"
                   disabled={pdfLoading}
                   onClick={() => handlePdf(true)}
@@ -514,14 +475,7 @@ export function MasterDocView({
 
       {/* Provenance chips */}
       {activeDoc && (
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            marginBottom: 24,
-          }}
-        >
+        <div className="flex flex-wrap gap-2 mb-6">
           <Link
             className="chip link"
             href={
@@ -733,14 +687,7 @@ export function MasterDocView({
                     ) : state === "on" ? (
                       <span className="spin-amber" />
                     ) : (
-                      <span
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: 9,
-                          background: "var(--ink-fainter)",
-                        }}
-                      />
+                      <span className="w-1.5 h-1.5 rounded-full bg-(--ink-fainter)" />
                     )}
                   </span>
                   {label}
@@ -754,7 +701,7 @@ export function MasterDocView({
 
       {/* Edit split view */}
       {editMode && (
-        <div style={{ display: "flex", gap: 16 }}>
+        <div className="flex gap-4">
           <div
             style={{
               flex: 1,
