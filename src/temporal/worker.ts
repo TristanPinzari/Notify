@@ -1,6 +1,6 @@
 import { Worker, NativeConnection } from "@temporalio/worker";
 import { Client, Connection } from "@temporalio/client";
-import { extractText, cleanOrphanedFiles, cleanStuckContributions, runCompilation, generatePDF } from "./activities";
+import { extractText, cleanOrphanedFiles, cleanStuckContributions, cleanStuckMasterDocuments, runCompilation, generatePDF } from "./activities";
 
 async function main() {
   const connection = await NativeConnection.connect({
@@ -9,7 +9,7 @@ async function main() {
 
   const worker = await Worker.create({
     workflowsPath: require.resolve("./workflows"),
-    activities: { extractText, cleanOrphanedFiles, cleanStuckContributions, runCompilation, generatePDF },
+    activities: { extractText, cleanOrphanedFiles, cleanStuckContributions, cleanStuckMasterDocuments, runCompilation, generatePDF },
     taskQueue: "main",
     namespace: process.env.TEMPORAL_NAMESPACE ?? "default",
     connection,
@@ -56,6 +56,24 @@ async function main() {
       // schedule persists across restarts, this is expected
     } else {
       console.error("ERROR: Failed to create reconcileDatabase schedule: ", e);
+    }
+  }
+
+  try {
+    await client.schedule.create({
+      scheduleId: "master-documents-reconcile",
+      spec: { cronExpressions: ["*/15 * * * *"] },
+      action: {
+        type: "startWorkflow",
+        workflowType: "reconcileMasterDocuments",
+        taskQueue: "main",
+      },
+    });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message.includes("already exists")) {
+      // schedule persists across restarts, this is expected
+    } else {
+      console.error("ERROR: Failed to create reconcileMasterDocuments schedule: ", e);
     }
   }
 

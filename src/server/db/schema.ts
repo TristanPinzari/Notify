@@ -201,6 +201,9 @@ export const masterDocuments = pgTable("master_documents", {
   failureReason: text("failure_reason"),
   pdfS3Key: text("pdf_s3_key"),
   pdfStatus: pdfStatus("pdf_status").notNull().default("pending"),
+  pdfGenerationStartedAt: timestamp("pdf_generation_started_at", {
+    withTimezone: true,
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

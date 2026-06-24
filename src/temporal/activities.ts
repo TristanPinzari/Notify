@@ -539,10 +539,29 @@ export async function cleanStuckContributions() {
   console.log(`[cleanStuckContributions] done`);
 }
 
+export async function cleanStuckMasterDocuments() {
+  console.log(`[cleanStuckMasterDocuments] start`);
+
+  const compileCutoff = new Date(Date.now() - 15 * 60 * 1000);
+  await db
+    .update(masterDocuments)
+    .set({ status: "failed", failureReason: "Compilation timed out — worker may have crashed." })
+    .where(and(eq(masterDocuments.status, "compiling"), lt(masterDocuments.createdAt, compileCutoff)));
+
+  const pdfCutoff = new Date(Date.now() - 10 * 60 * 1000);
+  await db
+    .update(masterDocuments)
+    .set({ pdfStatus: "failed" })
+    .where(and(eq(masterDocuments.pdfStatus, "generating"), lt(masterDocuments.pdfGenerationStartedAt, pdfCutoff)));
+
+  console.log(`[cleanStuckMasterDocuments] done`);
+}
+
 export type Activities = {
   extractText: typeof extractText;
   runCompilation: typeof runCompilation;
   generatePDF: typeof generatePDF;
   cleanOrphanedFiles: typeof cleanOrphanedFiles;
   cleanStuckContributions: typeof cleanStuckContributions;
+  cleanStuckMasterDocuments: typeof cleanStuckMasterDocuments;
 };

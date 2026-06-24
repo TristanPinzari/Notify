@@ -226,7 +226,7 @@ export async function createPDF(
 
     await db
       .update(masterDocuments)
-      .set({ pdfStatus: "generating", pdfS3Key: null })
+      .set({ pdfStatus: "generating", pdfS3Key: null, pdfGenerationStartedAt: new Date() })
       .where(eq(masterDocuments.id, masterDocumentId));
 
     if (row[0].pdfS3Key) {
