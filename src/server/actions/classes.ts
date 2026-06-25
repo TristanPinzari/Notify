@@ -209,7 +209,7 @@ export async function kickFromClass(classId: string, userId: string) {
   }
 }
 
-export async function banFromClass(classId: string, userId: string) {
+export async function banFromClass(classId: string, userId: string, reason?: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
 
@@ -249,6 +249,7 @@ export async function banFromClass(classId: string, userId: string) {
         classId,
         bannedUserId: userId,
         bannedByUserId: session.user.id,
+        reason: reason ?? null,
       });
     });
 
@@ -414,12 +415,13 @@ export async function regenerateCode(classId: string) {
     );
     if ("error" in allowed) return allowed;
 
+    const newCode = await generateUniqueCode();
     await db
       .update(classes)
-      .set({ code: await generateUniqueCode() })
+      .set({ code: newCode })
       .where(eq(classes.id, classId));
 
-    return { success: true };
+    return { success: true, code: newCode };
   } catch (e) {
     console.error("ERROR: ", e);
     return { error: "Something went wrong." };

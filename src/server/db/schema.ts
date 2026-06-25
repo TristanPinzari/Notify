@@ -108,6 +108,7 @@ export const classes = pgTable("classes", {
   minRankEditCompilation: rank("min_rank_edit_compilation")
     .notNull()
     .default("contributor"),
+  minRankInvite: rank("min_rank_invite").notNull().default("admin"),
   minRankBanUsers: rank("min_rank_ban_users").notNull().default("admin"),
   minRankKickUsers: rank("min_rank_kick_users").notNull().default("admin"),
   minRankChangeRanks: rank("min_rank_change_ranks").notNull().default("admin"),
@@ -378,6 +379,7 @@ export type ClassSettings = Partial<
     | "minRankDeleteContribution"
     | "minRankTriggerCompilation"
     | "minRankEditCompilation"
+    | "minRankInvite"
     | "minRankBanUsers"
     | "minRankKickUsers"
     | "minRankChangeRanks"

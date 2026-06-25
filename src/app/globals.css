@@ -1018,6 +1018,29 @@ h1.head em {
 .inwrap.filled .lead {
   color: var(--accent-text);
 }
+textarea.inwrap {
+  width: 100%;
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--paper-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  padding: 10px 12px;
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    background 0.15s;
+}
+textarea.inwrap::placeholder {
+  color: var(--ink-fainter);
+}
+textarea.inwrap:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  background: #fff;
+}
 .inwrap.err input {
   border-color: var(--danger);
   box-shadow: 0 0 0 3px var(--danger-bg);
@@ -1152,6 +1175,16 @@ h1.head em {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
   }
 }
 
