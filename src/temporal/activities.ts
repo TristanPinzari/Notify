@@ -190,6 +190,7 @@ export async function runCompilation(
   console.log(
     `[runCompilation] start — masterDocument ${masterDocumentId} topic=${topicId}`,
   );
+  try {
   const rows = await db
     .select({
       id: contributions.id,
@@ -234,7 +235,7 @@ export async function runCompilation(
   );
   const ai = new Gemini(process.env.GEMINI_API_KEY!);
 
-  async function failWith(reason: string) {
+  async function failWith(reason: string): Promise<never> {
     await db
       .update(masterDocuments)
       .set({ status: "failed", content: null, failureReason: reason })
@@ -305,7 +306,7 @@ export async function runCompilation(
     await failWith(
       "Topic has too many contributions to compile. Try removing some contributions or splitting into multiple topics.",
     );
-    return;
+    throw new Error("unreachable");
   }
 
   console.log(
@@ -374,6 +375,15 @@ export async function runCompilation(
     );
 
   console.log(`[runCompilation] complete — masterDocument ${masterDocumentId}`);
+  } catch (e) {
+    const failureReason = e instanceof Error ? e.message : String(e);
+    console.error(`[runCompilation] failed — masterDocument ${masterDocumentId}: ${failureReason}`);
+    await db
+      .update(masterDocuments)
+      .set({ status: "failed", content: null, failureReason })
+      .where(eq(masterDocuments.id, masterDocumentId));
+    throw e;
+  }
 }
 
 export async function generatePDF(

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   DocIcon,
-  PinIcon,
   CollectionIcon,
   MembersIcon,
   SettingsIcon,
@@ -16,7 +15,6 @@ type Props = {
 
 const TABS = [
   { label: "Master Doc", href: "", icon: <DocIcon /> },
-  { label: "Pinned", href: "/pinned", icon: <PinIcon /> },
   { label: "Collection", href: "/collection", icon: <CollectionIcon /> },
   { label: "Members", href: "/members", icon: <MembersIcon /> },
   { label: "Settings", href: "/settings", icon: <SettingsIcon /> },

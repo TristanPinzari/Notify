@@ -123,7 +123,9 @@ export function MasterDocView({
 
   const activeDoc = docs.find((d) => d.id === activeId) ?? null;
   const isCompiling = activeDoc?.status === "compiling";
-  const inProgress = compileStep !== null || isCompiling;
+  const anyCompiling = docs.some((d) => d.status === "compiling");
+  const inProgress = isCompiling;
+  const compileDisabled = anyCompiling || compileStep !== null;
 
   const [draft, setDraft] = useState<CompilationSettings>(
     initialDocs[0]
@@ -365,7 +367,7 @@ export function MasterDocView({
               <button
                 className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px]"
                 onClick={() => setShowConfig((s) => !s)}
-                disabled={inProgress}
+                disabled={compileDisabled}
               >
                 <SettingsIcon />
                 Compile settings
@@ -373,9 +375,9 @@ export function MasterDocView({
               <button
                 className="btn btn-primary text-[13.5px] px-4 py-2.5 rounded-[10px]"
                 onClick={compile}
-                disabled={inProgress}
+                disabled={compileDisabled}
               >
-                {inProgress ? (
+                {compileDisabled ? (
                   <>
                     <span className="mini-spin" />
                     {compileStep === "fetching"
@@ -397,15 +399,12 @@ export function MasterDocView({
           )}
           {activeDoc && activeDoc.status === "ready" && !editMode && (
             <div className="flex gap-2">
-              {canEdit &&
-                activeDoc?.status === "ready" &&
-                activeDoc.content &&
-                !editMode && (
+              {canEdit && activeDoc.content && (
                   <div className="flex gap-2">
                     <button
                       className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px]"
                       onClick={enterEdit}
-                      disabled={inProgress}
+                      disabled={compileDisabled}
                     >
                       <EditIcon />
                       Edit
@@ -550,7 +549,7 @@ export function MasterDocView({
       )}
 
       {/* Compile settings panel */}
-      {showConfig && !inProgress && (
+      {showConfig && !compileDisabled && (
         <div className="cfg rounded-[15px] bg-(--paper-raised) border border-(--line) px-4.5 mb-6">
           <div className="set-row">
             <div className="sl">

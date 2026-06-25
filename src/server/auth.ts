@@ -33,16 +33,14 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 8,
     requireEmailVerification: true,
-    sendResetPassword: async ({ url }) => {
-      console.log(`Reset: ${url}`);
+    sendResetPassword: async () => {
+      // TODO: send password reset email
     },
   },
   emailVerification: {
     autoSignInAfterVerification: true,
-    sendVerificationEmail: async ({ url }) => {
-      const verifyUrl = new URL(url);
-      verifyUrl.searchParams.set("callbackURL", "/verified?from=verify");
-      console.log(`Verify: ${verifyUrl.toString()}`);
+    sendVerificationEmail: async () => {
+      // TODO: send verification email
     },
   },
   socialProviders: {
