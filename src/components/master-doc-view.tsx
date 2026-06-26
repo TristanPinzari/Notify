@@ -42,6 +42,7 @@ type MasterDoc = {
   conflictResolution: CompilationSettings["conflictResolution"];
   factChecking: CompilationSettings["factChecking"];
   sourcesInline: boolean;
+  manuallyEdited: boolean;
   createdAt: string;
   sources: { id: string; name: string }[];
   sourceIds: string[];
@@ -164,6 +165,7 @@ export function MasterDocView({
                     deletedSourceNames: res.deletedSourceNames,
                     contributorIds: res.contributorIds,
                     pdfStatus: res.pdfStatus,
+                    manuallyEdited: res.manuallyEdited,
                   }
                 : d,
             ),
@@ -267,7 +269,7 @@ export function MasterDocView({
     setDocs((prev) =>
       prev.map((d) =>
         d.id === activeDoc.id
-          ? { ...d, content: editContent, pdfStatus: "pending" }
+          ? { ...d, content: editContent, pdfStatus: "pending", manuallyEdited: true }
           : d,
       ),
     );
@@ -314,6 +316,7 @@ export function MasterDocView({
       contributorIds: [],
       deletedSourceNames: [],
       pdfStatus: "pending",
+      manuallyEdited: false,
     };
     setDocs((prev) => [newDoc, ...prev].slice(0, 4));
     setActiveId(res.masterDocumentId);
@@ -520,6 +523,12 @@ export function MasterDocView({
             <span className="chip">
               <ClockIcon />
               Compiled <b>{timeAgo(activeDoc.createdAt)}</b>
+            </span>
+          )}
+          {activeDoc.manuallyEdited && (
+            <span className="chip edited-chip">
+              <EditIcon />
+              Edited
             </span>
           )}
         </div>

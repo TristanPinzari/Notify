@@ -139,6 +139,7 @@ export async function getMasterDocumentStatus(masterDocumentId: string) {
       content: masterDocuments.content,
       failureReason: masterDocuments.failureReason,
       pdfStatus: masterDocuments.pdfStatus,
+      manuallyEdited: masterDocuments.manuallyEdited,
     })
     .from(masterDocuments)
     .where(eq(masterDocuments.id, masterDocumentId))
@@ -296,7 +297,7 @@ export async function updateMasterDocumentContent(
 
     await db
       .update(masterDocuments)
-      .set({ content, pdfStatus: "pending", pdfS3Key: null })
+      .set({ content, pdfStatus: "pending", pdfS3Key: null, manuallyEdited: true })
       .where(eq(masterDocuments.id, masterDocumentId));
 
     return { success: true };

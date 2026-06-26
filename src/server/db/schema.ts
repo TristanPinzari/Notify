@@ -199,6 +199,7 @@ export const masterDocuments = pgTable("master_documents", {
     .default("trust_pinned"),
   factChecking: docFactCheck("fact_check").notNull().default("flag"),
   sourcesInline: boolean("sources_inline").notNull().default(false),
+  manuallyEdited: boolean("manually_edited").notNull().default(false),
   failureReason: text("failure_reason"),
   pdfS3Key: text("pdf_s3_key"),
   pdfStatus: pdfStatus("pdf_status").notNull().default("pending"),
