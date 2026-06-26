@@ -11,6 +11,7 @@ import {
   compilationSources,
   contributions,
   userClasses,
+  topics,
   RANK_VALUE,
 } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -119,7 +120,7 @@ export async function createMasterDocument(
     await temporalClient.workflow.start("compileContributions", {
       args: [masterDocumentId, topicId, settings],
       taskQueue: "main",
-      workflowId: `compile-${masterDocumentId}-${Date.now()}`,
+      workflowId: `compile-${masterDocumentId}`,
     });
 
     return { success: true, masterDocumentId };
@@ -142,6 +143,14 @@ export async function getMasterDocumentStatus(masterDocumentId: string) {
       manuallyEdited: masterDocuments.manuallyEdited,
     })
     .from(masterDocuments)
+    .innerJoin(topics, eq(masterDocuments.topicId, topics.id))
+    .innerJoin(
+      userClasses,
+      and(
+        eq(userClasses.classId, topics.classId),
+        eq(userClasses.userId, session.user.id),
+      ),
+    )
     .where(eq(masterDocuments.id, masterDocumentId))
     .limit(1);
 
@@ -210,7 +219,13 @@ export async function createPDF(
         topicId: masterDocuments.topicId,
       })
       .from(masterDocuments)
-      .where(eq(masterDocuments.id, masterDocumentId))
+      .innerJoin(topics, eq(masterDocuments.topicId, topics.id))
+      .where(
+        and(
+          eq(masterDocuments.id, masterDocumentId),
+          eq(topics.classId, classId),
+        ),
+      )
       .limit(1);
     if (!row[0]) return { error: "This master document does not exist." };
 
@@ -254,7 +269,7 @@ export async function createPDF(
     await temporalClient.workflow.start("runPDFGeneration", {
       args: [classId, row[0].topicId, masterDocumentId],
       taskQueue: "main",
-      workflowId: `pdf-${masterDocumentId}-${Date.now()}`,
+      workflowId: `pdf-${masterDocumentId}`,
     });
 
     return { success: true, generating: true };
@@ -294,6 +309,20 @@ export async function updateMasterDocumentContent(
       RANK_VALUE[membership.minRankEditCompilation]
     )
       return { error: "Your rank is not high enough to edit this document." };
+
+    const [doc] = await db
+      .select({ id: masterDocuments.id })
+      .from(masterDocuments)
+      .innerJoin(topics, eq(masterDocuments.topicId, topics.id))
+      .where(
+        and(
+          eq(masterDocuments.id, masterDocumentId),
+          eq(topics.classId, classId),
+        ),
+      )
+      .limit(1);
+
+    if (!doc) return { error: "Document not found." };
 
     await db
       .update(masterDocuments)

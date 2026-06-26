@@ -1626,37 +1626,54 @@ textarea.inwrap:focus {
 .class-row {
   display: flex;
   align-items: center;
-  gap: 9px;
   width: 100%;
-  text-align: left;
-  border: none;
-  background: transparent;
-  color: var(--ink-nav);
-  font-family: var(--sans);
-  font-size: 14px;
-  font-weight: 500;
-  padding: 9px 10px;
+  padding: 4px 4px 4px 10px;
   border-radius: 9px;
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    color 0.15s;
-}
-
-.class-row:hover {
-  background: rgba(60, 45, 25, 0.05);
-  color: var(--ink);
 }
 
 .class-row .chev {
   color: var(--ink-fainter);
   display: flex;
-  transition: transform 0.22s ease;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  background: transparent;
+  border: none;
+  padding: 4px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: transform 0.22s ease, background 0.15s;
+}
+
+.class-row .chev:hover {
+  background: rgba(60, 45, 25, 0.07);
 }
 
 .class.open .class-row .chev {
   transform: rotate(90deg);
+}
+
+.class-row-link {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+  color: var(--ink-nav);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 5px 6px;
+  border-radius: 7px;
+  text-decoration: none;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.class-row-link:hover {
+  background: rgba(60, 45, 25, 0.05);
+  color: var(--ink);
 }
 
 .badge {
@@ -1672,14 +1689,14 @@ textarea.inwrap:focus {
   flex-shrink: 0;
 }
 
-.class-row .ctxt {
+.class-row-link .ctxt {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.class-row .count {
+.class-row-link .count {
   font-size: 11px;
   color: var(--ink-fainter);
   font-weight: 500;
@@ -1689,8 +1706,14 @@ textarea.inwrap:focus {
   flex-shrink: 0;
 }
 
-.class.active .class-row {
+.class.active .class-row-link {
   color: var(--ink-heading);
+  font-weight: 600;
+}
+
+.class.selected .class-row-link {
+  background: var(--accent-soft);
+  color: var(--accent-text);
   font-weight: 600;
 }
 

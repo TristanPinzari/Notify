@@ -80,8 +80,19 @@ async function runExtraction(
       const normalizedUrl = url.trim().match(/^https?:\/\//)
         ? url.trim()
         : `https://${url.trim()}`;
+
+      const parsed = new URL(normalizedUrl);
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:")
+        throw new Error("Only http and https URLs are allowed.");
+      const hostname = parsed.hostname;
+      const privateRanges =
+        /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|::1|fc00:|fe80:)/i;
+      if (privateRanges.test(hostname))
+        throw new Error("Requests to private/internal addresses are not allowed.");
+
       const res = await fetch(normalizedUrl, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; NotifyBot/1.0)" },
+        signal: AbortSignal.timeout(15_000),
       });
       if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
       const html = await res.text();

@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Members" };
 export default async function MembersPage({
   params,
 }: {
-  params: Promise<{ classId: string; topicId: string }>;
+  params: Promise<{ classId: string }>;
 }) {
   const { classId } = await params;
   return <MembersPageContent classId={classId} />;

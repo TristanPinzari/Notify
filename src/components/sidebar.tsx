@@ -112,22 +112,30 @@ export function Sidebar({ user, initialClasses }: Props) {
         {classes.map((cls, i) => {
           const isOpen = openClasses.has(cls.id);
           const isActive = pathname.startsWith(`/home/${cls.id}`);
+          const seg = pathname.split("/")[3];
+          const isSelected = isActive && (!seg || seg === "members" || seg === "settings");
           const color = BADGE_COLORS[i % BADGE_COLORS.length];
           return (
             <div
               key={cls.id}
-              className={`class${isOpen ? " open" : ""}${isActive ? " active" : ""}`}
+              className={`class${isOpen ? " open" : ""}${isActive ? " active" : ""}${isSelected ? " selected" : ""}`}
             >
-              <button className="class-row" onClick={() => toggleClass(cls.id)}>
-                <span className="chev">
+              <div className="class-row">
+                <button
+                  className="chev"
+                  onClick={(e) => { e.preventDefault(); toggleClass(cls.id); }}
+                  aria-label="Toggle topics"
+                >
                   <ChevIcon />
-                </span>
-                <div className="badge" style={{ background: color }}>
-                  {cls.name.slice(0, 2).toUpperCase()}
-                </div>
-                <span className="ctxt">{cls.name}</span>
-                <span className="count">{cls.topics.length}</span>
-              </button>
+                </button>
+                <Link href={`/home/${cls.id}`} className="class-row-link" onClick={() => { if (!openClasses.has(cls.id)) toggleClass(cls.id); }}>
+                  <div className="badge" style={{ background: color }}>
+                    {cls.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <span className="ctxt">{cls.name}</span>
+                  <span className="count">{cls.topics.length}</span>
+                </Link>
+              </div>
               <div className="topics">
                 <div className="topics-inner">
                   {cls.topics.map((topic) => {
