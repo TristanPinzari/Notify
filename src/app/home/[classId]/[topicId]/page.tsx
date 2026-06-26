@@ -12,7 +12,7 @@ import {
 import { and, eq, desc, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { MasterDocView } from "@/components/master-doc-view";
 
 export async function generateMetadata({
@@ -37,19 +37,12 @@ export default async function MasterDocPage({
   const { classId, topicId } = await params;
 
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) notFound();
+  if (!session) redirect("/sign-in");
 
   const [topicRows, docRows, memberRows] = await Promise.all([
     db
       .select({ name: topics.name })
       .from(topics)
-      .innerJoin(
-        userClasses,
-        and(
-          eq(userClasses.classId, topics.classId),
-          eq(userClasses.userId, session.user.id),
-        ),
-      )
       .where(and(eq(topics.id, topicId), eq(topics.classId, classId)))
       .limit(1),
 
@@ -91,6 +84,7 @@ export default async function MasterDocPage({
   ]);
 
   if (!topicRows[0]) notFound();
+  if (!memberRows[0]) redirect("/home");
 
   const allSourceRows =
     docRows.length > 0

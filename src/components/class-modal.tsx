@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useEscapeKey } from "@/hooks/use-escape-key";
 import { createClass, joinClass } from "@/server/actions/classes";
 import { toast } from "sonner";
 import { InfoIcon as WarnIcon, BookIcon, HashIcon } from "@/components/icons";
@@ -10,25 +10,19 @@ type Mode = "create" | "join";
 
 type Props = {
   onClose: () => void;
+  onSuccess?: () => void;
 };
 
 const CODE_RE = /^[A-Z2-9]{4}-[A-Z2-9]{4}$/;
 
-export function ClassModal({ onClose }: Props) {
-  const router = useRouter();
+export function ClassModal({ onClose, onSuccess }: Props) {
   const [mode, setMode] = useState<Mode>("create");
   const [className, setClassName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  useEscapeKey(onClose);
 
   function switchMode(m: Mode) {
     setMode(m);
@@ -52,7 +46,7 @@ export function ClassModal({ onClose }: Props) {
     if (result.error) return setError(result.error);
 
     toast.success("Class created!");
-    router.refresh();
+    onSuccess?.();
     onClose();
   }
 
@@ -71,7 +65,7 @@ export function ClassModal({ onClose }: Props) {
     if (result.error) return setError(result.error);
 
     toast.success("Joined class!");
-    router.refresh();
+    onSuccess?.();
     onClose();
   }
 

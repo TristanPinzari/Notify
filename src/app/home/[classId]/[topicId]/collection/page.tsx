@@ -12,7 +12,7 @@ import {
 } from "@/server/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 export async function generateMetadata({
   params,
@@ -36,7 +36,7 @@ export default async function CollectionPage({
   searchParams: Promise<{ sources?: string }>;
 }) {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) notFound();
+  if (!session) redirect("/sign-in");
 
   const { classId, topicId } = await params;
   const { sources: sourcesParam } = await searchParams;
@@ -87,7 +87,8 @@ export default async function CollectionPage({
       .limit(1),
   ]);
 
-  if (!cls || !member) notFound();
+  if (!cls) notFound();
+  if (!member) redirect("/home");
 
   const canUpload =
     RANK_VALUE[member.rank] >= RANK_VALUE[cls.minRankUploadContribution];

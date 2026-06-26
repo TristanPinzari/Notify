@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
 import type { ReactNode } from "react";
+import { useEscapeKey } from "@/hooks/use-escape-key";
 
 type Props = {
   title: string;
@@ -24,13 +24,7 @@ export function ConfirmModal({
   onConfirm,
   onClose,
 }: Props) {
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
+  useEscapeKey(onClose);
 
   return (
     <>

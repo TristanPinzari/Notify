@@ -11,7 +11,7 @@ import {
 import { alias } from "drizzle-orm/pg-core";
 import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import MembersView from "@/components/members-view";
 import type { MemberRow, BannedRow } from "@/components/members-view";
 
@@ -23,14 +23,14 @@ export default async function MembersPage({
   params: Promise<{ classId: string; topicId: string }>;
 }) {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) notFound();
+  if (!session) redirect("/sign-in");
 
   const { classId } = await params;
 
   const bannedUser = alias(user, "banned_user");
   const bannerUser = alias(user, "banner_user");
 
-  const [[cls], [viewer], memberRows, bannedRows] = await Promise.all([
+  const [[cls], [member], memberRows, bannedRows] = await Promise.all([
     db
       .select({
         name: classes.name,
@@ -85,9 +85,10 @@ export default async function MembersPage({
       .orderBy(classBans.createdAt),
   ]);
 
-  if (!cls || !viewer) notFound();
+  if (!cls) notFound();
+  if (!member) redirect("/home");
 
-  const vIdx = RANK_VALUE[viewer.rank];
+  const vIdx = RANK_VALUE[member.rank];
   const canInvite = vIdx >= RANK_VALUE[cls.minRankInvite];
   const canKick = vIdx >= RANK_VALUE[cls.minRankKickUsers];
   const canBan = vIdx >= RANK_VALUE[cls.minRankBanUsers];
@@ -119,7 +120,7 @@ export default async function MembersPage({
       className={cls.name}
       classCode={cls.code}
       viewerId={session.user.id}
-      viewerRank={viewer.rank}
+      viewerRank={member.rank}
       members={members}
       banned={banned}
       canInvite={canInvite}

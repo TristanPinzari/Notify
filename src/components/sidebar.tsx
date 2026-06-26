@@ -17,6 +17,7 @@ import {
   LogOutIcon,
   GearSvg,
 } from "@/components/icons";
+import useSWR from "swr";
 
 const BADGE_COLORS = [
   "#c47918",
@@ -27,19 +28,22 @@ const BADGE_COLORS = [
   "#2a7a8c",
 ];
 
-export type SidebarClass = {
-  id: string;
-  code: string;
-  name: string;
-  topics: { id: string; name: string }[];
-};
+import type { SidebarClass } from "@/server/queries/sidebar";
+export type { SidebarClass } from "@/server/queries/sidebar";
 
 type Props = {
   user: { name: string; email: string; image?: string | null };
-  classes: SidebarClass[];
+  initialClasses: SidebarClass[];
 };
 
-export function Sidebar({ user, classes }: Props) {
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
+
+export function Sidebar({ user, initialClasses }: Props) {
+  const { data: classes = [], mutate } = useSWR<SidebarClass[]>(
+    "/api/sidebar",
+    fetcher,
+    { fallbackData: initialClasses, revalidateOnFocus: true },
+  );
   const pathname = usePathname();
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -162,9 +166,18 @@ export function Sidebar({ user, classes }: Props) {
         </button>
       </div>
 
-      {modalOpen && <ClassModal onClose={() => setModalOpen(false)} />}
+      {modalOpen && (
+        <ClassModal
+          onClose={() => setModalOpen(false)}
+          onSuccess={() => mutate()}
+        />
+      )}
       {topicModal && (
-        <TopicModal classId={topicModal} onClose={() => setTopicModal(null)} />
+        <TopicModal
+          classId={topicModal}
+          onClose={() => setTopicModal(null)}
+          onSuccess={() => mutate()}
+        />
       )}
 
       <div className="side-user" ref={menuRef}>

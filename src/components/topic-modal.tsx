@@ -1,29 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { createTopic } from "@/server/actions/topics";
+import { useEscapeKey } from "@/hooks/use-escape-key";
 import { toast } from "sonner";
 import { InfoIcon as WarnIcon, TopicIcon } from "@/components/icons";
 
 type Props = {
   classId: string;
   onClose: () => void;
+  onSuccess?: () => void;
 };
 
-export function TopicModal({ classId, onClose }: Props) {
-  const router = useRouter();
+export function TopicModal({ classId, onClose, onSuccess }: Props) {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  useEscapeKey(onClose);
 
   async function handleCreate() {
     const topicName = name.trim();
@@ -39,7 +33,7 @@ export function TopicModal({ classId, onClose }: Props) {
     if ("error" in result) return setError(result.error);
 
     toast.success("Topic created!");
-    router.refresh();
+    onSuccess?.();
     onClose();
   }
 

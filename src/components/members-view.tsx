@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import {
   kickFromClass,
@@ -10,7 +10,10 @@ import {
   changeUserRank,
   regenerateCode,
 } from "@/server/actions/classes";
+import { RANK_VALUE } from "@/server/db/schema";
 import type { Rank } from "@/server/db/schema";
+import { timeAgo } from "@/lib/utils";
+import { useEscapeKey } from "@/hooks/use-escape-key";
 import {
   ShareIcon,
   CopyIcon,
@@ -34,12 +37,6 @@ import { ConfirmModal } from "@/components/confirm-modal";
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const RANKS: Rank[] = ["viewer", "contributor", "admin", "owner"];
-const RANK_VALUE: Record<Rank, number> = {
-  viewer: 1,
-  contributor: 2,
-  admin: 3,
-  owner: 4,
-};
 const RANK_LABEL: Record<Rank, string> = {
   viewer: "Viewer",
   contributor: "Contributor",
@@ -104,18 +101,6 @@ function initials(name: string): string {
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days < 1) return "today";
-  if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`;
-  const weeks = Math.floor(days / 7);
-  if (weeks < 5) return `${weeks} week${weeks === 1 ? "" : "s"} ago`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months} month${months === 1 ? "" : "s"} ago`;
-  const years = Math.floor(months / 12);
-  return `${years} year${years === 1 ? "" : "s"} ago`;
-}
 
 // ─── Avatar ──────────────────────────────────────────────────────────────────
 
@@ -457,13 +442,7 @@ function CodeModal({
   onClose: () => void;
   onCopy: () => void;
 }) {
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
+  useEscapeKey(onClose);
 
   return (
     <>
@@ -525,13 +504,7 @@ function BanModal({
   onConfirm: () => void;
   onClose: () => void;
 }) {
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
+  useEscapeKey(onClose);
 
   return (
     <>
@@ -551,12 +524,7 @@ function BanModal({
           <label className="label">Reason (optional)</label>
           <textarea
             className="inwrap w-full resize-none"
-            style={{
-              height: 80,
-              padding: "10px 12px",
-              fontFamily: "inherit",
-              fontSize: 14,
-            }}
+            style={{ height: 80 }}
             placeholder="e.g. Uploading irrelevant documents"
             value={reason}
             onChange={(e) => onReasonChange(e.target.value)}
@@ -609,13 +577,7 @@ function BanInfoModal({
   viewerId: string;
   onClose: () => void;
 }) {
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
+  useEscapeKey(onClose);
 
   return (
     <>
@@ -700,8 +662,9 @@ export default function MembersView({
   const canViewBanned = initialBanned !== null;
   const canRegen = viewerRank === "owner";
 
-  const sortedMembers = [...members].sort(
-    (a, b) => RANK_VALUE[b.rank] - RANK_VALUE[a.rank],
+  const sortedMembers = useMemo(
+    () => [...members].sort((a, b) => RANK_VALUE[b.rank] - RANK_VALUE[a.rank]),
+    [members],
   );
 
   async function handleKickConfirm() {

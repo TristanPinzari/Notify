@@ -235,14 +235,6 @@ export async function runCompilation(
   );
   const ai = new Gemini(process.env.GEMINI_API_KEY!);
 
-  async function failWith(reason: string): Promise<never> {
-    await db
-      .update(masterDocuments)
-      .set({ status: "failed", content: null, failureReason: reason })
-      .where(eq(masterDocuments.id, masterDocumentId));
-    throw new Error(reason);
-  }
-
   // Fetch the previous ready document for incremental merging (not from scratch)
   let existingDocument: string | undefined;
   let prevDocId: string | undefined;
@@ -303,10 +295,7 @@ export async function runCompilation(
     );
     content = await ai.generate(secondPrompt);
   } else {
-    await failWith(
-      "Topic has too many contributions to compile. Try removing some contributions or splitting into multiple topics.",
-    );
-    throw new Error("unreachable");
+    throw new Error("Topic has too many contributions to compile. Try removing some contributions or splitting into multiple topics.");
   }
 
   console.log(

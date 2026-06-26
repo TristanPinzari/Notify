@@ -28,6 +28,7 @@ import {
   DownloadIcon,
   PdfIcon,
 } from "@/components/icons";
+import { timeAgo } from "@/lib/utils";
 
 type DocStatus = "compiling" | "ready" | "failed";
 type PdfStatus = "pending" | "generating" | "ready" | "failed";
@@ -84,17 +85,6 @@ const LABEL = {
   factChecking: { none: "None", flag: "Flag", replace: "Replace" } as const,
 };
 
-function timeAgo(iso: string): string {
-  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return "yesterday";
-  return `${days}d ago`;
-}
 
 type CompileStep = "fetching" | "generating" | "saving";
 const HB_STEPS: [CompileStep, string][] = [
@@ -124,9 +114,7 @@ export function MasterDocView({
 
   const activeDoc = docs.find((d) => d.id === activeId) ?? null;
   const isCompiling = activeDoc?.status === "compiling";
-  const anyCompiling = docs.some((d) => d.status === "compiling");
-  const inProgress = isCompiling;
-  const compileDisabled = anyCompiling || compileStep !== null;
+  const compileDisabled = docs.some((d) => d.status === "compiling") || compileStep !== null;
 
   const [draft, setDraft] = useState<CompilationSettings>(
     initialDocs[0]
@@ -674,7 +662,7 @@ export function MasterDocView({
       )}
 
       {/* Compile heartbeat */}
-      {inProgress && (
+      {isCompiling && (
         <div className="card hb">
           {HB_STEPS.map(([key, label], i) => {
             const state =
@@ -750,7 +738,7 @@ export function MasterDocView({
 
       {/* Content */}
       {!editMode &&
-        !inProgress &&
+        !isCompiling &&
         (activeDoc?.status === "failed" ? (
           <div className="flex flex-col items-center text-center py-16 gap-3">
             <FailIcon />

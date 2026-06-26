@@ -36,6 +36,7 @@ import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+import { timeAgo } from "@/lib/utils";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -133,15 +134,6 @@ type StagedItem = StagedFile | StagedLink | StagedPlaylist;
 
 let stageSeq = 1000;
 
-function timeAgo(iso: string): string {
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return "just now";
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
 
 function StatusPill({
   status,
