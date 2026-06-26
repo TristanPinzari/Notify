@@ -43,7 +43,7 @@ const XML_TAG_REFERENCE = `
 Use these tags within your markdown output:
 
 - <conflict a="Name of first source" b="Name of second source">Source A says X. Source B says Y.</conflict>
-  Use ONLY when two uploaded student contributions state different facts about the same thing — e.g. one source says a date is 1776 and another says 1778, or one source attributes a quote to person A and another to person B. The a and b attributes are the names of the conflicting contributions, not the names of historical figures or theorists being discussed. Do NOT use <conflict> for differences of opinion, philosophical disagreement, or academic debate — those are part of the subject matter and should be written as normal prose.
+  Use ONLY when two uploaded student contributions state different facts about the same thing — e.g. one source says a date is 1776 and another says 1778, or one source attributes a quote to person A and another to person B. The a and b attributes are the names of the conflicting contributions, not the names of historical figures or theorists being discussed. Do NOT use <conflict> for differences of opinion, philosophical disagreement, or academic debate — those are part of the subject matter and should be written as normal prose. IMPORTANT: <conflict> must appear on its own dedicated line with a blank line before and after it — never appended to a sentence, never on the same line as any other text. The line must contain nothing except the opening tag, its content, and the closing tag.
 
 - <flagged>suspicious claim here</flagged>
   Use when a claim appears factually dubious.

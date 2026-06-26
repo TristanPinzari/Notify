@@ -164,11 +164,15 @@ export async function getMasterDocumentStatus(masterDocumentId: string) {
   const deletedSourceNames: string[] = [];
   const sourceIds: string[] = [];
   const uploaderSet = new Set<string>();
+  const seenContributionIds = new Set<string>();
 
   for (const r of sourceRows) {
     if (r.contributionId && r.contributionName) {
-      sources.push({ id: r.contributionId, name: r.contributionName });
-      sourceIds.push(r.contributionId);
+      if (!seenContributionIds.has(r.contributionId)) {
+        seenContributionIds.add(r.contributionId);
+        sources.push({ id: r.contributionId, name: r.contributionName });
+        sourceIds.push(r.contributionId);
+      }
     } else if (!r.contributionId && r.snapshotName) {
       deletedSourceNames.push(r.snapshotName);
     }

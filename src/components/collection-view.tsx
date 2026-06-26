@@ -553,9 +553,7 @@ function SourceRow({
                   </div>
                 </div>
                 {loadingText ? (
-                  <div className="extracted text-(--ink-faint)">
-                    Loading…
-                  </div>
+                  <div className="extracted text-(--ink-faint)">Loading…</div>
                 ) : (
                   <div className="extracted">
                     <ReactMarkdown

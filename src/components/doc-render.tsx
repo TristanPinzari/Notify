@@ -37,15 +37,18 @@ function sameSource(a: SrcRef | null, b: SrcRef | null): boolean {
 
 function makeRegistry(): SourceReg {
   const map = new Map<string, number>();
+  const nameMap = new Map<string, number>();
   const order: SrcRef[] = [];
   return {
     getNum(src) {
       const k = src.id ?? src.name;
-      if (!map.has(k)) {
-        order.push(src);
-        map.set(k, order.length);
-      }
-      return map.get(k)!;
+      if (map.has(k)) return map.get(k)!;
+      if (nameMap.has(src.name)) return nameMap.get(src.name)!;
+      order.push(src);
+      const n = order.length;
+      map.set(k, n);
+      nameMap.set(src.name, n);
+      return n;
     },
     list() {
       return order.map((s, i) => ({ n: i + 1, name: s.name, id: s.id }));
@@ -76,7 +79,11 @@ type Block =
 /* ─── parse markdown → blocks ──────────────────────────────────────── */
 
 function parseBlocks(md: string): Block[] {
-  const lines = md.replace(/\t/g, "  ").split("\n");
+  const lines = md
+    .replace(/\t/g, "  ")
+    .replace(/([^\n])(\s*<conflict\b)/g, "$1\n$2")
+    .replace(/(<\/conflict>)(\s*\S)/g, "$1\n$2")
+    .split("\n");
   const blocks: Block[] = [];
   let i = 0;
 
