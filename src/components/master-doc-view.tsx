@@ -475,7 +475,7 @@ export function MasterDocView({
             className="chip link"
             href={
               contributors > 0
-                ? `/home/${classId}/${topicId}/members?members=${activeDoc.contributorIds.join(",")}`
+                ? `/home/${classId}/${topicId}/members?members=${activeDoc.contributorIds.join(",")}&reason=of+this+master+doc`
                 : `/home/${classId}/${topicId}/members`
             }
           >
@@ -490,7 +490,7 @@ export function MasterDocView({
             className="chip link"
             href={
               sources > 0
-                ? `/home/${classId}/${topicId}/collection?sources=${activeDoc.sourceIds.join(",")}`
+                ? `/home/${classId}/${topicId}/collection?sources=${activeDoc.sourceIds.join(",")}&reason=used+in+this+master+doc`
                 : `/home/${classId}/${topicId}/collection`
             }
           >
@@ -519,7 +519,7 @@ export function MasterDocView({
             </span>
           )}
           {activeDoc.manuallyEdited && (
-            <span className="chip edited-chip">
+            <span className="chip">
               <EditIcon />
               Edited
             </span>

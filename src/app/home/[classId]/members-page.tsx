@@ -17,9 +17,11 @@ import type { MemberRow, BannedRow } from "@/components/members-view";
 export async function MembersPageContent({
   classId,
   highlightMembers,
+  filterReason,
 }: {
   classId: string;
   highlightMembers?: string[];
+  filterReason?: string;
 }) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/sign-in");
@@ -122,6 +124,7 @@ export async function MembersPageContent({
       canBan={vIdx >= RANK_VALUE[cls.minRankBanUsers]}
       canChangeRank={vIdx >= RANK_VALUE[cls.minRankChangeRanks]}
       highlightMembers={highlightMembers}
+      filterReason={filterReason}
     />
   );
 }

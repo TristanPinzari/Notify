@@ -12,6 +12,7 @@ import {
 } from "@/server/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { headers } from "next/headers";
+import { parseIds } from "@/lib/utils";
 import { notFound, redirect } from "next/navigation";
 
 export async function generateMetadata({
@@ -33,16 +34,14 @@ export default async function CollectionPage({
   searchParams,
 }: {
   params: Promise<{ classId: string; topicId: string }>;
-  searchParams: Promise<{ sources?: string }>;
+  searchParams: Promise<{ sources?: string; reason?: string }>;
 }) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/sign-in");
 
   const { classId, topicId } = await params;
-  const { sources: sourcesParam } = await searchParams;
-  const highlightSources = sourcesParam
-    ? sourcesParam.split(",").filter(Boolean)
-    : undefined;
+  const { sources: sourcesParam, reason } = await searchParams;
+  const highlightSources = parseIds(sourcesParam);
 
   const [rows, [cls], [member]] = await Promise.all([
     db
@@ -112,6 +111,7 @@ export default async function CollectionPage({
       topicId={topicId}
       currentUserId={session.user.id}
       highlightSources={highlightSources}
+      filterReason={reason}
     />
   );
 }

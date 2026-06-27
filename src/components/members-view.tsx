@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { ContextFilterBar } from "@/components/context-filter-bar";
 import { toast } from "sonner";
 import {
   kickFromClass,
@@ -87,6 +89,7 @@ type Props = {
   canBan: boolean;
   canChangeRank: boolean;
   highlightMembers?: string[];
+  filterReason?: string;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -324,7 +327,6 @@ function MemberItem({
   member,
   isSelf,
   isLast,
-  dimmed,
   viewerRank,
   canKick,
   canBan,
@@ -336,7 +338,6 @@ function MemberItem({
   member: MemberRow;
   isSelf: boolean;
   isLast: boolean;
-  dimmed: boolean;
   viewerRank: Rank;
   canKick: boolean;
   canBan: boolean;
@@ -347,7 +348,7 @@ function MemberItem({
 }) {
   return (
     <div
-      className={`flex items-center gap-3.5 px-4.5 py-3.25 hover:bg-[rgba(60,45,25,0.025)] transition-colors ${!isLast ? "border-b border-(--line-soft)" : ""} ${dimmed ? "opacity-50" : ""}`}
+      className={`flex items-center gap-3.5 px-4.5 py-3.25 hover:bg-[rgba(60,45,25,0.025)] transition-colors ${!isLast ? "border-b border-(--line-soft)" : ""}`}
     >
       <Avatar name={member.name} image={member.image} size={40} />
       <div className="flex-1 min-w-0">
@@ -646,7 +647,11 @@ export default function MembersView({
   canBan,
   canChangeRank,
   highlightMembers,
+  filterReason,
 }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [members, setMembers] = useState(initialMembers);
   const [banned, setBanned] = useState<BannedRow[]>(initialBanned ?? []);
   const [code, setCode] = useState(classCode);
@@ -671,6 +676,11 @@ export default function MembersView({
   const sortedMembers = useMemo(
     () => [...members].sort((a, b) => RANK_VALUE[b.rank] - RANK_VALUE[a.rank]),
     [members],
+  );
+
+  const highlightSet = useMemo(
+    () => (highlightMembers ? new Set(highlightMembers) : null),
+    [highlightMembers],
   );
 
   async function handleKickConfirm() {
@@ -897,6 +907,20 @@ export default function MembersView({
       <div className="section-label flex items-center gap-2">
         Members <span className="text-(--ink-fainter)">· {members.length}</span>
       </div>
+      {highlightMembers && (
+        <ContextFilterBar
+          noun="contributor"
+          count={highlightMembers.length}
+          total={members.length}
+          filterReason={filterReason ?? "from this master doc"}
+          onClear={() => {
+            const p = new URLSearchParams(searchParams);
+            p.delete("members");
+            p.delete("reason");
+            router.push(pathname + (p.size ? `?${p}` : ""));
+          }}
+        />
+      )}
       <div className="bg-(--paper-raised) border border-(--line) rounded-[14px] overflow-visible">
         {sortedMembers.length === 0 ? (
           <div className="py-10 px-7 text-center">
@@ -913,16 +937,14 @@ export default function MembersView({
             </p>
           </div>
         ) : (
-          sortedMembers.map((m, i) => (
+          sortedMembers
+            .filter((m) => !highlightSet || highlightSet.has(m.userId))
+            .map((m, i, arr) => (
             <MemberItem
               key={m.userId}
               member={m}
               isSelf={m.userId === viewerId}
-              isLast={i === sortedMembers.length - 1}
-              dimmed={
-                highlightMembers !== undefined &&
-                !highlightMembers.includes(m.userId)
-              }
+              isLast={i === arr.length - 1}
               viewerRank={viewerRank}
               canKick={canKick}
               canBan={canBan}

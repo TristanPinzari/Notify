@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { ContextFilterBar } from "@/components/context-filter-bar";
 import type { CType, CStatus, EMethod } from "@/server/db/schema";
 import {
   createContribution,
@@ -185,7 +187,6 @@ type SourceRowProps = {
   onOpen: (id: string) => void;
   onRemove: (name: string, id: string) => void;
   onUpdate: (id: string, patch: Partial<FileRow>) => void;
-  dimmed?: boolean;
 };
 
 function SourceRow({
@@ -198,7 +199,6 @@ function SourceRow({
   onOpen,
   onRemove,
   onUpdate,
-  dimmed,
 }: SourceRowProps) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -328,7 +328,7 @@ function SourceRow({
   return (
     <>
       <div
-        className={`file${panelOpen ? " expanded" : ""}${dimmed && !panelOpen ? " dimmed" : ""}`}
+        className={`file${panelOpen ? " expanded" : ""}`}
       >
         <span className={`ftype ${f.type}`}>{TYPE_LABEL[f.type]}</span>
         <div className="finfo">
@@ -574,6 +574,7 @@ type Props = {
   classId: string;
   currentUserId: string;
   highlightSources?: string[];
+  filterReason?: string;
 };
 
 export default function CollectionView({
@@ -585,8 +586,17 @@ export default function CollectionView({
   classId,
   currentUserId,
   highlightSources,
+  filterReason,
 }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const highlightSet = useMemo(
+    () => (highlightSources ? new Set(highlightSources) : null),
+    [highlightSources],
+  );
 
   const [files, setFiles] = useState<FileRow[]>(
     contributions.map((c) => ({
@@ -1362,6 +1372,20 @@ export default function CollectionView({
 
       {/* committed sources */}
       <div className="section-label mt-6.5">All sources</div>
+      {highlightSources && (
+        <ContextFilterBar
+          noun="source"
+          count={highlightSources.length}
+          total={files.length}
+          filterReason={filterReason ?? "from this master doc"}
+          onClear={() => {
+            const p = new URLSearchParams(searchParams);
+            p.delete("sources");
+            p.delete("reason");
+            router.push(pathname + (p.size ? `?${p}` : ""));
+          }}
+        />
+      )}
       {files.length === 0 ? (
         <div className="empty">
           <div className="empty-ic">
@@ -1375,8 +1399,9 @@ export default function CollectionView({
         </div>
       ) : (
         <div className="rounded-[15px] bg-(--paper-raised) border border-(--line) overflow-hidden">
-          {files.map((f) => {
-            return (
+          {files
+            .filter((f) => !highlightSet || highlightSet.has(f.id))
+            .map((f) => (
               <SourceRow
                 key={f.id}
                 f={f}
@@ -1388,13 +1413,8 @@ export default function CollectionView({
                 onOpen={openContribution}
                 onRemove={removeFile}
                 onUpdate={updateFile}
-                dimmed={
-                  highlightSources !== undefined &&
-                  !highlightSources.includes(f.id)
-                }
               />
-            );
-          })}
+            ))}
         </div>
       )}
     </div>
