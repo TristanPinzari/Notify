@@ -86,6 +86,7 @@ type Props = {
   canKick: boolean;
   canBan: boolean;
   canChangeRank: boolean;
+  highlightMembers?: string[];
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -100,7 +101,6 @@ function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
 }
-
 
 // ─── Avatar ──────────────────────────────────────────────────────────────────
 
@@ -324,6 +324,7 @@ function MemberItem({
   member,
   isSelf,
   isLast,
+  dimmed,
   viewerRank,
   canKick,
   canBan,
@@ -335,6 +336,7 @@ function MemberItem({
   member: MemberRow;
   isSelf: boolean;
   isLast: boolean;
+  dimmed: boolean;
   viewerRank: Rank;
   canKick: boolean;
   canBan: boolean;
@@ -345,7 +347,7 @@ function MemberItem({
 }) {
   return (
     <div
-      className={`flex items-center gap-3.5 px-4.5 py-3.25 hover:bg-[rgba(60,45,25,0.025)] transition-colors ${!isLast ? "border-b border-(--line-soft)" : ""}`}
+      className={`flex items-center gap-3.5 px-4.5 py-3.25 hover:bg-[rgba(60,45,25,0.025)] transition-colors ${!isLast ? "border-b border-(--line-soft)" : ""} ${dimmed ? "opacity-50" : ""}`}
     >
       <Avatar name={member.name} image={member.image} size={40} />
       <div className="flex-1 min-w-0">
@@ -643,6 +645,7 @@ export default function MembersView({
   canKick,
   canBan,
   canChangeRank,
+  highlightMembers,
 }: Props) {
   const [members, setMembers] = useState(initialMembers);
   const [banned, setBanned] = useState<BannedRow[]>(initialBanned ?? []);
@@ -651,7 +654,10 @@ export default function MembersView({
   const [unbanBusyId, setUnbanBusyId] = useState<string | null>(null);
   const [kickTarget, setKickTarget] = useState<MemberRow | null>(null);
   const [kickPending, setKickPending] = useState(false);
-  const [rankChangeTarget, setRankChangeTarget] = useState<{ member: MemberRow; rank: Rank } | null>(null);
+  const [rankChangeTarget, setRankChangeTarget] = useState<{
+    member: MemberRow;
+    rank: Rank;
+  } | null>(null);
   const [rankChangePending, setRankChangePending] = useState(false);
   const [banTarget, setBanTarget] = useState<MemberRow | null>(null);
   const [banReason, setBanReason] = useState("");
@@ -913,6 +919,10 @@ export default function MembersView({
               member={m}
               isSelf={m.userId === viewerId}
               isLast={i === sortedMembers.length - 1}
+              dimmed={
+                highlightMembers !== undefined &&
+                !highlightMembers.includes(m.userId)
+              }
               viewerRank={viewerRank}
               canKick={canKick}
               canBan={canBan}

@@ -14,7 +14,13 @@ import { notFound, redirect } from "next/navigation";
 import MembersView from "@/components/members-view";
 import type { MemberRow, BannedRow } from "@/components/members-view";
 
-export async function MembersPageContent({ classId }: { classId: string }) {
+export async function MembersPageContent({
+  classId,
+  highlightMembers,
+}: {
+  classId: string;
+  highlightMembers?: string[];
+}) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/sign-in");
 
@@ -115,6 +121,7 @@ export async function MembersPageContent({ classId }: { classId: string }) {
       canKick={vIdx >= RANK_VALUE[cls.minRankKickUsers]}
       canBan={vIdx >= RANK_VALUE[cls.minRankBanUsers]}
       canChangeRank={vIdx >= RANK_VALUE[cls.minRankChangeRanks]}
+      highlightMembers={highlightMembers}
     />
   );
 }

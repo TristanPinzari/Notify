@@ -85,7 +85,6 @@ const LABEL = {
   factChecking: { none: "None", flag: "Flag", replace: "Replace" } as const,
 };
 
-
 type CompileStep = "fetching" | "generating" | "saving";
 const HB_STEPS: [CompileStep, string][] = [
   ["fetching", "Fetching sources"],
@@ -114,7 +113,8 @@ export function MasterDocView({
 
   const activeDoc = docs.find((d) => d.id === activeId) ?? null;
   const isCompiling = activeDoc?.status === "compiling";
-  const compileDisabled = docs.some((d) => d.status === "compiling") || compileStep !== null;
+  const compileDisabled =
+    docs.some((d) => d.status === "compiling") || compileStep !== null;
 
   const [draft, setDraft] = useState<CompilationSettings>(
     initialDocs[0]
@@ -257,7 +257,12 @@ export function MasterDocView({
     setDocs((prev) =>
       prev.map((d) =>
         d.id === activeDoc.id
-          ? { ...d, content: editContent, pdfStatus: "pending", manuallyEdited: true }
+          ? {
+              ...d,
+              content: editContent,
+              pdfStatus: "pending",
+              manuallyEdited: true,
+            }
           : d,
       ),
     );
@@ -391,17 +396,17 @@ export function MasterDocView({
           {activeDoc && activeDoc.status === "ready" && !editMode && (
             <div className="flex gap-2">
               {canEdit && activeDoc.content && (
-                  <div className="flex gap-2">
-                    <button
-                      className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px]"
-                      onClick={enterEdit}
-                      disabled={compileDisabled}
-                    >
-                      <EditIcon />
-                      Edit
-                    </button>
-                  </div>
-                )}
+                <div className="flex gap-2">
+                  <button
+                    className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px]"
+                    onClick={enterEdit}
+                    disabled={compileDisabled}
+                  >
+                    <EditIcon />
+                    Edit
+                  </button>
+                </div>
+              )}
               <button
                 className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px]"
                 disabled={pdfLoading || activeDoc.pdfStatus === "generating"}
@@ -470,8 +475,8 @@ export function MasterDocView({
             className="chip link"
             href={
               contributors > 0
-                ? `/home/${classId}/${topicId}/collection?members=${activeDoc.contributorIds.join(",")}`
-                : `/home/${classId}/${topicId}/collection`
+                ? `/home/${classId}/${topicId}/members?members=${activeDoc.contributorIds.join(",")}`
+                : `/home/${classId}/${topicId}/members`
             }
           >
             <MembersIcon />
@@ -774,4 +779,3 @@ export function MasterDocView({
     </div>
   );
 }
-

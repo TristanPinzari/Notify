@@ -5,9 +5,13 @@ export const metadata: Metadata = { title: "Members" };
 
 export default async function MembersPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ classId: string; topicId: string }>;
+  searchParams: Promise<{ members?: string }>;
 }) {
   const { classId } = await params;
-  return <MembersPageContent classId={classId} />;
+  const { members } = await searchParams;
+  const highlightMembers = members ? members.split(",").filter(Boolean) : undefined;
+  return <MembersPageContent classId={classId} highlightMembers={highlightMembers} />;
 }
