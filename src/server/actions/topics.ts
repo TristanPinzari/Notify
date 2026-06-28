@@ -10,7 +10,7 @@ import { getUserRank, requireRank, topicBelongsToClass } from "./shared";
 export async function createTopic(
   classId: string,
   name: string,
-): Promise<{ error: string } | { success: true }> {
+): Promise<{ error: string } | { success: true; id: string }> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
 
@@ -32,14 +32,15 @@ export async function createTopic(
     );
     if ("error" in allowed) return allowed;
 
+    const id = crypto.randomUUID();
     await db.insert(topics).values({
-      id: crypto.randomUUID(),
+      id,
       classId,
       name,
       createdBy: session.user.id,
     });
 
-    return { success: true };
+    return { success: true, id };
   } catch (e) {
     console.error("ERROR: ", e);
     return { error: "Something went wrong." };

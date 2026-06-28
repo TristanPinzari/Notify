@@ -39,7 +39,7 @@ type Props = {
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export function Sidebar({ user, initialClasses }: Props) {
-  const { data: classes = [], mutate } = useSWR<SidebarClass[]>(
+  const { data: classes = [] } = useSWR<SidebarClass[]>(
     "/api/sidebar",
     fetcher,
     { fallbackData: initialClasses, revalidateOnFocus: true },
@@ -113,7 +113,8 @@ export function Sidebar({ user, initialClasses }: Props) {
           const isOpen = openClasses.has(cls.id);
           const isActive = pathname.startsWith(`/home/${cls.id}`);
           const seg = pathname.split("/")[3];
-          const isSelected = isActive && (!seg || seg === "members" || seg === "settings");
+          const isSelected =
+            isActive && (!seg || seg === "members" || seg === "settings");
           const color = BADGE_COLORS[i % BADGE_COLORS.length];
           return (
             <div
@@ -123,12 +124,21 @@ export function Sidebar({ user, initialClasses }: Props) {
               <div className="class-row">
                 <button
                   className="chev"
-                  onClick={(e) => { e.preventDefault(); toggleClass(cls.id); }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    toggleClass(cls.id);
+                  }}
                   aria-label="Toggle topics"
                 >
                   <ChevIcon />
                 </button>
-                <Link href={`/home/${cls.id}`} className="class-row-link" onClick={() => { if (!openClasses.has(cls.id)) toggleClass(cls.id); }}>
+                <Link
+                  href={`/home/${cls.id}`}
+                  className="class-row-link"
+                  onClick={() => {
+                    if (!openClasses.has(cls.id)) toggleClass(cls.id);
+                  }}
+                >
                   <div className="badge" style={{ background: color }}>
                     {cls.name.slice(0, 2).toUpperCase()}
                   </div>
@@ -174,18 +184,9 @@ export function Sidebar({ user, initialClasses }: Props) {
         </button>
       </div>
 
-      {modalOpen && (
-        <ClassModal
-          onClose={() => setModalOpen(false)}
-          onSuccess={() => mutate()}
-        />
-      )}
+      {modalOpen && <ClassModal onClose={() => setModalOpen(false)} />}
       {topicModal && (
-        <TopicModal
-          classId={topicModal}
-          onClose={() => setTopicModal(null)}
-          onSuccess={() => mutate()}
-        />
+        <TopicModal classId={topicModal} onClose={() => setTopicModal(null)} />
       )}
 
       <div className="side-user" ref={menuRef}>

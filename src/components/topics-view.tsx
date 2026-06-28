@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { TopicModal } from "@/components/topic-modal";
 import {
   CheckIcon,
@@ -98,7 +97,6 @@ export default function TopicsView({
   topics: initialTopics,
   canCreate,
 }: Props) {
-  const router = useRouter();
   const [sort, setSort] = useState<Sort>("recent");
   const [showModal, setShowModal] = useState(false);
 
@@ -212,11 +210,7 @@ export default function TopicsView({
       )}
 
       {showModal && (
-        <TopicModal
-          classId={classId}
-          onClose={() => setShowModal(false)}
-          onSuccess={() => router.refresh()}
-        />
+        <TopicModal classId={classId} onClose={() => setShowModal(false)} />
       )}
     </div>
   );

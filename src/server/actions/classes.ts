@@ -55,7 +55,7 @@ export async function createClass(name: string) {
       .insert(userClasses)
       .values({ userId: session.user.id, classId, rank: "owner" });
 
-    return { success: true };
+    return { success: true, id: classId };
   } catch (e) {
     console.error("ERROR: ", e);
     return { error: "Something went wrong." };
@@ -211,7 +211,11 @@ export async function kickFromClass(classId: string, userId: string) {
   }
 }
 
-export async function banFromClass(classId: string, userId: string, reason?: string) {
+export async function banFromClass(
+  classId: string,
+  userId: string,
+  reason?: string,
+) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
 
@@ -437,7 +441,8 @@ export async function getActivityLog(classId: string, offset: number) {
   if (!session) return { error: "Not authenticated." };
 
   try {
-    if (!(await classExists(classId))) return { error: "Class does not exist." };
+    if (!(await classExists(classId)))
+      return { error: "Class does not exist." };
     const rank = await getUserRank(classId, session.user.id);
     if (!rank) return { error: "You are not a member of this class." };
 

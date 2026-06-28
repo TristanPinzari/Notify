@@ -5,6 +5,8 @@ import { createTopic } from "@/server/actions/topics";
 import { useEscapeKey } from "@/hooks/use-escape-key";
 import { toast } from "sonner";
 import { InfoIcon as WarnIcon, TopicIcon } from "@/components/icons";
+import { useRouter } from "next/navigation";
+import { mutate } from "swr";
 
 type Props = {
   classId: string;
@@ -13,6 +15,7 @@ type Props = {
 };
 
 export function TopicModal({ classId, onClose, onSuccess }: Props) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -33,6 +36,8 @@ export function TopicModal({ classId, onClose, onSuccess }: Props) {
     if ("error" in result) return setError(result.error);
 
     toast.success("Topic created!");
+    if ("id" in result) router.push(`/home/${classId}/${result.id}`);
+    mutate("/api/sidebar");
     onSuccess?.();
     onClose();
   }

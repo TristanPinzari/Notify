@@ -5,6 +5,8 @@ import { useEscapeKey } from "@/hooks/use-escape-key";
 import { createClass, joinClass } from "@/server/actions/classes";
 import { toast } from "sonner";
 import { InfoIcon as WarnIcon, BookIcon, HashIcon } from "@/components/icons";
+import { useRouter } from "next/navigation";
+import { mutate } from "swr";
 
 type Mode = "create" | "join";
 
@@ -16,6 +18,7 @@ type Props = {
 const CODE_RE = /^[A-Z2-9]{4}-[A-Z2-9]{4}$/;
 
 export function ClassModal({ onClose, onSuccess }: Props) {
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>("create");
   const [className, setClassName] = useState("");
   const [joinCode, setJoinCode] = useState("");
@@ -46,6 +49,8 @@ export function ClassModal({ onClose, onSuccess }: Props) {
     if (result.error) return setError(result.error);
 
     toast.success("Class created!");
+    if ("id" in result) router.push(`/home/${result.id}`);
+    mutate("/api/sidebar");
     onSuccess?.();
     onClose();
   }
