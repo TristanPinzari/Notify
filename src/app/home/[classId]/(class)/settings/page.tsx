@@ -1,5 +1,72 @@
 import type { Metadata } from "next";
+import { db } from "@/server/db";
+import { classes, userClasses, user, RANK_VALUE } from "@/server/db/schema";
+import { eq, and } from "drizzle-orm";
+import { auth } from "@/server/auth";
+import { headers } from "next/headers";
+import { notFound, redirect } from "next/navigation";
+import SettingsView from "@/components/settings-view";
+
 export const metadata: Metadata = { title: "Settings" };
-export default function ClassSettingsPage() {
-  return <div>Settings</div>;
+
+export default async function ClassSettingsPage({
+  params,
+}: {
+  params: Promise<{ classId: string }>;
+}) {
+  const { classId } = await params;
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) redirect("/sign-in");
+
+  const userId = session.user.id;
+
+  const [[cls], [member]] = await Promise.all([
+    db
+      .select({
+        id: classes.id,
+        name: classes.name,
+        code: classes.code,
+        createdAt: classes.createdAt,
+        defaultRank: classes.defaultRank,
+        minRankCreateTopic: classes.minRankCreateTopic,
+        minRankDeleteTopic: classes.minRankDeleteTopic,
+        minRankUploadContribution: classes.minRankUploadContribution,
+        minRankDeleteContribution: classes.minRankDeleteContribution,
+        minRankTriggerCompilation: classes.minRankTriggerCompilation,
+        minRankEditCompilation: classes.minRankEditCompilation,
+        minRankInvite: classes.minRankInvite,
+        minRankBanUsers: classes.minRankBanUsers,
+        minRankKickUsers: classes.minRankKickUsers,
+        minRankChangeRanks: classes.minRankChangeRanks,
+        minRankPinContribution: classes.minRankPinContribution,
+      })
+      .from(classes)
+      .where(eq(classes.id, classId))
+      .limit(1),
+
+    db
+      .select({ rank: userClasses.rank })
+      .from(userClasses)
+      .where(and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)))
+      .limit(1),
+  ]);
+
+  if (!cls) notFound();
+  if (!member) redirect("/home");
+
+  // Fetch owner name
+  const [ownerRow] = await db
+    .select({ name: user.name })
+    .from(userClasses)
+    .innerJoin(user, eq(userClasses.userId, user.id))
+    .where(and(eq(userClasses.classId, classId), eq(userClasses.rank, "owner")))
+    .limit(1);
+
+  return (
+    <SettingsView
+      classId={classId}
+      cls={{ ...cls, createdAt: cls.createdAt.toISOString(), ownerName: ownerRow?.name ?? "Unknown" }}
+      viewerRank={member.rank}
+    />
+  );
 }

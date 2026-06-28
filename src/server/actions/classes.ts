@@ -5,11 +5,13 @@ import {
   classes,
   userClasses,
   classBans,
+  activityLogs,
+  user,
   Rank,
   ClassSettings,
   RANK_VALUE,
 } from "@/server/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import {
@@ -422,6 +424,47 @@ export async function regenerateCode(classId: string) {
       .where(eq(classes.id, classId));
 
     return { success: true, code: newCode };
+  } catch (e) {
+    console.error("ERROR: ", e);
+    return { error: "Something went wrong." };
+  }
+}
+
+const LOG_PAGE = 10;
+
+export async function getActivityLog(classId: string, offset: number) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return { error: "Not authenticated." };
+
+  try {
+    if (!(await classExists(classId))) return { error: "Class does not exist." };
+    const rank = await getUserRank(classId, session.user.id);
+    if (!rank) return { error: "You are not a member of this class." };
+
+    const rows = await db
+      .select({
+        id: activityLogs.id,
+        action: activityLogs.action,
+        metadata: activityLogs.metadata,
+        createdAt: activityLogs.createdAt,
+        userName: user.name,
+      })
+      .from(activityLogs)
+      .leftJoin(user, eq(activityLogs.userId, user.id))
+      .where(eq(activityLogs.classId, classId))
+      .orderBy(desc(activityLogs.createdAt))
+      .limit(LOG_PAGE + 1)
+      .offset(offset);
+
+    const hasMore = rows.length > LOG_PAGE;
+    return {
+      success: true as const,
+      entries: rows.slice(0, LOG_PAGE).map((r) => ({
+        ...r,
+        createdAt: r.createdAt.toISOString(),
+      })),
+      hasMore,
+    };
   } catch (e) {
     console.error("ERROR: ", e);
     return { error: "Something went wrong." };
