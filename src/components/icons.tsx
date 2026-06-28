@@ -757,6 +757,15 @@ export function FilterIcon() {
   );
 }
 
+export function LayersIcon() {
+  return (
+    <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m12 2 9 5-9 5-9-5 9-5z" />
+      <path d="m3 12 9 5 9-5M3 17l9 5 9-5" />
+    </svg>
+  );
+}
+
 export function HomeIcon() {
   return (
     <svg
