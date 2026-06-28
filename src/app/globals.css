@@ -2940,8 +2940,9 @@ textarea.inwrap:focus {
   justify-content: center;
   gap: 10px;
   border-style: dashed;
-  background: transparent;
-  color: var(--ink-nav);
+  border-color: var(--line-strong);
+  background: var(--paper-raised);
+  color: var(--ink-faint);
   min-height: 152px;
 }
 .tcard.create::before {

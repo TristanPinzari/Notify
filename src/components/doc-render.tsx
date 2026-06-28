@@ -248,19 +248,30 @@ function SourceCite({
 }
 
 function Flagged({
-  reason,
+  correction,
   original,
   children,
 }: {
-  reason?: string;
+  correction?: string;
   original?: string;
   children: React.ReactNode;
 }) {
-  const label = original ? "Changed · original claim" : "Flagged · verify";
-  const body =
-    original ??
-    reason ??
-    "This claim could not be confirmed against a cited source.";
+  if (original) {
+    // replace mode: correction is visible, original shown on hover
+    return (
+      <span className="flagged">
+        <span className="flag-text">{children}</span>
+        <span className="fmark">
+          <FlagDocIcon />
+        </span>
+        <span className="tip">
+          <b>Original claim</b>
+          {original}
+        </span>
+      </span>
+    );
+  }
+  // flag mode: paraphrased original is visible, AI suggestion shown on hover
   return (
     <span className="flagged">
       <span className="flag-text">{children}</span>
@@ -268,8 +279,8 @@ function Flagged({
         <FlagDocIcon />
       </span>
       <span className="tip">
-        <b>{label}</b>
-        {body}
+        <b>{correction ? "AI suggestion" : "Flagged · verify"}</b>
+        {correction ?? "This claim could not be confirmed against a cited source."}
       </span>
     </span>
   );
@@ -324,7 +335,7 @@ function renderInline(text: string, k = 0): React.ReactNode[] {
       out.push(
         <Flagged
           key={k++}
-          reason={getAttr(a, "reason")}
+          correction={getAttr(a, "correction")}
           original={getAttr(a, "original")}
         >
           {renderInline(m[2], k + 1000)}

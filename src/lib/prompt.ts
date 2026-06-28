@@ -33,9 +33,9 @@ const CONFLICT_RESOLUTION = {
 
 const FACT_CHECK = {
   none: "Do not fact-check or alter any claims — reproduce what the sources say.",
-  flag: "If a claim seems factually dubious, wrap it in <flagged>...</flagged> but keep the original text unchanged inside the tags. Do not use the original= attribute — that is only for replace mode.",
+  flag: "If a claim seems factually dubious, wrap it in <flagged correction=\"your suggested correction\">paraphrased original claim</flagged> — paraphrase what the source said inside the tags and put the correct version in the correction attribute.",
   replace:
-    "If a claim is factually incorrect, replace it with the correct information but wrap it in <flagged original=\"what the source said\">corrected claim</flagged> so the reader knows it was changed.",
+    "If a claim is clearly factually incorrect, write the correction inside <flagged original=\"paraphrased original claim\">correction</flagged> — put your correction inside the tags and a clean paraphrase of what the source said in the original attribute. Never quote verbatim, especially transcribed speech.",
 };
 
 const XML_TAG_REFERENCE = `
@@ -43,13 +43,13 @@ const XML_TAG_REFERENCE = `
 Use these tags within your markdown output:
 
 - <conflict a="Name of first source" b="Name of second source">Source A says X. Source B says Y.</conflict>
-  Use ONLY when two uploaded student contributions state different facts about the same thing — e.g. one source says a date is 1776 and another says 1778, or one source attributes a quote to person A and another to person B. The a and b attributes are the names of the conflicting contributions, not the names of historical figures or theorists being discussed. Do NOT use <conflict> for differences of opinion, philosophical disagreement, or academic debate — those are part of the subject matter and should be written as normal prose. IMPORTANT: <conflict> must appear on its own dedicated line with a blank line before and after it — never appended to a sentence, never on the same line as any other text. The line must contain nothing except the opening tag, its content, and the closing tag.
+  Use ONLY when two uploaded student contributions state different facts about the same thing — e.g. one source says a date is 1776 and another says 1778, or one source attributes a quote to person A and another to person B. The a and b attributes are the names of the conflicting contributions, not the names of historical figures or theorists being discussed. Do NOT use <conflict> for differences of opinion, philosophical disagreement, or academic debate — those are part of the subject matter and should be written as normal prose. CRITICAL: both a and b must be the names of real uploaded contributions — never use placeholders like "No specific conflicting source", "Unknown", or any value that is not an actual contribution name. If only one source makes a claim, use <flagged> instead, not <conflict>. IMPORTANT: <conflict> must appear on its own dedicated line with a blank line before and after it — never appended to a sentence, never on the same line as any other text. The line must contain nothing except the opening tag, its content, and the closing tag.
 
-- <flagged>suspicious claim here</flagged>
-  Use when a claim appears factually dubious.
+- <flagged correction="AI suggested correction">paraphrased original claim</flagged>
+  Use when a source makes a dubious claim — paraphrase the original claim cleanly inside the tags and put your suggested correction in the correction attribute. The original is shown to the reader; the correction appears on hover.
 
-- <flagged original="what the source said">corrected claim</flagged>
-  Use when a claim was factually incorrect and you have replaced it — preserve what the source originally said in the original attribute.
+- <flagged original="paraphrased original claim">correction</flagged>
+  Use when a claim is clearly wrong and you are replacing it — write the correction inside the tags and put a clean paraphrase of what the source said in the original attribute. The correction is shown to the reader; the original appears on hover. Never quote verbatim, especially transcribed speech.
 
 - <source id="CONTRIBUTION_ID" name="CONTRIBUTION_NAME" />
   Inline source citation. Place after the sentence it supports.
