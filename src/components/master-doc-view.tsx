@@ -475,7 +475,7 @@ export function MasterDocView({
             className="chip link"
             href={
               contributors > 0
-                ? `/home/${classId}/${topicId}/members?members=${activeDoc.contributorIds.join(",")}&reason=of+this+master+doc`
+                ? `/home/${classId}/${topicId}/members?members=${activeDoc.contributorIds.join(",")}&reason=who+contributed+to+this+master+doc`
                 : `/home/${classId}/${topicId}/members`
             }
           >

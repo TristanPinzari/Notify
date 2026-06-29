@@ -36,8 +36,8 @@ export function TopicModal({ classId, onClose, onSuccess }: Props) {
     if ("error" in result) return setError(result.error);
 
     toast.success("Topic created!");
-    if ("id" in result) router.push(`/home/${classId}/${result.id}`);
     mutate("/api/sidebar");
+    if ("id" in result) router.push(`/home/${classId}/${result.id}`);
     onSuccess?.();
     onClose();
   }

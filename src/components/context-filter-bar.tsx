@@ -3,14 +3,20 @@
 import { XIcon, FilterIcon } from "@/components/icons";
 
 type Props = {
-  noun: string;
   count: number;
   total: number;
+  noun: string;
   filterReason: string;
   onClear: () => void;
 };
 
-export function ContextFilterBar({ noun, count, total, filterReason, onClear }: Props) {
+export function ContextFilterBar({
+  count,
+  total,
+  noun,
+  filterReason,
+  onClear,
+}: Props) {
   return (
     <div className="flex items-center gap-3 bg-(--accent-soft) border border-[rgba(196,121,24,0.24)] rounded-xl px-3.5 py-3 mb-4.5">
       <span className="w-7.5 h-7.5 rounded-lg bg-(--accent) text-(--on-accent) flex items-center justify-center shrink-0">

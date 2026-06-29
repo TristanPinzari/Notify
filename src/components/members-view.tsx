@@ -64,6 +64,7 @@ export type MemberRow = {
   image: string | null;
   rank: Rank;
   joinedAt: string;
+  contributions: number;
 };
 
 export type BannedRow = {
@@ -79,7 +80,7 @@ export type BannedRow = {
 type Props = {
   classId: string;
   className: string;
-  classCode: string;
+  classCode: string | null;
   viewerId: string;
   viewerRank: Rank;
   members: MemberRow[];
@@ -361,7 +362,9 @@ function MemberItem({
           )}
         </div>
         <div className="text-xs text-(--ink-faint) mt-0.5">
-          Joined {timeAgo(member.joinedAt)}
+          Joined {timeAgo(member.joinedAt)} · {member.contributions}{" "}
+          contribution
+          {member.contributions !== 1 ? "s" : ""}
         </div>
       </div>
       <RankBadge rank={member.rank} />
@@ -654,7 +657,7 @@ export default function MembersView({
   const searchParams = useSearchParams();
   const [members, setMembers] = useState(initialMembers);
   const [banned, setBanned] = useState<BannedRow[]>(initialBanned ?? []);
-  const [code, setCode] = useState(classCode);
+  const [code, setCode] = useState(classCode ?? "");
   const [bannedOpen, setBannedOpen] = useState(true);
   const [unbanBusyId, setUnbanBusyId] = useState<string | null>(null);
   const [kickTarget, setKickTarget] = useState<MemberRow | null>(null);
@@ -905,14 +908,17 @@ export default function MembersView({
 
       {/* Active members */}
       <div className="section-label flex items-center gap-2">
-        Members <span className="text-(--ink-fainter)">· {members.length}</span>
+        <span>
+          Members ·{" "}
+          <span className="text-(--ink-fainter)">{members.length}</span>
+        </span>
       </div>
       {highlightMembers && (
         <ContextFilterBar
-          noun="contributor"
+          noun="member"
           count={highlightMembers.length}
           total={members.length}
-          filterReason={filterReason ?? "from this master doc"}
+          filterReason={filterReason ?? ""}
           onClear={() => {
             const p = new URLSearchParams(searchParams);
             p.delete("members");
@@ -940,20 +946,22 @@ export default function MembersView({
           sortedMembers
             .filter((m) => !highlightSet || highlightSet.has(m.userId))
             .map((m, i, arr) => (
-            <MemberItem
-              key={m.userId}
-              member={m}
-              isSelf={m.userId === viewerId}
-              isLast={i === arr.length - 1}
-              viewerRank={viewerRank}
-              canKick={canKick}
-              canBan={canBan}
-              canChangeRank={canChangeRank}
-              onChangeRank={(rank) => setRankChangeTarget({ member: m, rank })}
-              onKick={() => setKickTarget(m)}
-              onBan={() => setBanTarget(m)}
-            />
-          ))
+              <MemberItem
+                key={m.userId}
+                member={m}
+                isSelf={m.userId === viewerId}
+                isLast={i === arr.length - 1}
+                viewerRank={viewerRank}
+                canKick={canKick}
+                canBan={canBan}
+                canChangeRank={canChangeRank}
+                onChangeRank={(rank) =>
+                  setRankChangeTarget({ member: m, rank })
+                }
+                onKick={() => setKickTarget(m)}
+                onBan={() => setBanTarget(m)}
+              />
+            ))
         )}
       </div>
 

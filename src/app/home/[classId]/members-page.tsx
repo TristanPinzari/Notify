@@ -6,9 +6,11 @@ import {
   userClasses,
   user,
   RANK_VALUE,
+  contributions,
+  topics,
 } from "@/server/db/schema";
 import { alias } from "drizzle-orm/pg-core";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import MembersView from "@/components/members-view";
@@ -61,10 +63,31 @@ export async function MembersPageContent({
         image: user.image,
         rank: userClasses.rank,
         joinedAt: userClasses.joinedAt,
+        contributions: sql<number>`cast(count(distinct ${contributions.id}) as int)`,
       })
       .from(userClasses)
       .innerJoin(user, eq(userClasses.userId, user.id))
+      .leftJoin(
+        contributions,
+        and(
+          eq(contributions.uploadedBy, userClasses.userId),
+          inArray(
+            contributions.topicId,
+            db
+              .select({ id: topics.id })
+              .from(topics)
+              .where(eq(topics.classId, classId)),
+          ),
+        ),
+      )
       .where(eq(userClasses.classId, classId))
+      .groupBy(
+        userClasses.userId,
+        user.name,
+        user.image,
+        userClasses.rank,
+        userClasses.joinedAt,
+      )
       .orderBy(userClasses.joinedAt),
 
     db
@@ -95,6 +118,7 @@ export async function MembersPageContent({
     image: m.image,
     rank: m.rank,
     joinedAt: m.joinedAt.toISOString(),
+    contributions: m.contributions,
   }));
 
   const banned: BannedRow[] | null =
@@ -114,7 +138,7 @@ export async function MembersPageContent({
     <MembersView
       classId={classId}
       className={cls.name}
-      classCode={cls.code}
+      classCode={vIdx >= RANK_VALUE[cls.minRankInvite] ? cls.code : null}
       viewerId={session.user.id}
       viewerRank={member.rank}
       members={members}

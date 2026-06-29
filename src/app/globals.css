@@ -3476,13 +3476,19 @@ textarea.inwrap:focus {
   font-size: 13px;
   font-weight: 600;
   padding: 9px 15px;
-  transition: all .15s;
+  transition: all 0.15s;
   white-space: nowrap;
   cursor: pointer;
   font-family: var(--sans);
 }
-.btn-danger:hover { background: var(--danger-bg); border-color: var(--danger); }
-.btn-danger svg { width: 15px; height: 15px; }
+.btn-danger:hover {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+}
+.btn-danger svg {
+  width: 15px;
+  height: 15px;
+}
 
 .btn-danger-solid {
   background: var(--danger);

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { ContextFilterBar } from "@/components/context-filter-bar";
 import type { CType, CStatus, EMethod } from "@/server/db/schema";
 import {
@@ -33,6 +34,8 @@ import {
   XIcon,
   CopyIcon,
   PinIcon,
+  MembersIcon,
+  ChevronExtIcon,
 } from "@/components/icons";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
@@ -135,7 +138,6 @@ type StagedPlaylist = {
 type StagedItem = StagedFile | StagedLink | StagedPlaylist;
 
 let stageSeq = 1000;
-
 
 function StatusPill({
   status,
@@ -327,17 +329,20 @@ function SourceRow({
 
   return (
     <>
-      <div
-        className={`file${panelOpen ? " expanded" : ""}`}
-      >
+      <div className={`file${panelOpen ? " expanded" : ""}`}>
         <span className={`ftype ${f.type}`}>{TYPE_LABEL[f.type]}</span>
         <div className="finfo">
           <button className="fname-link" onClick={() => onOpen(f.id)}>
             <span className="fname">{f.name}</span>
           </button>
           <div className="fmeta">
-            Added by <b>{f.uploaderId === currentUserId ? "You" : f.who}</b> ·{" "}
-            {timeAgo(f.createdAt)} ·{" "}
+            Added by{" "}
+            <Link
+              href={`/home/${classId}/${topicId}/members?members=${f.uploaderId}&reason=who+made+this+contribution`}
+            >
+              <b>{f.uploaderId === currentUserId ? "You" : f.who}</b>
+            </Link>{" "}
+            · {timeAgo(f.createdAt)} ·{" "}
             <span className="method-tag">{EXTRACTION_LABELS[f.method]}</span>
             {f.manuallyEdited && <span className="method-tag"> · Edited</span>}
             {f.pinned && <span className="method-tag pin-tag"> · Pinned</span>}
@@ -1018,7 +1023,11 @@ export default function CollectionView({
         : n + 1,
     0,
   );
-  const uniqueContributors = new Set(files.map((f) => f.uploaderId)).size;
+  const contributorIds = useMemo(
+    () => [...new Set(files.map((f) => f.uploaderId))],
+    [files],
+  );
+  const uniqueContributors = contributorIds.length;
 
   return (
     <div className="pane">
@@ -1050,9 +1059,22 @@ export default function CollectionView({
             <b>{processing}</b> processing
           </span>
         )}
-        <span className="chip">
-          <b>{uniqueContributors}</b> contributors
-        </span>
+        <Link
+          className="chip link"
+          href={
+            uniqueContributors > 0
+              ? `/home/${classId}/${topicId}/members?members=${contributorIds.join(",")}&reason=who+contributed+to+this+collection`
+              : `/home/${classId}/${topicId}/members`
+          }
+        >
+          <MembersIcon />
+          From{" "}
+          <b>
+            {uniqueContributors} contributor
+            {uniqueContributors !== 1 ? "s" : ""}
+          </b>
+          <ChevronExtIcon />
+        </Link>
       </div>
 
       {/* upload area */}
@@ -1377,7 +1399,7 @@ export default function CollectionView({
           noun="source"
           count={highlightSources.length}
           total={files.length}
-          filterReason={filterReason ?? "from this master doc"}
+          filterReason={filterReason ?? ""}
           onClear={() => {
             const p = new URLSearchParams(searchParams);
             p.delete("sources");

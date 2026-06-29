@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import { db } from "@/server/db";
-import { classes, userClasses, user, topics, RANK_VALUE } from "@/server/db/schema";
+import {
+  classes,
+  userClasses,
+  user,
+  topics,
+  RANK_VALUE,
+} from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
@@ -20,7 +26,7 @@ export default async function TopicSettingsPage({
 
   const userId = session.user.id;
 
-  const [[cls], [member], [topicRow]] = await Promise.all([
+  const [[cls], [member], [topicRow], [ownerRow]] = await Promise.all([
     db
       .select({
         id: classes.id,
@@ -47,7 +53,9 @@ export default async function TopicSettingsPage({
     db
       .select({ rank: userClasses.rank })
       .from(userClasses)
-      .where(and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)))
+      .where(
+        and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
+      )
       .limit(1),
 
     db
@@ -62,32 +70,44 @@ export default async function TopicSettingsPage({
       .innerJoin(user, eq(topics.createdBy, user.id))
       .where(and(eq(topics.id, topicId), eq(topics.classId, classId)))
       .limit(1),
+
+    db
+      .select({ name: user.name, id: user.id })
+      .from(userClasses)
+      .innerJoin(user, eq(userClasses.userId, user.id))
+      .where(and(eq(userClasses.classId, classId), eq(userClasses.rank, "owner")))
+      .limit(1),
   ]);
 
   if (!cls) notFound();
   if (!member) redirect("/home");
   if (!topicRow) notFound();
 
-  const [ownerRow] = await db
-    .select({ name: user.name })
-    .from(userClasses)
-    .innerJoin(user, eq(userClasses.userId, user.id))
-    .where(and(eq(userClasses.classId, classId), eq(userClasses.rank, "owner")))
-    .limit(1);
-
-  const canDelete = RANK_VALUE[member.rank] >= RANK_VALUE[cls.minRankDeleteTopic];
+  const canDelete =
+    RANK_VALUE[member.rank] >= RANK_VALUE[cls.minRankDeleteTopic];
+  const canRename =
+    topicRow.createdBy === userId ||
+    RANK_VALUE[member.rank] >= RANK_VALUE[cls.minRankCreateTopic];
 
   return (
     <SettingsView
       classId={classId}
-      cls={{ ...cls, createdAt: cls.createdAt.toISOString(), ownerName: ownerRow?.name ?? "Unknown" }}
+      cls={{
+        ...cls,
+        createdAt: cls.createdAt.toISOString(),
+        ownerName: ownerRow?.name ?? "Unknown",
+        ownerId: ownerRow?.id ?? "",
+        code: member.rank === "owner" ? cls.code : null,
+      }}
       topic={{
         id: topicRow.id,
         name: topicRow.name,
         createdAt: topicRow.createdAt.toISOString(),
         createdByName: topicRow.creatorName,
+        createdById: topicRow.createdBy,
         createdByMe: topicRow.createdBy === userId,
         canDelete,
+        canRename,
       }}
       viewerRank={member.rank}
     />

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { db } from "@/server/db";
-import { classes, userClasses, user, RANK_VALUE } from "@/server/db/schema";
+import { classes, userClasses, user } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
@@ -20,7 +20,7 @@ export default async function ClassSettingsPage({
 
   const userId = session.user.id;
 
-  const [[cls], [member]] = await Promise.all([
+  const [[cls], [member], [ownerRow]] = await Promise.all([
     db
       .select({
         id: classes.id,
@@ -47,25 +47,32 @@ export default async function ClassSettingsPage({
     db
       .select({ rank: userClasses.rank })
       .from(userClasses)
-      .where(and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)))
+      .where(
+        and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
+      )
+      .limit(1),
+
+    db
+      .select({ name: user.name, id: user.id })
+      .from(userClasses)
+      .innerJoin(user, eq(userClasses.userId, user.id))
+      .where(and(eq(userClasses.classId, classId), eq(userClasses.rank, "owner")))
       .limit(1),
   ]);
 
   if (!cls) notFound();
   if (!member) redirect("/home");
 
-  // Fetch owner name
-  const [ownerRow] = await db
-    .select({ name: user.name })
-    .from(userClasses)
-    .innerJoin(user, eq(userClasses.userId, user.id))
-    .where(and(eq(userClasses.classId, classId), eq(userClasses.rank, "owner")))
-    .limit(1);
-
   return (
     <SettingsView
       classId={classId}
-      cls={{ ...cls, createdAt: cls.createdAt.toISOString(), ownerName: ownerRow?.name ?? "Unknown" }}
+      cls={{
+        ...cls,
+        createdAt: cls.createdAt.toISOString(),
+        ownerName: ownerRow?.name ?? "Unknown",
+        ownerId: ownerRow?.id ?? "",
+        code: member.rank === "owner" ? cls.code : null,
+      }}
       viewerRank={member.rank}
     />
   );

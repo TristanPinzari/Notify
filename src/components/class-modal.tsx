@@ -49,8 +49,8 @@ export function ClassModal({ onClose, onSuccess }: Props) {
     if (result.error) return setError(result.error);
 
     toast.success("Class created!");
-    if ("id" in result) router.push(`/home/${result.id}`);
     mutate("/api/sidebar");
+    if ("id" in result) router.push(`/home/${result.id}`);
     onSuccess?.();
     onClose();
   }

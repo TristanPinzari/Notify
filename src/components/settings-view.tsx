@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { mutate } from "swr";
 import {
   updateClassSettings,
@@ -15,7 +16,6 @@ import { timeAgo } from "@/lib/utils";
 import type { Rank, ClassSettings } from "@/server/db/schema";
 import {
   CheckIcon,
-  CrownIcon,
   HistoryIcon,
   InfoIcon,
   LayersIcon,
@@ -24,11 +24,11 @@ import {
   RecompileIcon,
   RetryIcon,
   SettingsIcon,
-  ShieldIcon,
   TrashIcon,
   UploadIcon,
   WarnIcon,
 } from "@/components/icons";
+import { toast } from "sonner";
 
 /* ─── types ──────────────────────────────────────────────────────── */
 
@@ -37,9 +37,10 @@ type PermKey = keyof Omit<ClassSettings, "name" | "defaultRank">;
 type ClsData = {
   id: string;
   name: string;
-  code: string;
+  code: string | null;
   createdAt: string;
   ownerName: string;
+  ownerId: string;
   defaultRank: Rank;
   minRankCreateTopic: Rank;
   minRankDeleteTopic: Rank;
@@ -59,8 +60,10 @@ type TopicData = {
   name: string;
   createdAt: string;
   createdByName: string;
+  createdById: string;
   createdByMe: boolean;
   canDelete: boolean;
+  canRename: boolean;
 };
 
 type Props = {
@@ -74,12 +77,7 @@ type Props = {
 
 const RANKS: Rank[] = ["viewer", "contributor", "admin", "owner"];
 
-const RANK_META: Record<Rank, { label: string; Icon?: React.ComponentType }> = {
-  viewer: { label: "Viewer" },
-  contributor: { label: "Contributor" },
-  admin: { label: "Admin", Icon: () => <ShieldIcon size={11} /> },
-  owner: { label: "Owner", Icon: () => <CrownIcon size={11} /> },
-};
+const cap = (r: string) => r[0].toUpperCase() + r.slice(1);
 
 /* ─── permission groups ───────────────────────────────────────────── */
 
@@ -185,26 +183,18 @@ function RankControl({
   options?: Rank[];
 }) {
   if (!editable) {
-    const m = RANK_META[value];
-    return (
-      <span className="rankval">
-        {m.Icon && <m.Icon />}
-        {m.label}
-      </span>
-    );
+    return <span className="rankval">{cap(value)}</span>;
   }
   return (
     <div className="rankseg">
       {options.map((r) => {
-        const m = RANK_META[r];
         return (
           <button
             key={r}
             className={value === r ? "on" : ""}
             onClick={() => onChange(r)}
           >
-            {value === r && m.Icon && <m.Icon />}
-            {m.label}
+            {cap(r)}
           </button>
         );
       })}
@@ -352,7 +342,7 @@ function DeleteTopicModal({
   return (
     <>
       <div className="modal-backdrop" onClick={() => !deleting && onClose()} />
-      <div className="modal" style={{ maxWidth: 460 }}>
+      <div className="modal max-w-115">
         <div className="del-mhead">
           <span className="del-mic">
             <WarnIcon size={19} />
@@ -423,7 +413,7 @@ function DeleteClassModal({
   return (
     <>
       <div className="modal-backdrop" onClick={() => !deleting && onClose()} />
-      <div className="modal" style={{ maxWidth: 460 }}>
+      <div className="modal max-w-115">
         <div className="del-mhead">
           <span className="del-mic">
             <WarnIcon size={19} />
@@ -438,10 +428,7 @@ function DeleteClassModal({
           To confirm, type <code>{phrase}</code> below.
         </p>
         <input
-          className="sv-input"
-          style={
-            text && text !== phrase ? { borderColor: "var(--danger-soft)" } : {}
-          }
+          className={`sv-input${text && text !== phrase ? " border-(--danger-soft)" : ""}`}
           value={text}
           autoFocus
           placeholder={phrase}
@@ -493,7 +480,7 @@ export default function SettingsView({
   const isOwner = viewerRank === "owner";
 
   const [name, setName] = useState(cls.name);
-  const [code, setCode] = useState(cls.code);
+  const [code, setCode] = useState(cls.code ?? "");
   const [topicName, setTopicName] = useState(topic?.name ?? "");
   const [draft, setDraft] = useState<Record<PermKey, Rank>>(() => {
     const d = {} as Record<PermKey, Rank>;
@@ -505,6 +492,7 @@ export default function SettingsView({
   const [defaultRank, setDefaultRank] = useState<Rank>(cls.defaultRank);
 
   const [saving, setSaving] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const [regenLoading, setRegenLoading] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
   const [delTopicOpen, setDelTopicOpen] = useState(false);
@@ -545,7 +533,9 @@ export default function SettingsView({
 
     await Promise.all(tasks);
     setSaving(false);
-    router.refresh();
+    mutate("/api/sidebar");
+    startTransition(() => router.refresh());
+    toast.success("Successfully saved new settings.");
   }
 
   async function regen() {
@@ -587,24 +577,22 @@ export default function SettingsView({
               <input
                 className="sv-input"
                 value={topicName}
-                disabled={
-                  !topic.createdByMe &&
-                  viewerRank !== "admin" &&
-                  viewerRank !== "owner"
-                }
+                disabled={!topic.canRename}
                 onChange={(e) => setTopicName(e.target.value)}
                 placeholder="Untitled topic"
               />
             </div>
             <div className="sv-meta">
               <InfoIcon />
-              Created by{" "}
-              <b style={{ color: "var(--ink-nav)", marginLeft: 3 }}>
-                {topic.createdByName}
-              </b>
-              {topic.createdByMe && " (you)"}
-              <span style={{ margin: "0 4px" }}>·</span>
-              {timeAgo(topic.createdAt)}
+              <span>
+                Created by{" "}
+                <Link
+                  href={`/home/${classId}/${topic.id}/members?members=${topic.createdById}&reason=who+created+this+topic`}
+                >
+                  <b className="text-(--ink-nav)">{topic.createdByName}</b>
+                </Link>
+                {topic.createdByMe && " (you)"} · {timeAgo(topic.createdAt)}
+              </span>
             </div>
           </div>
         </div>
@@ -612,7 +600,7 @@ export default function SettingsView({
 
       {/* class section */}
       <div>
-        <div className="section-label" style={topic ? {} : { marginTop: 0 }}>
+        <div className={`section-label${!topic ? " mt-0" : ""}`}>
           <span className="slead">
             <SettingsIcon />
             Class
@@ -620,12 +608,12 @@ export default function SettingsView({
         </div>
 
         {!isOwner && (
-          <div className="lowbanner" style={{ marginBottom: 12 }}>
+          <div className="lowbanner mb-3">
             <LockIcon />
             <span>
-              You&apos;re a <b>{RANK_META[viewerRank].label}</b> here. These are
-              the class rules — you can see them, but only the <b>owner</b> can
-              change them.
+              You&apos;re a <b>{cap(viewerRank)}</b> here. These are the class
+              rules — you can see them, but only the <b>owner</b> can change
+              them.
             </span>
           </div>
         )}
@@ -641,43 +629,38 @@ export default function SettingsView({
               placeholder="Class name"
             />
           </div>
-          <div className="sv-row">
-            <div className="sv-sl">
-              <div className="sv-st">Join code</div>
-              <div className="sv-desc">
-                Members join with this code.{" "}
-                {isOwner
-                  ? "Regenerating invalidates old invite links."
-                  : "Only the owner can regenerate it."}
+          {cls.code && (
+            <div className="sv-row">
+              <div className="sv-sl">
+                <div className="sv-st">Join code</div>
+                <div className="sv-desc">
+                  Members join with this code.{" "}
+                  {isOwner
+                    ? "Regenerating invalidates old invite links."
+                    : "Only the owner can regenerate it."}
+                </div>
+              </div>
+              <div className="flex gap-2 items-center shrink-0">
+                <span className="codebox">
+                  <span className="ccode">{code}</span>
+                </span>
+                {isOwner && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={regen}
+                    disabled={regenLoading}
+                  >
+                    {regenLoading ? (
+                      <span className="mini-spin" />
+                    ) : (
+                      <RetryIcon />
+                    )}
+                    Regenerate
+                  </button>
+                )}
               </div>
             </div>
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                alignItems: "center",
-                flexShrink: 0,
-              }}
-            >
-              <span className="codebox">
-                <span className="ccode">{code}</span>
-              </span>
-              {isOwner && (
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={regen}
-                  disabled={regenLoading}
-                >
-                  {regenLoading ? (
-                    <span className="mini-spin" />
-                  ) : (
-                    <RetryIcon />
-                  )}
-                  Regenerate
-                </button>
-              )}
-            </div>
-          </div>
+          )}
           <div className="sv-row">
             <div className="sv-sl">
               <div className="sv-st">Default role for new members</div>
@@ -694,12 +677,15 @@ export default function SettingsView({
           </div>
           <div className="sv-meta">
             <InfoIcon />
-            Created by{" "}
-            <b style={{ color: "var(--ink-nav)", marginLeft: 3 }}>
-              {cls.ownerName}
-            </b>
-            <span style={{ margin: "0 4px" }}>·</span>
-            {timeAgo(cls.createdAt)}
+            <span>
+              Created by{" "}
+              <Link
+                href={`/home/${classId}/members?members=${cls.ownerId}&reason=who+created+this+class`}
+              >
+                <b className="text-(--ink-nav)">{cls.ownerName}</b>
+              </Link>
+              {isOwner && " (you)"} · {timeAgo(cls.createdAt)}
+            </span>
           </div>
         </div>
       </div>
@@ -755,8 +741,8 @@ export default function SettingsView({
                   <div className="sv-st">Delete topic</div>
                   <div className="sv-desc">
                     Permanently removes{" "}
-                    <b style={{ color: "var(--ink-heading)" }}>{topic.name}</b>,
-                    its collection, and every compiled document. Can&apos;t be
+                    <b className="text-(--ink-heading)">{topic.name}</b>, its
+                    collection, and every compiled document. Can&apos;t be
                     undone.
                   </div>
                 </div>
@@ -775,9 +761,9 @@ export default function SettingsView({
                   <div className="sv-st">Delete class</div>
                   <div className="sv-desc">
                     Permanently deletes{" "}
-                    <b style={{ color: "var(--ink-heading)" }}>{cls.name} </b>—
-                    every topic, collection, contribution, and master document —
-                    for all members. This can&apos;t be undone.
+                    <b className="text-(--ink-heading)">{cls.name} </b>— every
+                    topic, collection, contribution, and master document — for
+                    all members. This can&apos;t be undone.
                   </div>
                 </div>
                 <button className="btn-danger" onClick={() => setDelOpen(true)}>
@@ -797,11 +783,19 @@ export default function SettingsView({
             <b>Unsaved changes</b> · applies to everyone
           </span>
           <div className="sact">
-            <button className="b-rev" onClick={revert} disabled={saving}>
+            <button
+              className="b-rev"
+              onClick={revert}
+              disabled={saving || isPending}
+            >
               Revert
             </button>
-            <button className="b-save" onClick={save} disabled={saving}>
-              {saving ? (
+            <button
+              className="b-save"
+              onClick={save}
+              disabled={saving || isPending}
+            >
+              {saving || isPending ? (
                 <>
                   <span className="mini-spin" />
                   Saving…
