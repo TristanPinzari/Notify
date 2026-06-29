@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import { getUserRank, requireRank, topicBelongsToClass } from "./shared";
+import { logActivity } from "@/lib/activity-log";
 
 export async function createTopic(
   classId: string,
@@ -40,6 +41,10 @@ export async function createTopic(
       createdBy: session.user.id,
     });
 
+    logActivity(classId, session.user.id, {
+      action: "topic_created",
+      topic: { id, name },
+    });
     return { success: true, id };
   } catch (e) {
     console.error("ERROR: ", e);
@@ -72,8 +77,18 @@ export async function deleteTopic(classId: string, topicId: string) {
     );
     if ("error" in allowed) return allowed;
 
+    const [topicRow] = await db
+      .select({ name: topics.name })
+      .from(topics)
+      .where(eq(topics.id, topicId))
+      .limit(1);
+
     await db.delete(topics).where(eq(topics.id, topicId));
 
+    logActivity(classId, session.user.id, {
+      action: "topic_deleted",
+      topicName: topicRow?.name ?? "",
+    });
     return { success: true };
   } catch (e) {
     console.error("ERROR: ", e);
@@ -110,8 +125,19 @@ export async function changeTopicName(
     );
     if ("error" in allowed) return allowed;
 
+    const [topicRow] = await db
+      .select({ name: topics.name })
+      .from(topics)
+      .where(eq(topics.id, topicId))
+      .limit(1);
+
     await db.update(topics).set({ name }).where(eq(topics.id, topicId));
 
+    logActivity(classId, session.user.id, {
+      action: "topic_renamed",
+      oldName: topicRow?.name ?? "",
+      newName: name,
+    }, topicId);
     return { success: true };
   } catch (e) {
     console.error("ERROR: ", e);

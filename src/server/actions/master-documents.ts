@@ -18,6 +18,7 @@ import { and, eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import { getUserRank, requireRank, topicBelongsToClass } from "./shared";
+import { logActivity } from "@/lib/activity-log";
 import { getTemporalClient } from "@/temporal/client";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
@@ -123,6 +124,7 @@ export async function createMasterDocument(
       workflowId: `compile-${masterDocumentId}`,
     });
 
+    logActivity(classId, session.user.id, { action: "compilation_triggered" }, topicId);
     return { success: true, masterDocumentId };
   } catch (e) {
     console.error("ERROR: ", e);

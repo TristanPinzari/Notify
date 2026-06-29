@@ -1400,6 +1400,7 @@ export default function CollectionView({
           count={highlightSources.length}
           total={files.length}
           filterReason={filterReason ?? ""}
+          exists={files.filter((f) => highlightSet!.has(f.id)).length}
           onClear={() => {
             const p = new URLSearchParams(searchParams);
             p.delete("sources");

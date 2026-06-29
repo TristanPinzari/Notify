@@ -3246,9 +3246,11 @@ textarea.inwrap:focus {
 
 /* activity log */
 .log-cta {
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   padding: 30px 24px;
   text-align: center;
@@ -3275,8 +3277,10 @@ textarea.inwrap:focus {
   line-height: 1.5;
 }
 .logscroll {
-  max-height: 320px;
+  height: 320px;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 .log-row {
   display: flex;

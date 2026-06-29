@@ -21,7 +21,6 @@ import { and, eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import {
-  contributionBelongsToClass,
   getUserRank,
   isUniqueViolation,
   requireRank,
@@ -29,6 +28,7 @@ import {
 } from "./shared";
 import { getTemporalClient } from "@/temporal/client";
 import type { ExtractionInput } from "@/temporal/workflows";
+import { logActivity } from "@/lib/activity-log";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION! });
 
@@ -143,6 +143,10 @@ export async function createContribution(
       ),
     );
 
+    logActivity(classId, session.user.id, {
+      action: "contribution_uploaded",
+      contribution: { id, name: data.name },
+    }, topicId);
     return { id, createdAt: row.createdAt.toISOString() };
   } catch (e) {
     if (s3Key) {
@@ -229,6 +233,10 @@ export async function createCustomContribution(
       })
       .returning({ createdAt: contributions.createdAt });
 
+    logActivity(classId, session.user.id, {
+      action: "contribution_uploaded",
+      contribution: { id, name: data.name },
+    }, topicId);
     return { id, createdAt: row.createdAt.toISOString() };
   } catch (e) {
     console.error("ERROR: ", e);
@@ -354,6 +362,7 @@ export async function deleteContribution(
         name: contributions.name,
         type: contributions.type,
         s3Key: contributions.s3Key,
+        topicId: contributions.topicId,
       })
       .from(contributions)
       .innerJoin(topics, eq(contributions.topicId, topics.id))
@@ -405,6 +414,11 @@ export async function deleteContribution(
       .where(eq(compilationSources.contributionId, contributionId));
 
     await db.delete(contributions).where(eq(contributions.id, contributionId));
+
+    logActivity(classId, session.user.id, {
+      action: "contribution_deleted",
+      contributionName: contribution.name,
+    }, contribution.topicId);
 
     if (contribution.s3Key) {
       try {
@@ -475,6 +489,7 @@ export async function restartExtraction(
         s3Key: contributions.s3Key,
         url: contributions.url,
         status: contributions.status,
+        name: contributions.name,
       })
       .from(contributions)
       .where(eq(contributions.id, contributionId))
@@ -496,6 +511,10 @@ export async function restartExtraction(
       contribution[0].url || undefined,
     );
 
+    logActivity(classId, session.user.id, {
+      action: "contribution_reprocessed",
+      contribution: { id: contributionId, name: contribution[0].name },
+    }, topicId);
     return { success: true };
   } catch (e) {
     console.error("ERROR: ", e);
@@ -591,7 +610,11 @@ export async function editContribution(
     }
 
     const [contribution] = await db
-      .select({ status: contributions.status })
+      .select({
+        status: contributions.status,
+        name: contributions.name,
+        topicId: contributions.topicId,
+      })
       .from(contributions)
       .innerJoin(topics, eq(contributions.topicId, topics.id))
       .where(
@@ -620,6 +643,10 @@ export async function editContribution(
       })
       .where(eq(contributions.id, contributionId));
 
+    logActivity(classId, session.user.id, {
+      action: "contribution_edited",
+      contribution: { id: contributionId, name: data.name ?? contribution.name },
+    }, contribution.topicId);
     return { success: true };
   } catch (e) {
     console.error("ERROR: ", e);
@@ -660,7 +687,18 @@ export async function setContributionPin(
       return allowed;
     }
 
-    if (!(await contributionBelongsToClass(classId, contributionId)))
+    const [contribution] = await db
+      .select({
+        name: contributions.name,
+        topicId: contributions.topicId,
+      })
+      .from(contributions)
+      .innerJoin(topics, eq(contributions.topicId, topics.id))
+      .where(
+        and(eq(contributions.id, contributionId), eq(topics.classId, classId)),
+      )
+      .limit(1);
+    if (!contribution)
       return { error: "This contribution doesn't belong to this class." };
 
     await db
@@ -668,6 +706,10 @@ export async function setContributionPin(
       .set({ pinned })
       .where(eq(contributions.id, contributionId));
 
+    logActivity(classId, session.user.id, {
+      action: pinned ? "contribution_pinned" : "contribution_unpinned",
+      contribution: { id: contributionId, name: contribution.name },
+    }, contribution.topicId);
     return { success: true };
   } catch (e) {
     console.error("ERROR: ", e);

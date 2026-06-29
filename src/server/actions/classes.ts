@@ -20,6 +20,16 @@ import {
   isUniqueViolation,
   requireRank,
 } from "./shared";
+import { logActivity } from "@/lib/activity-log";
+
+async function fetchUserName(userId: string) {
+  const [row] = await db
+    .select({ name: user.name })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  return row?.name ?? "Unknown";
+}
 
 async function generateUniqueCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -107,6 +117,7 @@ export async function joinClass(code: string) {
       rank: cls[0].defaultRank,
     });
 
+    logActivity(cls[0].id, session.user.id, { action: "member_joined" });
     return { success: true };
   } catch (e) {
     if (isUniqueViolation(e)) return { error: "You are already a member." };
@@ -138,6 +149,7 @@ export async function leaveClass(classId: string) {
         ),
       );
 
+    logActivity(classId, session.user.id, { action: "member_left" });
     return { success: true };
   } catch (e) {
     console.error("ERROR: ", e);
@@ -199,11 +211,18 @@ export async function kickFromClass(classId: string, userId: string) {
     if (RANK_VALUE[rankSubject] >= RANK_VALUE[rankSubjecter])
       return { error: "Your rank is not high enough to kick this user." };
 
+    const targetName = await fetchUserName(userId);
+
     await db
       .delete(userClasses)
       .where(
         and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
       );
+
+    logActivity(classId, session.user.id, {
+      action: "member_kicked",
+      target: { id: userId, name: targetName },
+    });
     return { success: true };
   } catch (e) {
     console.error("ERROR: ", e);
@@ -244,6 +263,8 @@ export async function banFromClass(
     if (RANK_VALUE[rankSubject] >= RANK_VALUE[rankSubjecter])
       return { error: "Your rank is not high enough to ban this user." };
 
+    const targetName = await fetchUserName(userId);
+
     await db.transaction(async (tx) => {
       await tx
         .delete(userClasses)
@@ -259,6 +280,10 @@ export async function banFromClass(
       });
     });
 
+    logActivity(classId, session.user.id, {
+      action: "member_banned",
+      target: { id: userId, name: targetName },
+    });
     return { success: true };
   } catch (e) {
     if (isUniqueViolation(e)) return { error: "This user is already banned." };
@@ -299,12 +324,18 @@ export async function unbanFromClass(classId: string, userId: string) {
       .limit(1);
     if (!isBanned[0]) return { error: "This user is not banned." };
 
+    const targetName = await fetchUserName(userId);
+
     await db
       .delete(classBans)
       .where(
         and(eq(classBans.classId, classId), eq(classBans.bannedUserId, userId)),
       );
 
+    logActivity(classId, session.user.id, {
+      action: "member_unbanned",
+      target: { id: userId, name: targetName },
+    });
     return { success: true };
   } catch (e) {
     console.error("ERROR: ", e);
@@ -351,6 +382,8 @@ export async function changeUserRank(
     if (RANK_VALUE[newRank] >= RANK_VALUE[rankSubjecter])
       return { error: "You can only rerank someone to a rank below yours." };
 
+    const targetName = await fetchUserName(userId);
+
     await db
       .update(userClasses)
       .set({ rank: newRank })
@@ -358,6 +391,11 @@ export async function changeUserRank(
         and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
       );
 
+    logActivity(classId, session.user.id, {
+      action: "rank_changed",
+      target: { id: userId, name: targetName },
+      rank: newRank,
+    });
     return { success: true };
   } catch (e) {
     console.error("ERROR: ", e);
@@ -398,6 +436,7 @@ export async function updateClassSettings(
 
     await db.update(classes).set(settings).where(eq(classes.id, classId));
 
+    logActivity(classId, session.user.id, { action: "settings_changed" });
     return { success: true };
   } catch (e) {
     console.error("ERROR: ", e);
@@ -427,6 +466,7 @@ export async function regenerateCode(classId: string) {
       .set({ code: newCode })
       .where(eq(classes.id, classId));
 
+    logActivity(classId, session.user.id, { action: "code_regenerated" });
     return { success: true, code: newCode };
   } catch (e) {
     console.error("ERROR: ", e);
@@ -436,7 +476,11 @@ export async function regenerateCode(classId: string) {
 
 const LOG_PAGE = 10;
 
-export async function getActivityLog(classId: string, offset: number) {
+export async function getActivityLog(
+  classId: string,
+  topicId: string | undefined,
+  offset: number,
+) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
 
@@ -451,12 +495,19 @@ export async function getActivityLog(classId: string, offset: number) {
         id: activityLogs.id,
         action: activityLogs.action,
         metadata: activityLogs.metadata,
+        topicId: activityLogs.topicId,
+        userId: activityLogs.userId,
         createdAt: activityLogs.createdAt,
         userName: user.name,
       })
       .from(activityLogs)
       .leftJoin(user, eq(activityLogs.userId, user.id))
-      .where(eq(activityLogs.classId, classId))
+      .where(
+        and(
+          eq(activityLogs.classId, classId),
+          topicId ? eq(activityLogs.topicId, topicId) : undefined,
+        ),
+      )
       .orderBy(desc(activityLogs.createdAt))
       .limit(LOG_PAGE + 1)
       .offset(offset);

@@ -7,6 +7,7 @@ type Props = {
   total: number;
   noun: string;
   filterReason: string;
+  exists: number;
   onClear: () => void;
 };
 
@@ -15,8 +16,10 @@ export function ContextFilterBar({
   total,
   noun,
   filterReason,
+  exists,
   onClear,
 }: Props) {
+  const stale = count - exists;
   return (
     <div className="flex items-center gap-3 bg-(--accent-soft) border border-[rgba(196,121,24,0.24)] rounded-xl px-3.5 py-3 mb-4.5">
       <span className="w-7.5 h-7.5 rounded-lg bg-(--accent) text-(--on-accent) flex items-center justify-center shrink-0">
@@ -25,9 +28,13 @@ export function ContextFilterBar({
       <span className="flex-1 min-w-0 text-[13px] leading-snug text-(--ink-body)">
         Showing{" "}
         <b className="font-semibold text-(--ink-heading)">
-          {count} {noun}{count !== 1 ? "s" : ""}
+          {exists} {noun}
+          {exists !== 1 ? "s" : ""}
         </b>{" "}
         {filterReason}
+        {stale > 0
+          ? `. ${stale} ${noun}${stale !== 1 ? "s" : ""} no longer exist`
+          : ""}
       </span>
       <button
         onClick={onClear}

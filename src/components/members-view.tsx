@@ -919,6 +919,7 @@ export default function MembersView({
           count={highlightMembers.length}
           total={members.length}
           filterReason={filterReason ?? ""}
+          exists={members.filter((m) => highlightSet!.has(m.userId)).length}
           onClear={() => {
             const p = new URLSearchParams(searchParams);
             p.delete("members");

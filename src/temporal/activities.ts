@@ -11,9 +11,12 @@ import {
   contributions,
   compilationSources,
   masterDocuments,
+  topics,
   user,
+  activityLogs,
 } from "@/server/db/schema";
 import { and, desc, eq, inArray, lt } from "drizzle-orm";
+import { logActivity } from "@/lib/activity-log";
 import { YoutubeTranscript } from "youtube-transcript";
 import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
@@ -42,7 +45,6 @@ async function fetchS3Buffer(s3Key: string): Promise<Buffer> {
   }
   return Buffer.concat(chunks);
 }
-
 
 async function runExtraction(
   input: ExtractionInput,
@@ -88,7 +90,9 @@ async function runExtraction(
       const privateRanges =
         /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|::1|fc00:|fe80:)/i;
       if (privateRanges.test(hostname))
-        throw new Error("Requests to private/internal addresses are not allowed.");
+        throw new Error(
+          "Requests to private/internal addresses are not allowed.",
+        );
 
       const res = await fetch(normalizedUrl, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; NotifyBot/1.0)" },
@@ -201,57 +205,167 @@ export async function runCompilation(
   console.log(
     `[runCompilation] start — masterDocument ${masterDocumentId} topic=${topicId}`,
   );
-  try {
-  const rows = await db
+
+  const [docMeta] = await db
     .select({
-      id: contributions.id,
-      name: contributions.name,
-      text: contributions.text,
-      uploaderName: user.name,
-      pinned: contributions.pinned,
-      type: contributions.type,
-      uploadedBy: contributions.uploadedBy,
+      classId: topics.classId,
+      triggeredBy: masterDocuments.triggeredBy,
     })
-    .from(contributions)
-    .innerJoin(user, eq(user.id, contributions.uploadedBy))
-    .where(
-      and(
-        eq(contributions.topicId, topicId),
-        eq(contributions.status, "ready"),
-      ),
-    )
-    .orderBy(desc(contributions.pinned));
+    .from(masterDocuments)
+    .innerJoin(topics, eq(masterDocuments.topicId, topics.id))
+    .where(eq(masterDocuments.id, masterDocumentId))
+    .limit(1);
 
-  const forPrompt = rows
-    .filter((r) => r.text !== null)
-    .map((r) => ({ ...r, text: r.text! }));
+  try {
+    const rows = await db
+      .select({
+        id: contributions.id,
+        name: contributions.name,
+        text: contributions.text,
+        uploaderName: user.name,
+        pinned: contributions.pinned,
+        type: contributions.type,
+        uploadedBy: contributions.uploadedBy,
+      })
+      .from(contributions)
+      .innerJoin(user, eq(user.id, contributions.uploadedBy))
+      .where(
+        and(
+          eq(contributions.topicId, topicId),
+          eq(contributions.status, "ready"),
+        ),
+      )
+      .orderBy(desc(contributions.pinned));
 
-  if (forPrompt.length === 0) {
-    console.error(
-      `[runCompilation] no contributions to compile — masterDocument ${masterDocumentId}`,
+    const forPrompt = rows
+      .filter((r) => r.text !== null)
+      .map((r) => ({ ...r, text: r.text! }));
+
+    if (forPrompt.length === 0) {
+      console.error(
+        `[runCompilation] no contributions to compile — masterDocument ${masterDocumentId}`,
+      );
+      await db
+        .update(masterDocuments)
+        .set({
+          status: "failed",
+          content: null,
+          failureReason: "Nothing to compile.",
+        })
+        .where(eq(masterDocuments.id, masterDocumentId));
+      return;
+    }
+
+    console.log(
+      `[runCompilation] ${forPrompt.length} contributions loaded, counting tokens…`,
+    );
+    const ai = new Gemini(process.env.GEMINI_API_KEY!);
+
+    // Fetch the previous ready document for incremental merging (not from scratch)
+    let existingDocument: string | undefined;
+    let prevDocId: string | undefined;
+    if (!settings.fromScratch) {
+      const [prev] = await db
+        .select({ id: masterDocuments.id, content: masterDocuments.content })
+        .from(masterDocuments)
+        .where(
+          and(
+            eq(masterDocuments.topicId, topicId),
+            eq(masterDocuments.status, "ready"),
+          ),
+        )
+        .orderBy(desc(masterDocuments.createdAt))
+        .limit(1);
+      if (prev?.content) {
+        existingDocument = prev.content;
+        prevDocId = prev.id;
+        console.log(
+          `[runCompilation] incremental mode — existing doc is ${existingDocument.length} chars`,
+        );
+      }
+    }
+
+    const fullPrompt = buildPrompt(
+      forPrompt,
+      settings,
+      "",
+      true,
+      existingDocument,
+    );
+    const totalTokens = await ai.countTokens(fullPrompt);
+    console.log(
+      `[runCompilation] token count: ${totalTokens.toLocaleString()}`,
+    );
+
+    let content: string;
+
+    if (totalTokens <= 800_000) {
+      console.log(`[runCompilation] single-pass generation…`);
+      content = await ai.generate(fullPrompt);
+    } else if (totalTokens <= 1_600_000) {
+      console.log(`[runCompilation] two-pass generation (pass 1/2)…`);
+      const half = Math.ceil(forPrompt.length / 2);
+      const firstPrompt = buildPrompt(
+        forPrompt.slice(0, half),
+        settings,
+        "",
+        false,
+        existingDocument,
+      );
+      const contextBlock = await ai.generate(firstPrompt);
+      console.log(`[runCompilation] two-pass generation (pass 2/2)…`);
+      const secondPrompt = buildPrompt(
+        forPrompt.slice(half),
+        settings,
+        contextBlock,
+        true,
+        existingDocument,
+      );
+      content = await ai.generate(secondPrompt);
+    } else {
+      throw new Error(
+        "Topic has too many contributions to compile. Try removing some contributions or splitting into multiple topics.",
+      );
+    }
+
+    console.log(
+      `[runCompilation] generation done (${content.length} chars), saving…`,
     );
     await db
       .update(masterDocuments)
-      .set({
-        status: "failed",
-        content: null,
-        failureReason: "Nothing to compile.",
-      })
+      .set({ content, status: "ready" })
       .where(eq(masterDocuments.id, masterDocumentId));
-    return;
-  }
 
-  console.log(
-    `[runCompilation] ${forPrompt.length} contributions loaded, counting tokens…`,
-  );
-  const ai = new Gemini(process.env.GEMINI_API_KEY!);
+    const newContribIds = new Set(rows.map((r) => r.id));
+    const prevSources = prevDocId
+      ? await db
+          .select()
+          .from(compilationSources)
+          .where(eq(compilationSources.masterDocumentId, prevDocId))
+      : [];
+    const inheritedSources = prevSources.filter(
+      (s) => s.contributionId === null || !newContribIds.has(s.contributionId),
+    );
 
-  // Fetch the previous ready document for incremental merging (not from scratch)
-  let existingDocument: string | undefined;
-  let prevDocId: string | undefined;
-  if (!settings.fromScratch) {
-    const [prev] = await db
-      .select({ id: masterDocuments.id, content: masterDocuments.content })
+    await db.insert(compilationSources).values([
+      ...rows.map((r) => ({
+        id: crypto.randomUUID(),
+        masterDocumentId,
+        contributionId: r.id,
+        snapshotName: r.name,
+        snapshotType: r.type,
+        snapshotUploadedBy: r.uploadedBy,
+        snapshotUploaderName: r.uploaderName,
+      })),
+      ...inheritedSources.map((s) => ({
+        ...s,
+        id: crypto.randomUUID(),
+        masterDocumentId,
+      })),
+    ]);
+
+    const oldDocs = await db
+      .select({ id: masterDocuments.id })
       .from(masterDocuments)
       .where(
         and(
@@ -260,128 +374,53 @@ export async function runCompilation(
         ),
       )
       .orderBy(desc(masterDocuments.createdAt))
-      .limit(1);
-    if (prev?.content) {
-      existingDocument = prev.content;
-      prevDocId = prev.id;
-      console.log(
-        `[runCompilation] incremental mode — existing doc is ${existingDocument.length} chars`,
+      .offset(3);
+    if (oldDocs.length > 0)
+      await db.delete(masterDocuments).where(
+        inArray(
+          masterDocuments.id,
+          oldDocs.map((d) => d.id),
+        ),
+      );
+
+    await db
+      .update(contributions)
+      .set({ status: "compiled" })
+      .where(
+        and(
+          eq(contributions.topicId, topicId),
+          eq(contributions.status, "ready"),
+        ),
+      );
+
+    console.log(
+      `[runCompilation] complete — masterDocument ${masterDocumentId}`,
+    );
+    if (docMeta) {
+      logActivity(
+        docMeta.classId,
+        docMeta.triggeredBy,
+        { action: "compilation_completed" },
+        topicId,
       );
     }
-  }
-
-  const fullPrompt = buildPrompt(
-    forPrompt,
-    settings,
-    "",
-    true,
-    existingDocument,
-  );
-  const totalTokens = await ai.countTokens(fullPrompt);
-  console.log(`[runCompilation] token count: ${totalTokens.toLocaleString()}`);
-
-  let content: string;
-
-  if (totalTokens <= 800_000) {
-    console.log(`[runCompilation] single-pass generation…`);
-    content = await ai.generate(fullPrompt);
-  } else if (totalTokens <= 1_600_000) {
-    console.log(`[runCompilation] two-pass generation (pass 1/2)…`);
-    const half = Math.ceil(forPrompt.length / 2);
-    const firstPrompt = buildPrompt(
-      forPrompt.slice(0, half),
-      settings,
-      "",
-      false,
-      existingDocument,
-    );
-    const contextBlock = await ai.generate(firstPrompt);
-    console.log(`[runCompilation] two-pass generation (pass 2/2)…`);
-    const secondPrompt = buildPrompt(
-      forPrompt.slice(half),
-      settings,
-      contextBlock,
-      true,
-      existingDocument,
-    );
-    content = await ai.generate(secondPrompt);
-  } else {
-    throw new Error("Topic has too many contributions to compile. Try removing some contributions or splitting into multiple topics.");
-  }
-
-  console.log(
-    `[runCompilation] generation done (${content.length} chars), saving…`,
-  );
-  await db
-    .update(masterDocuments)
-    .set({ content, status: "ready" })
-    .where(eq(masterDocuments.id, masterDocumentId));
-
-  const newContribIds = new Set(rows.map((r) => r.id));
-  const prevSources = prevDocId
-    ? await db
-        .select()
-        .from(compilationSources)
-        .where(eq(compilationSources.masterDocumentId, prevDocId))
-    : [];
-  const inheritedSources = prevSources.filter(
-    (s) => s.contributionId === null || !newContribIds.has(s.contributionId),
-  );
-
-  await db.insert(compilationSources).values([
-    ...rows.map((r) => ({
-      id: crypto.randomUUID(),
-      masterDocumentId,
-      contributionId: r.id,
-      snapshotName: r.name,
-      snapshotType: r.type,
-      snapshotUploadedBy: r.uploadedBy,
-      snapshotUploaderName: r.uploaderName,
-    })),
-    ...inheritedSources.map((s) => ({
-      ...s,
-      id: crypto.randomUUID(),
-      masterDocumentId,
-    })),
-  ]);
-
-  const oldDocs = await db
-    .select({ id: masterDocuments.id })
-    .from(masterDocuments)
-    .where(
-      and(
-        eq(masterDocuments.topicId, topicId),
-        eq(masterDocuments.status, "ready"),
-      ),
-    )
-    .orderBy(desc(masterDocuments.createdAt))
-    .offset(3);
-  if (oldDocs.length > 0)
-    await db.delete(masterDocuments).where(
-      inArray(
-        masterDocuments.id,
-        oldDocs.map((d) => d.id),
-      ),
-    );
-
-  await db
-    .update(contributions)
-    .set({ status: "compiled" })
-    .where(
-      and(
-        eq(contributions.topicId, topicId),
-        eq(contributions.status, "ready"),
-      ),
-    );
-
-  console.log(`[runCompilation] complete — masterDocument ${masterDocumentId}`);
   } catch (e) {
     const failureReason = e instanceof Error ? e.message : String(e);
-    console.error(`[runCompilation] failed — masterDocument ${masterDocumentId}: ${failureReason}`);
+    console.error(
+      `[runCompilation] failed — masterDocument ${masterDocumentId}: ${failureReason}`,
+    );
     await db
       .update(masterDocuments)
       .set({ status: "failed", content: null, failureReason })
       .where(eq(masterDocuments.id, masterDocumentId));
+    if (docMeta) {
+      logActivity(
+        docMeta.classId,
+        docMeta.triggeredBy,
+        { action: "compilation_failed" },
+        topicId,
+      );
+    }
     throw e;
   }
 }
@@ -475,6 +514,13 @@ export async function generatePDF(
   }
 }
 
+export async function cleanOldLogs() {
+  console.log(`[cleanOldLogs] start`);
+  const cutoff = new Date(Date.now() - 4 * 30 * 24 * 60 * 60 * 1000);
+  await db.delete(activityLogs).where(lt(activityLogs.createdAt, cutoff));
+  console.log(`[cleanOldLogs] done`);
+}
+
 export async function cleanOrphanedFiles() {
   console.log(`[cleanOrphanedFiles] start`);
 
@@ -555,14 +601,27 @@ export async function cleanStuckMasterDocuments() {
   const compileCutoff = new Date(Date.now() - 15 * 60 * 1000);
   await db
     .update(masterDocuments)
-    .set({ status: "failed", failureReason: "Compilation timed out — worker may have crashed." })
-    .where(and(eq(masterDocuments.status, "compiling"), lt(masterDocuments.createdAt, compileCutoff)));
+    .set({
+      status: "failed",
+      failureReason: "Compilation timed out — worker may have crashed.",
+    })
+    .where(
+      and(
+        eq(masterDocuments.status, "compiling"),
+        lt(masterDocuments.createdAt, compileCutoff),
+      ),
+    );
 
   const pdfCutoff = new Date(Date.now() - 10 * 60 * 1000);
   await db
     .update(masterDocuments)
     .set({ pdfStatus: "failed" })
-    .where(and(eq(masterDocuments.pdfStatus, "generating"), lt(masterDocuments.pdfGenerationStartedAt, pdfCutoff)));
+    .where(
+      and(
+        eq(masterDocuments.pdfStatus, "generating"),
+        lt(masterDocuments.pdfGenerationStartedAt, pdfCutoff),
+      ),
+    );
 
   console.log(`[cleanStuckMasterDocuments] done`);
 }
@@ -574,4 +633,5 @@ export type Activities = {
   cleanOrphanedFiles: typeof cleanOrphanedFiles;
   cleanStuckContributions: typeof cleanStuckContributions;
   cleanStuckMasterDocuments: typeof cleanStuckMasterDocuments;
+  cleanOldLogs: typeof cleanOldLogs;
 };

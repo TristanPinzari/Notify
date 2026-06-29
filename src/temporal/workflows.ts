@@ -16,7 +16,7 @@ const { runCompilation, generatePDF } = proxyActivities<Activities>({
   retry: { maximumAttempts: 1 },
 });
 
-const { cleanOrphanedFiles, cleanStuckContributions, cleanStuckMasterDocuments } =
+const { cleanOrphanedFiles, cleanStuckContributions, cleanStuckMasterDocuments, cleanOldLogs } =
   proxyActivities<Activities>({
     startToCloseTimeout: "5 minutes",
     retry: { maximumAttempts: 1 },
@@ -61,4 +61,8 @@ export async function reconcileDatabase(): Promise<void> {
 
 export async function reconcileMasterDocuments(): Promise<void> {
   await cleanStuckMasterDocuments();
+}
+
+export async function purgeOldLogs(): Promise<void> {
+  await cleanOldLogs();
 }

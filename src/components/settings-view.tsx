@@ -230,11 +230,165 @@ type LogEntry = {
   id: string;
   action: string;
   metadata: string | null;
+  topicId: string | null;
+  userId: string | null;
   createdAt: string;
   userName: string | null;
 };
 
-function ActivityLog({ classId }: { classId: string }) {
+type LogMeta = {
+  target?: { id: string; name: string };
+  topic?: { id: string; name: string };
+  topicName?: string;
+  contribution?: { id: string; name: string };
+  contributionName?: string;
+  rank?: string;
+  oldName?: string;
+  newName?: string;
+};
+
+function renderLogLine(classId: string, entry: LogEntry): React.ReactNode {
+  const meta: LogMeta = entry.metadata ? JSON.parse(entry.metadata) : {};
+
+  const actor = entry.userId ? (
+    <b>
+      <Link href={`/home/${classId}/members?members=${entry.userId}`}>
+        {entry.userName ?? "Someone"}
+      </Link>
+    </b>
+  ) : (
+    <b>{entry.userName ?? "Someone"}</b>
+  );
+
+  const ml = (ref: { id: string; name: string }) => (
+    <b>
+      <Link href={`/home/${classId}/members?members=${ref.id}`}>
+        {ref.name}
+      </Link>
+    </b>
+  );
+  const tl = (ref: { id: string; name: string }) => (
+    <b>
+      <Link href={`/home/${classId}/${ref.id}`}>{ref.name}</Link>
+    </b>
+  );
+  const cl = (ref: { id: string; name: string }, topicId: string) => (
+    <b>
+      <Link href={`/home/${classId}/${topicId}/collection?sources=${ref.id}`}>
+        {ref.name}
+      </Link>
+    </b>
+  );
+  const cn = (ref: { name: string } | undefined) =>
+    ref ? <b>{ref.name}</b> : <>a source</>;
+  const poss = (name: string) => (name.endsWith("s") ? "'" : "'s");
+
+  switch (entry.action) {
+    case "member_joined":
+      return <>{actor} joined the class</>;
+    case "member_left":
+      return <>{actor} left the class</>;
+    case "member_kicked":
+    case "member_banned":
+    case "member_unbanned": {
+      const verb =
+        entry.action === "member_kicked"
+          ? "removed"
+          : entry.action === "member_banned"
+            ? "banned"
+            : "unbanned";
+      return (
+        <>
+          {actor} {verb} {meta.target ? ml(meta.target) : <>a member</>}
+        </>
+      );
+    }
+    case "rank_changed":
+      return (
+        <>
+          {actor} changed{" "}
+          {meta.target ? (
+            <>
+              {ml(meta.target)}
+              {poss(meta.target.name)}
+            </>
+          ) : (
+            <>a member&apos;s</>
+          )}{" "}
+          role to <b>{meta.rank}</b>
+        </>
+      );
+    case "topic_created":
+      return (
+        <>
+          {actor} created topic {meta.topic ? tl(meta.topic) : <>unknown</>}
+        </>
+      );
+    case "topic_deleted":
+      return (
+        <>
+          {actor} deleted topic <b>{meta.topicName}</b>
+        </>
+      );
+    case "settings_changed":
+      return <>{actor} updated class settings</>;
+    case "code_regenerated":
+      return <>{actor} regenerated the join code</>;
+    case "topic_renamed":
+      return (
+        <>
+          {actor} renamed the topic from <b>{meta.oldName}</b> to{" "}
+          <b>{meta.newName}</b>
+        </>
+      );
+    case "contribution_uploaded":
+    case "contribution_edited":
+    case "contribution_pinned":
+    case "contribution_unpinned":
+    case "contribution_reprocessed": {
+      const verb =
+        entry.action === "contribution_uploaded"
+          ? "uploaded"
+          : entry.action === "contribution_edited"
+            ? "edited"
+            : entry.action === "contribution_pinned"
+              ? "pinned"
+              : entry.action === "contribution_unpinned"
+                ? "unpinned"
+                : "reprocessed";
+      return (
+        <>
+          {actor} {verb}{" "}
+          {entry.topicId && meta.contribution
+            ? cl(meta.contribution, entry.topicId)
+            : cn(meta.contribution)}
+        </>
+      );
+    }
+    case "contribution_deleted":
+      return (
+        <>
+          {actor} deleted <b>{meta.contributionName}</b>
+        </>
+      );
+    case "compilation_triggered":
+      return <>{actor} triggered a compilation</>;
+    case "compilation_completed":
+      return <>Compilation triggered by {actor} completed</>;
+    case "compilation_failed":
+      return <>Compilation triggered by {actor} failed</>;
+    default:
+      return <>Unknown activity</>;
+  }
+}
+
+function ActivityLog({
+  classId,
+  topicId,
+}: {
+  classId: string;
+  topicId: string | undefined;
+}) {
   const [loaded, setLoaded] = useState(false);
   const [entries, setEntries] = useState<LogEntry[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -243,7 +397,7 @@ function ActivityLog({ classId }: { classId: string }) {
   async function loadFirst() {
     setLoaded(true);
     setLoadingMore(true);
-    const res = await getActivityLog(classId, 0);
+    const res = await getActivityLog(classId, topicId, 0);
     setLoadingMore(false);
     if ("error" in res) return;
     setEntries(res.entries);
@@ -255,7 +409,7 @@ function ActivityLog({ classId }: { classId: string }) {
     if (loadingMore || !hasMore) return;
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - 60) {
       setLoadingMore(true);
-      getActivityLog(classId, entries.length).then((res) => {
+      getActivityLog(classId, topicId, entries.length).then((res) => {
         setLoadingMore(false);
         if ("error" in res) return;
         setEntries((prev) => [...prev, ...res.entries]);
@@ -264,52 +418,47 @@ function ActivityLog({ classId }: { classId: string }) {
     }
   }
 
-  if (!loaded) {
-    return (
-      <div className="sv-card">
-        <div className="log-cta">
-          <span className="lic">
-            <HistoryIcon size={20} />
-          </span>
-          <p>
-            See every upload, compile, role change, and settings edit in this
-            class.
-          </p>
-          <button className="btn btn-ghost btn-sm" onClick={loadFirst}>
-            <HistoryIcon />
-            Load activity log
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   const done = !hasMore;
   return (
     <div className="sv-card">
-      <div className="logscroll" onScroll={onScroll}>
-        {entries.length === 0 && !loadingMore && (
-          <div className="log-end">No activity yet</div>
-        )}
-        {entries.map((e) => (
-          <div className="log-row" key={e.id}>
-            <div className="log-main">
-              <div className="log-txt">
-                {e.userName && <b>{e.userName}</b>}
-                {e.userName ? " · " : ""}
-                {e.action}
+      <div className="logscroll" onScroll={loaded ? onScroll : undefined}>
+        {!loaded ? (
+          <div className="log-cta">
+            <span className="lic">
+              <HistoryIcon size={20} />
+            </span>
+            <p>
+              {topicId
+                ? "See every upload, edit, pin, and compilation for this topic."
+                : "See every upload, compile, role change, and settings edit in this class."}
+            </p>
+            <button className="btn btn-ghost btn-sm" onClick={loadFirst}>
+              <HistoryIcon />
+              Load activity log
+            </button>
+          </div>
+        ) : (
+          <>
+            {entries.length === 0 && !loadingMore && (
+              <div className="log-end h-full">No activity yet</div>
+            )}
+            {entries.map((e) => (
+              <div className="log-row" key={e.id}>
+                <div className="log-main">
+                  <div className="log-txt">{renderLogLine(classId, e)}</div>
+                  <div className="log-when">{timeAgo(e.createdAt)}</div>
+                </div>
               </div>
-              <div className="log-when">{timeAgo(e.createdAt)}</div>
-            </div>
-          </div>
-        ))}
-        {loadingMore && (
-          <div className="log-foot">
-            <span className="mini-spin" /> Loading…
-          </div>
-        )}
-        {!loadingMore && done && entries.length > 0 && (
-          <div className="log-end">· End of log ·</div>
+            ))}
+            {loadingMore && (
+              <div className="log-foot h-full">
+                <span className="mini-spin" /> Loading…
+              </div>
+            )}
+            {!loadingMore && done && entries.length > 0 && (
+              <div className="log-end">· End of log ·</div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -719,10 +868,10 @@ export default function SettingsView({
         <div className="section-label">
           <span className="slead">
             <HistoryIcon />
-            Activity log
+            {topic ? "Topic" : "Class"} Activity log
           </span>
         </div>
-        <ActivityLog classId={classId} />
+        <ActivityLog classId={classId} topicId={topic?.id} />
       </div>
 
       {/* danger zone */}
