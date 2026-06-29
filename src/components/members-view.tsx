@@ -923,7 +923,7 @@ export default function MembersView({
             const p = new URLSearchParams(searchParams);
             p.delete("members");
             p.delete("reason");
-            router.push(pathname + (p.size ? `?${p}` : ""));
+            router.replace(pathname + (p.size ? `?${p}` : ""), { scroll: false });
           }}
         />
       )}
