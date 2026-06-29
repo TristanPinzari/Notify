@@ -10,10 +10,12 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { db } from "@/server/db";
 import {
   classes,
+  compilationSources,
   contributions,
   CType,
   EMethod,
   topics,
+  user,
 } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
@@ -348,10 +350,14 @@ export async function deleteContribution(
     const [contribution] = await db
       .select({
         uploadedBy: contributions.uploadedBy,
+        uploaderName: user.name,
+        name: contributions.name,
+        type: contributions.type,
         s3Key: contributions.s3Key,
       })
       .from(contributions)
       .innerJoin(topics, eq(contributions.topicId, topics.id))
+      .innerJoin(user, eq(contributions.uploadedBy, user.id))
       .where(
         and(eq(contributions.id, contributionId), eq(topics.classId, classId)),
       )
@@ -387,6 +393,16 @@ export async function deleteContribution(
         return allowed;
       }
     }
+
+    await db
+      .update(compilationSources)
+      .set({
+        snapshotName: contribution.name,
+        snapshotType: contribution.type,
+        snapshotUploadedBy: contribution.uploadedBy,
+        snapshotUploaderName: contribution.uploaderName,
+      })
+      .where(eq(compilationSources.contributionId, contributionId));
 
     await db.delete(contributions).where(eq(contributions.id, contributionId));
 
