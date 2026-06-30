@@ -5,6 +5,7 @@ import {
   Rank,
   RANK_VALUE,
   topics,
+  user,
   userClasses,
 } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -52,6 +53,15 @@ export async function getUserRank(classId: string, userId: string) {
     .limit(1);
 
   return membership[0]?.rank;
+}
+
+export async function getUserName(userId: string): Promise<string> {
+  const [row] = await db
+    .select({ name: user.name })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  return row?.name ?? "Unknown";
 }
 
 export function isUniqueViolation(e: unknown): boolean {

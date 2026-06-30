@@ -2,9 +2,9 @@ import { db } from "@/server/db";
 import { activityLogs } from "@/server/db/schema";
 import type { Rank } from "@/server/db/schema";
 
-type MemberRef = { id: string; name: string };
-type TopicRef   = { id: string; name: string };
-type ContribRef = { id: string; name: string };
+export type MemberRef = { id: string; name: string };
+export type TopicRef  = { id: string; name: string };
+export type ContribRef = { id: string; name: string };
 
 export type ActivityPayload =
   // ── class scope ──────────────────────────────────────────────────

@@ -13,6 +13,7 @@ import {
 import { changeTopicName, deleteTopic } from "@/server/actions/topics";
 import { useEscapeKey } from "@/hooks/use-escape-key";
 import { timeAgo } from "@/lib/utils";
+import type { MemberRef, TopicRef, ContribRef } from "@/lib/activity-log";
 import type { Rank, ClassSettings } from "@/server/db/schema";
 import {
   CheckIcon,
@@ -237,10 +238,10 @@ type LogEntry = {
 };
 
 type LogMeta = {
-  target?: { id: string; name: string };
-  topic?: { id: string; name: string };
+  target?: MemberRef;
+  topic?: TopicRef;
   topicName?: string;
-  contribution?: { id: string; name: string };
+  contribution?: ContribRef;
   contributionName?: string;
   rank?: string;
   oldName?: string;
@@ -291,17 +292,8 @@ function renderLogLine(classId: string, entry: LogEntry): React.ReactNode {
     case "member_kicked":
     case "member_banned":
     case "member_unbanned": {
-      const verb =
-        entry.action === "member_kicked"
-          ? "removed"
-          : entry.action === "member_banned"
-            ? "banned"
-            : "unbanned";
-      return (
-        <>
-          {actor} {verb} {meta.target ? ml(meta.target) : <>a member</>}
-        </>
-      );
+      const verb = { member_kicked: "removed", member_banned: "banned", member_unbanned: "unbanned" }[entry.action];
+      return <>{actor} {verb} {meta.target ? ml(meta.target) : <>a member</>}</>;
     }
     case "rank_changed":
       return (
@@ -346,24 +338,8 @@ function renderLogLine(classId: string, entry: LogEntry): React.ReactNode {
     case "contribution_pinned":
     case "contribution_unpinned":
     case "contribution_reprocessed": {
-      const verb =
-        entry.action === "contribution_uploaded"
-          ? "uploaded"
-          : entry.action === "contribution_edited"
-            ? "edited"
-            : entry.action === "contribution_pinned"
-              ? "pinned"
-              : entry.action === "contribution_unpinned"
-                ? "unpinned"
-                : "reprocessed";
-      return (
-        <>
-          {actor} {verb}{" "}
-          {entry.topicId && meta.contribution
-            ? cl(meta.contribution, entry.topicId)
-            : cn(meta.contribution)}
-        </>
-      );
+      const verb = { contribution_uploaded: "uploaded", contribution_edited: "edited", contribution_pinned: "pinned", contribution_unpinned: "unpinned", contribution_reprocessed: "reprocessed" }[entry.action];
+      return <>{actor} {verb} {entry.topicId && meta.contribution ? cl(meta.contribution, entry.topicId) : cn(meta.contribution)}</>;
     }
     case "contribution_deleted":
       return (

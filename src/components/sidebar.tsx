@@ -7,10 +7,10 @@ import { useState, useEffect, useRef } from "react";
 import { authClient } from "@/lib/auth-client";
 import { ClassModal } from "@/components/class-modal";
 import { TopicModal } from "@/components/topic-modal";
+import { AccountSettingsModal } from "@/components/account-settings-modal";
 import {
   PlusIcon,
   ChevIcon,
-  ProfileIcon,
   SettingsIcon,
   BellIcon,
   HelpIcon,
@@ -56,6 +56,7 @@ export function Sidebar({ user, initialClasses }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [topicModal, setTopicModal] = useState<string | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -188,6 +189,12 @@ export function Sidebar({ user, initialClasses }: Props) {
       {topicModal && (
         <TopicModal classId={topicModal} onClose={() => setTopicModal(null)} />
       )}
+      {accountOpen && (
+        <AccountSettingsModal
+          user={user}
+          onClose={() => setAccountOpen(false)}
+        />
+      )}
 
       <div className="side-user" ref={menuRef}>
         <div className={`side-menu${menuOpen ? " show" : ""}`}>
@@ -195,11 +202,13 @@ export function Sidebar({ user, initialClasses }: Props) {
             <div className="menu-hd-name">{user.name}</div>
             <div className="menu-hd-email">{user.email}</div>
           </div>
-          <button className="mi">
-            <ProfileIcon />
-            Edit profile
-          </button>
-          <button className="mi">
+          <button
+            className="mi"
+            onClick={() => {
+              setMenuOpen(false);
+              setAccountOpen(true);
+            }}
+          >
             <SettingsIcon />
             Account settings
           </button>

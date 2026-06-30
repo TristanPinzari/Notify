@@ -16,20 +16,12 @@ import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import {
   classExists,
+  getUserName,
   getUserRank,
   isUniqueViolation,
   requireRank,
 } from "./shared";
 import { logActivity } from "@/lib/activity-log";
-
-async function fetchUserName(userId: string) {
-  const [row] = await db
-    .select({ name: user.name })
-    .from(user)
-    .where(eq(user.id, userId))
-    .limit(1);
-  return row?.name ?? "Unknown";
-}
 
 async function generateUniqueCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -211,13 +203,14 @@ export async function kickFromClass(classId: string, userId: string) {
     if (RANK_VALUE[rankSubject] >= RANK_VALUE[rankSubjecter])
       return { error: "Your rank is not high enough to kick this user." };
 
-    const targetName = await fetchUserName(userId);
-
-    await db
-      .delete(userClasses)
-      .where(
-        and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
-      );
+    const [targetName] = await Promise.all([
+      getUserName(userId),
+      db
+        .delete(userClasses)
+        .where(
+          and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
+        ),
+    ]);
 
     logActivity(classId, session.user.id, {
       action: "member_kicked",
@@ -263,22 +256,23 @@ export async function banFromClass(
     if (RANK_VALUE[rankSubject] >= RANK_VALUE[rankSubjecter])
       return { error: "Your rank is not high enough to ban this user." };
 
-    const targetName = await fetchUserName(userId);
-
-    await db.transaction(async (tx) => {
-      await tx
-        .delete(userClasses)
-        .where(
-          and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
-        );
-      await tx.insert(classBans).values({
-        id: crypto.randomUUID(),
-        classId,
-        bannedUserId: userId,
-        bannedByUserId: session.user.id,
-        reason: reason ?? null,
-      });
-    });
+    const [targetName] = await Promise.all([
+      getUserName(userId),
+      db.transaction(async (tx) => {
+        await tx
+          .delete(userClasses)
+          .where(
+            and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
+          );
+        await tx.insert(classBans).values({
+          id: crypto.randomUUID(),
+          classId,
+          bannedUserId: userId,
+          bannedByUserId: session.user.id,
+          reason: reason ?? null,
+        });
+      }),
+    ]);
 
     logActivity(classId, session.user.id, {
       action: "member_banned",
@@ -324,13 +318,14 @@ export async function unbanFromClass(classId: string, userId: string) {
       .limit(1);
     if (!isBanned[0]) return { error: "This user is not banned." };
 
-    const targetName = await fetchUserName(userId);
-
-    await db
-      .delete(classBans)
-      .where(
-        and(eq(classBans.classId, classId), eq(classBans.bannedUserId, userId)),
-      );
+    const [targetName] = await Promise.all([
+      getUserName(userId),
+      db
+        .delete(classBans)
+        .where(
+          and(eq(classBans.classId, classId), eq(classBans.bannedUserId, userId)),
+        ),
+    ]);
 
     logActivity(classId, session.user.id, {
       action: "member_unbanned",
@@ -382,14 +377,15 @@ export async function changeUserRank(
     if (RANK_VALUE[newRank] >= RANK_VALUE[rankSubjecter])
       return { error: "You can only rerank someone to a rank below yours." };
 
-    const targetName = await fetchUserName(userId);
-
-    await db
-      .update(userClasses)
-      .set({ rank: newRank })
-      .where(
-        and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
-      );
+    const [targetName] = await Promise.all([
+      getUserName(userId),
+      db
+        .update(userClasses)
+        .set({ rank: newRank })
+        .where(
+          and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
+        ),
+    ]);
 
     logActivity(classId, session.user.id, {
       action: "rank_changed",
