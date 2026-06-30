@@ -80,6 +80,7 @@ export type BannedRow = {
 
 type Props = {
   classId: string;
+  topicId?: string;
   className: string;
   classCode: string | null;
   viewerId: string;
@@ -322,6 +323,7 @@ function ActionMenu({
 
 function MemberItem({
   member,
+  topicId,
   isSelf,
   isLast,
   viewerRank,
@@ -333,6 +335,7 @@ function MemberItem({
   onBan,
 }: {
   member: MemberRow;
+  topicId?: string;
   isSelf: boolean;
   isLast: boolean;
   viewerRank: Rank;
@@ -359,7 +362,7 @@ function MemberItem({
         </div>
         <div className="text-xs text-(--ink-faint) mt-0.5">
           Joined {timeAgo(member.joinedAt)} · {member.contributions}{" "}
-          contribution
+          {topicId ? "topic" : "class"} contribution
           {member.contributions !== 1 ? "s" : ""}
         </div>
       </div>
@@ -635,6 +638,7 @@ function BanInfoModal({
 
 export default function MembersView({
   classId,
+  topicId,
   className,
   classCode,
   viewerId,
@@ -948,6 +952,7 @@ export default function MembersView({
               <MemberItem
                 key={m.userId}
                 member={m}
+                topicId={topicId}
                 isSelf={m.userId === viewerId}
                 isLast={i === arr.length - 1}
                 viewerRank={viewerRank}

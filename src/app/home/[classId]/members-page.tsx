@@ -18,10 +18,12 @@ import type { MemberRow, BannedRow } from "@/components/members-view";
 
 export async function MembersPageContent({
   classId,
+  topicId,
   highlightMembers,
   filterReason,
 }: {
   classId: string;
+  topicId?: string;
   highlightMembers?: string[];
   filterReason?: string;
 }) {
@@ -71,13 +73,15 @@ export async function MembersPageContent({
         contributions,
         and(
           eq(contributions.uploadedBy, userClasses.userId),
-          inArray(
-            contributions.topicId,
-            db
-              .select({ id: topics.id })
-              .from(topics)
-              .where(eq(topics.classId, classId)),
-          ),
+          topicId
+            ? eq(contributions.topicId, topicId)
+            : inArray(
+                contributions.topicId,
+                db
+                  .select({ id: topics.id })
+                  .from(topics)
+                  .where(eq(topics.classId, classId)),
+              ),
         ),
       )
       .where(eq(userClasses.classId, classId))
@@ -137,6 +141,7 @@ export async function MembersPageContent({
   return (
     <MembersView
       classId={classId}
+      topicId={topicId}
       className={cls.name}
       classCode={vIdx >= RANK_VALUE[cls.minRankInvite] ? cls.code : null}
       viewerId={session.user.id}
