@@ -75,44 +75,32 @@ export async function joinClass(code: string) {
       .where(eq(classes.code, code))
       .limit(1);
     if (!cls[0]) return { error: "Class does not exist." };
+    const { id: classId, defaultRank } = cls[0];
 
-    const banned = await db
-      .select({ reason: classBans.reason })
-      .from(classBans)
-      .where(
-        and(
-          eq(classBans.classId, cls[0].id),
-          eq(classBans.bannedUserId, session.user.id),
-        ),
-      )
-      .limit(1);
+    const [banned, member] = await Promise.all([
+      db
+        .select({ reason: classBans.reason })
+        .from(classBans)
+        .where(and(eq(classBans.classId, classId), eq(classBans.bannedUserId, session.user.id)))
+        .limit(1),
+      db
+        .select({ userId: userClasses.userId })
+        .from(userClasses)
+        .where(and(eq(userClasses.classId, classId), eq(userClasses.userId, session.user.id)))
+        .limit(1),
+    ]);
 
     if (banned.length > 0)
       return { error: "Banned from this class.", reason: banned[0].reason };
+    if (member.length > 0)
+      return { alreadyMember: true, id: classId };
 
-    const member = await db
-      .select({ userId: userClasses.userId })
-      .from(userClasses)
-      .where(
-        and(
-          eq(userClasses.classId, cls[0].id),
-          eq(userClasses.userId, session.user.id),
-        ),
-      )
-      .limit(1);
+    await db.insert(userClasses).values({ userId: session.user.id, classId, rank: defaultRank });
 
-    if (member.length > 0) return { error: "You are already a member." };
-
-    await db.insert(userClasses).values({
-      userId: session.user.id,
-      classId: cls[0].id,
-      rank: cls[0].defaultRank,
-    });
-
-    logActivity(cls[0].id, session.user.id, { action: "member_joined" });
-    return { success: true };
+    logActivity(classId, session.user.id, { action: "member_joined" });
+    return { success: true, id: classId };
   } catch (e) {
-    if (isUniqueViolation(e)) return { error: "You are already a member." };
+    if (isUniqueViolation(e)) return { alreadyMember: true };
     console.error("ERROR: ", e);
     return { error: "Something went wrong." };
   }
@@ -262,7 +250,10 @@ export async function banFromClass(
         await tx
           .delete(userClasses)
           .where(
-            and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
+            and(
+              eq(userClasses.classId, classId),
+              eq(userClasses.userId, userId),
+            ),
           );
         await tx.insert(classBans).values({
           id: crypto.randomUUID(),
@@ -323,7 +314,10 @@ export async function unbanFromClass(classId: string, userId: string) {
       db
         .delete(classBans)
         .where(
-          and(eq(classBans.classId, classId), eq(classBans.bannedUserId, userId)),
+          and(
+            eq(classBans.classId, classId),
+            eq(classBans.bannedUserId, userId),
+          ),
         ),
     ]);
 

@@ -103,6 +103,11 @@ function avatarColor(name: string): string {
   return AV_PALETTE[h % AV_PALETTE.length]!;
 }
 
+function copyToClipboard(text: string, msg: string) {
+  navigator.clipboard.writeText(text).catch(() => {});
+  toast.success(msg);
+}
+
 // ─── Avatar ──────────────────────────────────────────────────────────────────
 
 function Avatar({
@@ -440,12 +445,10 @@ function CodeModal({
   code,
   className,
   onClose,
-  onCopy,
 }: {
   code: string;
   className: string;
   onClose: () => void;
-  onCopy: () => void;
 }) {
   useEscapeKey(onClose);
 
@@ -481,10 +484,17 @@ function CodeModal({
         <div className="flex gap-3 justify-center flex-wrap">
           <button
             className="inline-flex items-center gap-1.5 bg-(--paper-raised) border border-(--line) text-(--ink-nav) rounded-[9px] text-[15px] font-semibold px-5.5 py-3 hover:border-(--line-strong) hover:text-(--ink-heading) transition-all cursor-pointer"
-            onClick={onCopy}
+            onClick={() => copyToClipboard(code, "Code copied to clipboard.")}
           >
             <CopyIcon />
             Copy code
+          </button>
+          <button
+            className="inline-flex items-center gap-1.5 bg-(--paper-raised) border border-(--line) text-(--ink-nav) rounded-[9px] text-[15px] font-semibold px-5.5 py-3 hover:border-(--line-strong) hover:text-(--ink-heading) transition-all cursor-pointer"
+            onClick={() => copyToClipboard(`${window.location.origin}/home?code=${code}`, "Invite link copied to clipboard.")}
+          >
+            <ShareIcon size={15} />
+            Copy link
           </button>
         </div>
       </div>
@@ -771,8 +781,11 @@ export default function MembersView({
   }
 
   function copyCode() {
-    navigator.clipboard.writeText(code).catch(() => {});
-    toast.success("Code copied to clipboard.");
+    copyToClipboard(code, "Code copied to clipboard.");
+  }
+
+  function copyLink() {
+    copyToClipboard(`${window.location.origin}/home?code=${code}`, "Invite link copied to clipboard.");
   }
 
   return (
@@ -864,6 +877,13 @@ export default function MembersView({
             >
               <CopyIcon />
               Copy code
+            </button>
+            <button
+              className="inline-flex items-center gap-1.5 bg-(--paper-raised) border border-(--line) text-(--ink-nav) rounded-[9px] text-sm font-semibold px-3.75 py-2.25 hover:border-(--line-strong) hover:text-(--ink-heading) transition-all cursor-pointer"
+              onClick={copyLink}
+            >
+              <ShareIcon size={14} />
+              Copy link
             </button>
             {canRegen && (
               <button
@@ -1077,7 +1097,6 @@ export default function MembersView({
           code={code}
           className={className}
           onClose={() => setShowCodeModal(false)}
-          onCopy={copyCode}
         />
       )}
     </div>

@@ -136,7 +136,7 @@ export default function TopicsView({
           <LockIcon />
           <span>
             You&apos;re a <b>Viewer</b> here. You can open and read any topic;
-            creating new ones requires contributor access or above.
+            creating new ones requires a higher rank.
           </span>
         </div>
       )}
