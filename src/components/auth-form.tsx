@@ -82,7 +82,7 @@ const ShieldIcon = () => (
   </svg>
 );
 
-function StepDots({ step }: { step: number }) {
+export function StepDots({ step }: { step: number }) {
   const items: React.ReactNode[] = [];
   for (let n = 1; n <= 3; n++) {
     items.push(

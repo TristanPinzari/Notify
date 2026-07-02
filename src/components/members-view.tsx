@@ -104,8 +104,7 @@ function avatarColor(name: string): string {
 }
 
 function copyToClipboard(text: string, msg: string) {
-  navigator.clipboard.writeText(text).catch(() => {});
-  toast.success(msg);
+  navigator.clipboard.writeText(text).then(() => toast.success(msg)).catch(() => {});
 }
 
 // ─── Avatar ──────────────────────────────────────────────────────────────────

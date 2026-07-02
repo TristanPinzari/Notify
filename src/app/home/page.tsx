@@ -14,7 +14,7 @@ export default function HomePage() {
     if (!code) return;
     joinClass(code).then((res) => {
       if ("alreadyMember" in res) {
-        if ("id" in res) router.replace(`/home/${res.id}`);
+        router.replace(`/home/${res.id}`);
         return;
       }
       if ("error" in res) return toast.error(res.error);

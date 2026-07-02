@@ -12,6 +12,7 @@ import {
   InfoIcon as WarnIcon,
   LockIcon,
 } from "@/components/icons";
+import { StepDots } from "@/components/auth-form";
 
 const LockBigIcon = () => (
   <svg
@@ -43,23 +44,6 @@ const CheckBigIcon = () => (
   </svg>
 );
 
-function StepDots({ step }: { step: number }) {
-  const items: React.ReactNode[] = [];
-  for (let n = 1; n <= 3; n++) {
-    items.push(
-      <span
-        key={`d${n}`}
-        className={`sd${step === n ? " active" : ""}${step > n ? " done" : ""}`}
-      />,
-    );
-    if (n < 3) {
-      items.push(
-        <span key={`s${n}`} className={`seg${step > n ? " done" : ""}`} />,
-      );
-    }
-  }
-  return <div className="steps-dots">{items}</div>;
-}
 
 function ResetPasswordForm() {
   const token = useSearchParams().get("token");

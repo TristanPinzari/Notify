@@ -66,7 +66,7 @@ function Row({
 /* ── Profile panel ──────────────────────────────────────────────── */
 function ProfilePanel({
   name: initialName,
-  email,
+  email: initialEmail,
   onNameSaved,
 }: {
   name: string;
@@ -76,9 +76,14 @@ function ProfilePanel({
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [saving, setSaving] = useState(false);
-  const dirty = name.trim() !== initialName && name.trim().length > 0;
+  const nameDirty = name.trim() !== initialName && name.trim().length > 0;
 
-  async function save() {
+  const [emailInput, setEmailInput] = useState(initialEmail);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const emailDirty = emailInput.trim() !== initialEmail && emailInput.trim().length > 0;
+
+  async function saveName() {
     setSaving(true);
     const res = await authClient.updateUser({ name: name.trim() });
     setSaving(false);
@@ -89,6 +94,21 @@ function ProfilePanel({
     onNameSaved(name.trim());
     router.refresh();
     toast.success("Profile updated.");
+  }
+
+  async function sendEmailChange() {
+    setEmailSending(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await (authClient as any).changeEmail({
+      newEmail: emailInput.trim(),
+      callbackURL: "/home",
+    });
+    setEmailSending(false);
+    if (res?.error) {
+      toast.error(res.error.message ?? "Failed to send verification email.");
+      return;
+    }
+    setEmailSent(true);
   }
 
   return (
@@ -137,19 +157,51 @@ function ProfilePanel({
         </span>
       </div>
 
-      {/* email (read-only) */}
+      {/* email */}
       <div className="field">
         <label className="label">Email</label>
-        <div className="inwrap no-icon filled opacity-60 pointer-events-none">
-          <input type="email" value={email} disabled readOnly />
-        </div>
-        <span className="block text-[11.5px] text-(--ink-faint) mt-1.5">
-          Your university email can&apos;t be changed.
-        </span>
+        {emailSent ? (
+          <div className="flex items-start gap-2.5 bg-(--accent-soft) border border-[rgba(196,121,24,0.2)] rounded-[10px] px-3.5 py-3 text-[12.5px] text-(--accent-text) leading-snug">
+            <span className="mt-px shrink-0"><CheckIcon size={14} /></span>
+            <span>
+              Verification link sent to <strong>{emailInput.trim()}</strong>. Click it to complete the change.
+            </span>
+          </div>
+        ) : (
+          <>
+            <div className={`inwrap no-icon${emailInput ? " filled" : ""}`}>
+              <input
+                type="email"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                placeholder="your@email.com"
+                autoComplete="email"
+              />
+            </div>
+            {emailDirty && (
+              <div className="flex items-center gap-2.5 mt-2">
+                <button
+                  className="forgot"
+                  onClick={() => setEmailInput(initialEmail)}
+                  disabled={emailSending}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-primary btn-sm ml-auto"
+                  onClick={sendEmailChange}
+                  disabled={emailSending}
+                >
+                  {emailSending ? <><span className="mini-spin" /> Sending…</> : "Send verification"}
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
-      {/* dirty save row */}
-      {dirty && (
+      {/* name save row */}
+      {nameDirty && (
         <div className="flex items-center gap-3 pt-4 border-t border-(--line-soft)">
           <span className="text-[12px] text-(--ink-faint) mr-auto">
             Unsaved changes
@@ -163,7 +215,7 @@ function ProfilePanel({
           </button>
           <button
             className="btn btn-primary"
-            onClick={save}
+            onClick={saveName}
             disabled={saving}
           >
             {saving ? (

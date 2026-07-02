@@ -4,6 +4,16 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/server/db";
 import * as schema from "@/server/db/schema";
 import { USERNAME_RE, EMAIL_RE } from "@/lib/validation";
+import { Resend } from "resend";
+import {
+  renderResetPassword,
+  renderVerifyEmail,
+  renderChangeEmail,
+  renderVerifyNewEmail,
+} from "@/lib/emails";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+const senderEmail = "noreply@notifyy.ca";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -29,18 +39,48 @@ export const auth = betterAuth({
       },
     },
   },
+  user: {
+    changeEmail: {
+      enabled: true,
+      sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
+        const { error } = await resend.emails.send({
+          from: senderEmail,
+          to: user.email,
+          subject: "Notify | Confirm Your Email Change",
+          html: renderChangeEmail({ newEmail, url }),
+        });
+        if (error)
+          console.error("Failed to send email change confirmation:", error);
+      },
+    },
+  },
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
     requireEmailVerification: true,
-    sendResetPassword: async () => {
-      // TODO: send password reset email
+    sendResetPassword: async ({ user, url }) => {
+      const { error } = await resend.emails.send({
+        from: senderEmail,
+        to: user.email,
+        subject: "Notify | Reset Your Password",
+        html: renderResetPassword({ email: user.email, url }),
+      });
+      if (error) console.error("Failed to send reset password email:", error);
     },
   },
   emailVerification: {
     autoSignInAfterVerification: true,
-    sendVerificationEmail: async () => {
-      // TODO: send verification email
+    sendVerificationEmail: async ({ user, url }) => {
+      const isEmailChange = user.emailVerified === true;
+      const { error } = await resend.emails.send({
+        from: senderEmail,
+        to: user.email,
+        subject: isEmailChange ? "Notify | Confirm Your New Email" : "Notify | Verify Your Email",
+        html: isEmailChange
+          ? renderVerifyNewEmail({ newEmail: user.email, url })
+          : renderVerifyEmail({ name: user.name, url }),
+      });
+      if (error) console.error("Failed to send verification email:", error);
     },
   },
   socialProviders: {

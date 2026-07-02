@@ -68,6 +68,7 @@ export async function joinClass(code: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
 
+  let classId!: string;
   try {
     const cls = await db
       .select({ id: classes.id, defaultRank: classes.defaultRank })
@@ -75,7 +76,8 @@ export async function joinClass(code: string) {
       .where(eq(classes.code, code))
       .limit(1);
     if (!cls[0]) return { error: "Class does not exist." };
-    const { id: classId, defaultRank } = cls[0];
+    const { defaultRank } = cls[0];
+    classId = cls[0].id;
 
     const [banned, member] = await Promise.all([
       db
@@ -100,7 +102,7 @@ export async function joinClass(code: string) {
     logActivity(classId, session.user.id, { action: "member_joined" });
     return { success: true, id: classId };
   } catch (e) {
-    if (isUniqueViolation(e)) return { alreadyMember: true };
+    if (isUniqueViolation(e)) return { alreadyMember: true, id: classId };
     console.error("ERROR: ", e);
     return { error: "Something went wrong." };
   }
