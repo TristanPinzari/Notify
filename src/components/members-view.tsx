@@ -13,7 +13,7 @@ import {
   regenerateCode,
 } from "@/server/actions/classes";
 import { RANK_VALUE } from "@/server/db/schema";
-import { initials } from "@/lib/format";
+import { initials, avatarColor } from "@/lib/format";
 import type { Rank } from "@/server/db/schema";
 import { timeAgo } from "@/lib/utils";
 import { useEscapeKey } from "@/hooks/use-escape-key";
@@ -46,17 +46,6 @@ const RANK_LABEL: Record<Rank, string> = {
   admin: "Admin",
   owner: "Owner",
 };
-const AV_PALETTE = [
-  "#a85718",
-  "#3a5fa8",
-  "#3f7d52",
-  "#7a4b86",
-  "#9e3b32",
-  "#2f7050",
-  "#b06a1e",
-  "#4b6a8a",
-];
-
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type MemberRow = {
@@ -97,11 +86,6 @@ type Props = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function avatarColor(name: string): string {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-  return AV_PALETTE[h % AV_PALETTE.length]!;
-}
 
 function copyToClipboard(text: string, msg: string) {
   navigator.clipboard.writeText(text).then(() => toast.success(msg)).catch(() => toast.error("Clipboard access denied."));

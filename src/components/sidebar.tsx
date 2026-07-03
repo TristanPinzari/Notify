@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { authClient } from "@/lib/auth-client";
+import { avatarColor } from "@/lib/format";
 import { ClassModal } from "@/components/class-modal";
 import { TopicModal } from "@/components/topic-modal";
 import { AccountSettingsModal } from "@/components/account-settings-modal";
@@ -231,7 +232,10 @@ export function Sidebar({ user, initialClasses }: Props) {
           className={`user-btn${menuOpen ? " open" : ""}`}
           onClick={() => setMenuOpen((o) => !o)}
         >
-          <div className="avatar">
+          <div
+            className="avatar"
+            style={user.image ? undefined : { background: avatarColor(user.name) }}
+          >
             {user.image ? (
               <Image
                 className="avatar-img"

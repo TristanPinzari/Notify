@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEscapeKey } from "@/hooks/use-escape-key";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
-import { initials } from "@/lib/format";
+import { initials, avatarColor } from "@/lib/format";
+import { resizeImage } from "@/lib/image";
+import { getAvatarUploadUrl } from "@/server/actions/avatar";
 import {
   LockIcon,
   BellIcon,
@@ -18,8 +21,40 @@ import {
 } from "@/components/icons";
 
 type Tab = "profile" | "security" | "notifications" | "preferences";
-type User = { name: string; email: string };
+type User = { name: string; email: string; image?: string | null };
 type Props = { user: User; onClose: () => void };
+
+/* ── Avatar ─────────────────────────────────────────────────────── */
+function ModalAvatar({
+  src,
+  name,
+  size,
+}: {
+  src: string | null;
+  name: string;
+  size: 40 | 68;
+}) {
+  const tw =
+    size === 68 ? "w-17 h-17 text-[24px]" : "w-10 h-10 text-[15px]";
+  return (
+    <div
+      className={`${tw} rounded-full shrink-0 overflow-hidden flex items-center justify-center font-semibold text-white`}
+      style={src ? undefined : { background: avatarColor(name) }}
+    >
+      {src ? (
+        <Image
+          src={src}
+          alt={name}
+          width={size}
+          height={size}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        initials(name)
+      )}
+    </div>
+  );
+}
 
 /* ── Toggle ─────────────────────────────────────────────────────── */
 function Toggle({
@@ -55,8 +90,12 @@ function Row({
   return (
     <div className="flex items-center gap-3.5 px-4 py-3.5 border-b border-(--line-soft) last:border-b-0">
       <div className="flex-1 min-w-0">
-        <div className="text-[13px] font-semibold text-(--ink-heading)">{title}</div>
-        <div className="text-[11.5px] text-(--ink-faint) mt-0.5 leading-snug">{desc}</div>
+        <div className="text-[13px] font-semibold text-(--ink-heading)">
+          {title}
+        </div>
+        <div className="text-[11.5px] text-(--ink-faint) mt-0.5 leading-snug">
+          {desc}
+        </div>
       </div>
       {children}
     </div>
@@ -67,11 +106,15 @@ function Row({
 function ProfilePanel({
   name: initialName,
   email: initialEmail,
+  image: initialImage,
   onNameSaved,
+  onImageSaved,
 }: {
   name: string;
   email: string;
+  image?: string | null;
   onNameSaved: (n: string) => void;
+  onImageSaved: (url: string | null) => void;
 }) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
@@ -82,7 +125,14 @@ function ProfilePanel({
   const [emailInput, setEmailInput] = useState(initialEmail);
   const [emailSending, setEmailSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
-  const emailDirty = emailInput.trim() !== initialEmail && emailInput.trim().length > 0;
+  const emailDirty =
+    emailInput.trim() !== initialEmail && emailInput.trim().length > 0;
+
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(
+    initialImage ?? null,
+  );
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function saveName() {
     setSaving(true);
@@ -112,31 +162,103 @@ function ProfilePanel({
     setEmailSent(true);
   }
 
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image must be under 10 MB.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const [blob, result] = await Promise.all([
+        resizeImage(file),
+        getAvatarUploadUrl(),
+      ]);
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+      const uploadRes = await fetch(result.uploadUrl, {
+        method: "PUT",
+        body: blob,
+        headers: { "Content-Type": "image/webp" },
+      });
+      if (!uploadRes.ok) {
+        toast.error("Upload failed.");
+        return;
+      }
+      const publicUrl = `${result.publicUrl}?v=${Date.now()}`;
+      await authClient.updateUser({ image: publicUrl });
+      setAvatarUrl(publicUrl);
+      onImageSaved(publicUrl);
+      router.refresh();
+      toast.success("Photo updated.");
+    } catch {
+      toast.error("Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function removeAvatar() {
+    const res = await authClient.updateUser({ image: null });
+    if (res.error) {
+      toast.error(res.error.message ?? "Failed to remove photo.");
+      return;
+    }
+    setAvatarUrl(null);
+    onImageSaved(null);
+    router.refresh();
+    toast.success("Photo removed.");
+  }
+
   return (
     <>
       {/* avatar row */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        onChange={handleFileChange}
+      />
       <div className="flex items-center gap-4 mb-5">
-        <span className="w-17 h-17 rounded-full shrink-0 flex items-center justify-center font-semibold text-[24px] text-(--on-accent) bg-linear-to-br from-(--accent-hi) to-(--accent-text) overflow-hidden">
-          {initials(name || initialName)}
-        </span>
+        <ModalAvatar src={avatarUrl} name={name || initialName} size={68} />
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
             <button
               className="btn btn-ghost btn-sm"
-              onClick={() => toast.info("Photo upload coming soon.")}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
             >
-              <UploadIcon />
-              Upload photo
+              {uploading ? (
+                <>
+                  <span className="mini-spin" /> Uploading…
+                </>
+              ) : (
+                <>
+                  <UploadIcon /> Upload photo
+                </>
+              )}
             </button>
-            <button
-              className="forgot"
-              onClick={() => toast.info("Photo removed.")}
-            >
-              Remove
-            </button>
+            {avatarUrl && (
+              <button
+                className="forgot"
+                onClick={removeAvatar}
+                disabled={uploading}
+              >
+                Remove
+              </button>
+            )}
           </div>
           <span className="text-[11.5px] text-(--ink-faint)">
-            JPG or PNG, at least 200×200px. Falls back to your initials.
+            JPG, PNG, or WebP. Cropped to a square.
           </span>
         </div>
       </div>
@@ -153,9 +275,36 @@ function ProfilePanel({
             autoComplete="name"
           />
         </div>
-        <span className="block text-[11.5px] text-(--ink-faint) mt-1.5">
-          Shown on your contributions and in member lists.
-        </span>
+        {nameDirty ? (
+          <div className="flex items-center gap-2.5 mt-2">
+            <button
+              className="forgot"
+              onClick={() => setName(initialName)}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn btn-primary btn-sm ml-auto"
+              onClick={saveName}
+              disabled={saving}
+            >
+              {saving ? (
+                <>
+                  <span className="mini-spin" /> Saving…
+                </>
+              ) : (
+                <>
+                  <CheckIcon size={14} /> Save
+                </>
+              )}
+            </button>
+          </div>
+        ) : (
+          <span className="block text-[11.5px] text-(--ink-faint) mt-1.5">
+            Shown on your contributions and in member lists.
+          </span>
+        )}
       </div>
 
       {/* email */}
@@ -163,9 +312,12 @@ function ProfilePanel({
         <label className="label">Email</label>
         {emailSent ? (
           <div className="flex items-start gap-2.5 bg-(--accent-soft) border border-[rgba(196,121,24,0.2)] rounded-[10px] px-3.5 py-3 text-[12.5px] text-(--accent-text) leading-snug">
-            <span className="mt-px shrink-0"><CheckIcon size={14} /></span>
+            <span className="mt-px shrink-0">
+              <CheckIcon size={14} />
+            </span>
             <span>
-              Verification link sent to <strong>{emailInput.trim()}</strong>. Click it to complete the change.
+              Verification link sent to <strong>{emailInput.trim()}</strong>.
+              Click it to complete the change.
             </span>
           </div>
         ) : (
@@ -193,44 +345,19 @@ function ProfilePanel({
                   onClick={sendEmailChange}
                   disabled={emailSending}
                 >
-                  {emailSending ? <><span className="mini-spin" /> Sending…</> : "Send verification"}
+                  {emailSending ? (
+                    <>
+                      <span className="mini-spin" /> Sending…
+                    </>
+                  ) : (
+                    "Send verification"
+                  )}
                 </button>
               </div>
             )}
           </>
         )}
       </div>
-
-      {/* name save row */}
-      {nameDirty && (
-        <div className="flex items-center gap-3 pt-4 border-t border-(--line-soft)">
-          <span className="text-[12px] text-(--ink-faint) mr-auto">
-            Unsaved changes
-          </span>
-          <button
-            className="btn btn-ghost"
-            onClick={() => setName(initialName)}
-            disabled={saving}
-          >
-            Cancel
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={saveName}
-            disabled={saving}
-          >
-            {saving ? (
-              <>
-                <span className="mini-spin" /> Saving…
-              </>
-            ) : (
-              <>
-                <CheckIcon size={14} /> Save
-              </>
-            )}
-          </button>
-        </div>
-      )}
     </>
   );
 }
@@ -344,7 +471,11 @@ function SecurityPanel({ email }: { email: string }) {
             Reset link sent to {email}.
           </span>
         ) : (
-          <button className="forgot" onClick={sendReset} disabled={resetLoading}>
+          <button
+            className="forgot"
+            onClick={sendReset}
+            disabled={resetLoading}
+          >
             {resetLoading ? "Sending…" : "Forgot password?"}
           </button>
         )}
@@ -392,10 +523,26 @@ function NotificationsPanel() {
     setState((s) => ({ ...s, [k]: v }));
 
   const rows: { key: keyof typeof state; title: string; desc: string }[] = [
-    { key: "compileDone", title: "Compile finished", desc: "When a master document you follow finishes compiling." },
-    { key: "newSource", title: "New sources added", desc: "When classmates upload notes to your topics." },
-    { key: "roleChange", title: "Role changes", desc: "When your role in a class changes." },
-    { key: "weekly", title: "Weekly digest", desc: "A Monday summary of activity across your classes." },
+    {
+      key: "compileDone",
+      title: "Compile finished",
+      desc: "When a master document you follow finishes compiling.",
+    },
+    {
+      key: "newSource",
+      title: "New sources added",
+      desc: "When classmates upload notes to your topics.",
+    },
+    {
+      key: "roleChange",
+      title: "Role changes",
+      desc: "When your role in a class changes.",
+    },
+    {
+      key: "weekly",
+      title: "Weekly digest",
+      desc: "A Monday summary of activity across your classes.",
+    },
   ];
 
   return (
@@ -432,7 +579,10 @@ function PreferencesPanel() {
             ))}
           </div>
         </Row>
-        <Row title="Compact density" desc="Tighter spacing to fit more on screen.">
+        <Row
+          title="Compact density"
+          desc="Tighter spacing to fit more on screen."
+        >
           <Toggle checked={false} onChange={() => {}} />
         </Row>
       </div>
@@ -456,6 +606,9 @@ export function AccountSettingsModal({ user, onClose }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("profile");
   const [displayName, setDisplayName] = useState(user.name);
+  const [displayImage, setDisplayImage] = useState<string | null>(
+    user.image ?? null,
+  );
 
   useEscapeKey(onClose);
 
@@ -472,9 +625,7 @@ export function AccountSettingsModal({ user, onClose }: Props) {
         <aside className="w-53 shrink-0 bg-(--paper-sidebar) border-r border-(--line) p-[22px_14px] flex flex-col">
           {/* user identity */}
           <div className="flex items-center gap-2.75 px-2 pb-4.5">
-            <span className="w-10 h-10 rounded-full shrink-0 flex items-center justify-center font-semibold text-[15px] text-(--on-accent) bg-linear-to-br from-(--accent-hi) to-(--accent-text)">
-              {initials(displayName)}
-            </span>
+            <ModalAvatar src={displayImage} name={displayName} size={40} />
             <div className="min-w-0">
               <div className="text-[13.5px] font-semibold text-(--ink-heading) truncate">
                 {displayName}
@@ -534,7 +685,9 @@ export function AccountSettingsModal({ user, onClose }: Props) {
               <ProfilePanel
                 name={displayName}
                 email={user.email}
+                image={displayImage}
                 onNameSaved={setDisplayName}
+                onImageSaved={setDisplayImage}
               />
             )}
             {tab === "security" && <SecurityPanel email={user.email} />}
