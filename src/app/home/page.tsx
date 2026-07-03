@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { mutate } from "swr";
@@ -9,9 +9,11 @@ import { joinClass } from "@/server/actions/classes";
 export default function HomePage() {
   const router = useRouter();
   const code = useSearchParams().get("code");
+  const joining = useRef(false);
 
   useEffect(() => {
-    if (!code) return;
+    if (!code || joining.current) return;
+    joining.current = true;
     joinClass(code).then((res) => {
       if ("alreadyMember" in res) {
         router.replace(`/home/${res.id}`);

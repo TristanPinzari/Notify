@@ -68,7 +68,7 @@ export async function joinClass(code: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
 
-  let classId!: string;
+  let classId = "";
   try {
     const cls = await db
       .select({ id: classes.id, defaultRank: classes.defaultRank })

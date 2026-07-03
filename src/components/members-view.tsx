@@ -104,7 +104,7 @@ function avatarColor(name: string): string {
 }
 
 function copyToClipboard(text: string, msg: string) {
-  navigator.clipboard.writeText(text).then(() => toast.success(msg)).catch(() => {});
+  navigator.clipboard.writeText(text).then(() => toast.success(msg)).catch(() => toast.error("Clipboard access denied."));
 }
 
 // ─── Avatar ──────────────────────────────────────────────────────────────────

@@ -216,11 +216,11 @@ export function RetryIcon() {
   );
 }
 
-export function XIcon() {
+export function XIcon({ size = 14 }: { size?: number }) {
   return (
     <svg
-      width="14"
-      height="14"
+      width={size}
+      height={size}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -531,11 +531,11 @@ export function MailIcon() {
   );
 }
 
-export function LockIcon() {
+export function LockIcon({ size = 18 }: { size?: number } = {}) {
   return (
     <svg
-      width="18"
-      height="18"
+      width={size}
+      height={size}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -772,6 +772,23 @@ export function HistoryIcon({ size = 15 }: { size?: number } = {}) {
       <path d="M3 3v5h5" />
       <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
       <path d="M12 7v5l4 2" />
+    </svg>
+  );
+}
+
+export function ArrowRightIcon({ size = 17 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 12h14M13 6l6 6-6 6" />
     </svg>
   );
 }

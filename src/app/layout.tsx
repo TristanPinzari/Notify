@@ -18,7 +18,7 @@ const dmSerifDisplay = DM_Serif_Display({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Notify", template: "%s | Notify" },
+  title: { default: "Notify", template: "%s · Notify" },
   description: "Collaborative notes for students",
 };
 

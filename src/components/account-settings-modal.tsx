@@ -76,7 +76,8 @@ function ProfilePanel({
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [saving, setSaving] = useState(false);
-  const nameDirty = name.trim() !== initialName && name.trim().length > 0;
+  const trimmedName = name.trim();
+  const nameDirty = trimmedName !== initialName && trimmedName.length > 0;
 
   const [emailInput, setEmailInput] = useState(initialEmail);
   const [emailSending, setEmailSending] = useState(false);
@@ -390,23 +391,11 @@ function NotificationsPanel() {
   const set = (k: keyof typeof state, v: boolean) =>
     setState((s) => ({ ...s, [k]: v }));
 
-  const rows: [keyof typeof state, string, string][] = [
-    [
-      "compileDone",
-      "Compile finished",
-      "When a master document you follow finishes compiling.",
-    ],
-    [
-      "newSource",
-      "New sources added",
-      "When classmates upload notes to your topics.",
-    ],
-    ["roleChange", "Role changes", "When your role in a class changes."],
-    [
-      "weekly",
-      "Weekly digest",
-      "A Monday summary of activity across your classes.",
-    ],
+  const rows: { key: keyof typeof state; title: string; desc: string }[] = [
+    { key: "compileDone", title: "Compile finished", desc: "When a master document you follow finishes compiling." },
+    { key: "newSource", title: "New sources added", desc: "When classmates upload notes to your topics." },
+    { key: "roleChange", title: "Role changes", desc: "When your role in a class changes." },
+    { key: "weekly", title: "Weekly digest", desc: "A Monday summary of activity across your classes." },
   ];
 
   return (
@@ -416,9 +405,9 @@ function NotificationsPanel() {
         always on.
       </p>
       <div className="bg-(--paper) border border-(--line) rounded-xl overflow-hidden">
-        {rows.map(([k, title, desc]) => (
-          <Row key={k} title={title} desc={desc}>
-            <Toggle checked={state[k]} onChange={(v) => set(k, v)} />
+        {rows.map(({ key, title, desc }) => (
+          <Row key={key} title={title} desc={desc}>
+            <Toggle checked={state[key]} onChange={(v) => set(key, v)} />
           </Row>
         ))}
       </div>
@@ -428,23 +417,15 @@ function NotificationsPanel() {
 
 /* ── Preferences panel ──────────────────────────────────────────── */
 function PreferencesPanel() {
-  const [theme, setTheme] = useState<"light" | "dark" | "auto">("light");
-  const [compact, setCompact] = useState(false);
-
   return (
     <>
-      <div className="bg-(--paper) border border-(--line) rounded-xl overflow-hidden">
+      <div className="bg-(--paper) border border-(--line) rounded-xl overflow-hidden opacity-50 pointer-events-none">
         <Row title="Theme" desc="How Notify looks on this device.">
           <div className="inline-flex bg-(--paper-deep) border border-(--line) rounded-[9px] p-0.75 gap-0.5 shrink-0">
             {(["light", "dark", "auto"] as const).map((t) => (
               <button
                 key={t}
-                className={`border-none rounded-md font-sans text-[12px] font-medium px-2.75 py-1.25 cursor-pointer transition-colors ${
-                  theme === t
-                    ? "bg-(--accent) text-(--on-accent)"
-                    : "bg-transparent text-(--ink-faint)"
-                }`}
-                onClick={() => setTheme(t)}
+                className="border-none rounded-md font-sans text-[12px] font-medium px-2.75 py-1.25 bg-transparent text-(--ink-faint)"
               >
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
@@ -452,7 +433,7 @@ function PreferencesPanel() {
           </div>
         </Row>
         <Row title="Compact density" desc="Tighter spacing to fit more on screen.">
-          <Toggle checked={compact} onChange={setCompact} />
+          <Toggle checked={false} onChange={() => {}} />
         </Row>
       </div>
       <p className="text-[12.5px] text-(--ink-faint) leading-relaxed mt-3.5">
