@@ -101,7 +101,7 @@ function ProfilePanel({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const res = await (authClient as any).changeEmail({
       newEmail: emailInput.trim(),
-      callbackURL: "/home",
+      callbackURL: `/email-change-confirmed?email=${encodeURIComponent(emailInput.trim())}`,
     });
     setEmailSending(false);
     if (res?.error) {

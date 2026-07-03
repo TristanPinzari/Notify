@@ -70,8 +70,16 @@ export const auth = betterAuth({
   },
   emailVerification: {
     autoSignInAfterVerification: true,
-    sendVerificationEmail: async ({ user, url }) => {
+    sendVerificationEmail: async ({ user, url: rawUrl }) => {
       const isEmailChange = user.emailVerified === true;
+      let url = rawUrl;
+      if (isEmailChange) {
+        try {
+          const u = new URL(rawUrl);
+          u.searchParams.set("callbackURL", "/email-verified?type=email-change");
+          url = u.toString();
+        } catch {}
+      }
       const { error } = await resend.emails.send({
         from: senderEmail,
         to: user.email,

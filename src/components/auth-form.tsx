@@ -288,6 +288,7 @@ export function AuthForm({ defaultMode }: { defaultMode: "login" | "signup" }) {
           name: name.trim(),
           email,
           password,
+          callbackURL: "/email-verified",
         });
         if (error) {
           setFormError(error.message ?? "Something went wrong.");
