@@ -323,10 +323,7 @@ export function MasterDocView({
   const hasDoc = docs.length > 0;
 
   return (
-    <div
-      className="pane ruled"
-      style={editMode ? { maxWidth: 1200 } : undefined}
-    >
+    <div className="pane" style={editMode ? { maxWidth: 1200 } : undefined}>
       <div className="pane-head">
         <div>
           <div className="kicker">Master Document</div>

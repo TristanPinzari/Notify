@@ -10,8 +10,12 @@ export default async function HomeLayout({
 }: {
   children: ReactNode;
 }) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) redirect("/sign-in");
+  const headersList = await headers();
+  const session = await auth.api.getSession({ headers: headersList });
+  if (!session) {
+    const search = headersList.get("x-search") ?? "";
+    redirect(`/sign-in?callbackUrl=${encodeURIComponent("/home" + search)}`);
+  }
 
   const sidebarClasses = await getSidebarClasses(session.user.id);
 

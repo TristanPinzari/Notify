@@ -3,7 +3,9 @@ import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/server/db";
 import * as schema from "@/server/db/schema";
-import { USERNAME_RE, EMAIL_RE } from "@/lib/validation";
+import { account } from "@/server/db/schema";
+import { and, eq } from "drizzle-orm";
+import { EMAIL_RE } from "@/lib/validation";
 import { Resend } from "resend";
 import {
   renderResetPassword,
@@ -13,7 +15,7 @@ import {
 } from "@/lib/emails";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const senderEmail = "noreply@notifyy.ca";
+const senderEmail = "Notify <noreply@notifyy.ca>";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -24,16 +26,24 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user) => {
-          if (!USERNAME_RE.test(user.name)) {
-            throw new APIError("BAD_REQUEST", {
-              message:
-                "Username must be 3–20 characters, letters, numbers and underscores only.",
-            });
-          }
           if (!EMAIL_RE.test(user.email)) {
             throw new APIError("BAD_REQUEST", {
               message: "Enter a valid email address.",
             });
+          }
+        },
+      },
+      update: {
+        after: async (user) => {
+          if (user.email) {
+            await db
+              .delete(account)
+              .where(
+                and(
+                  eq(account.userId, user.id),
+                  eq(account.providerId, "google"),
+                ),
+              );
           }
         },
       },
@@ -76,14 +86,19 @@ export const auth = betterAuth({
       if (isEmailChange) {
         try {
           const u = new URL(rawUrl);
-          u.searchParams.set("callbackURL", "/email-verified?type=email-change");
+          u.searchParams.set(
+            "callbackURL",
+            "/email-verified?type=email-change",
+          );
           url = u.toString();
         } catch {}
       }
       const { error } = await resend.emails.send({
         from: senderEmail,
         to: user.email,
-        subject: isEmailChange ? "Notify | Confirm Your New Email" : "Notify | Verify Your Email",
+        subject: isEmailChange
+          ? "Notify | Confirm Your New Email"
+          : "Notify | Verify Your Email",
         html: isEmailChange
           ? renderVerifyNewEmail({ newEmail: user.email, url })
           : renderVerifyEmail({ name: user.name, url }),

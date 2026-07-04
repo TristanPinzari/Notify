@@ -8,6 +8,7 @@ import {
   updateClassSettings,
   regenerateCode,
   deleteClass,
+  leaveClass,
   getActivityLog,
 } from "@/server/actions/classes";
 import { changeTopicName, deleteTopic } from "@/server/actions/topics";
@@ -21,6 +22,7 @@ import {
   InfoIcon,
   LayersIcon,
   LockIcon,
+  LogOutIcon,
   MembersIcon,
   RecompileIcon,
   RetryIcon,
@@ -593,6 +595,77 @@ function DeleteClassModal({
   );
 }
 
+function LeaveClassModal({
+  classId,
+  className,
+  onClose,
+}: {
+  classId: string;
+  className: string;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [leaving, setLeaving] = useState(false);
+  useEscapeKey(() => !leaving && onClose());
+
+  async function confirm() {
+    setLeaving(true);
+    const res = await leaveClass(classId);
+    setLeaving(false);
+    if ("error" in res) {
+      toast.error(res.error);
+    } else {
+      toast.success("You've left the class.");
+      mutate("/api/sidebar");
+      router.push("/home");
+    }
+  }
+
+  return (
+    <>
+      <div className="modal-backdrop" onClick={() => !leaving && onClose()} />
+      <div className="modal max-w-115">
+        <div className="del-mhead">
+          <span className="del-mic">
+            <WarnIcon size={19} />
+          </span>
+          <h3>Leave this class?</h3>
+        </div>
+        <p className="del-mbody">
+          You will lose access to <b>{className}</b> and all its topics. You can
+          rejoin with an invite link or code if one is available.
+        </p>
+        <div className="del-actions">
+          <button
+            className="btn btn-ghost"
+            onClick={onClose}
+            disabled={leaving}
+          >
+            Cancel
+          </button>
+          <button
+            className="btn-danger-solid"
+            disabled={leaving}
+            onClick={confirm}
+          >
+            {leaving ? (
+              <>
+                <span className="mini-spin" />
+                Leaving…
+              </>
+            ) : (
+              <>
+                <LogOutIcon />
+                Leave class
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 /* ─── main component ─────────────────────────────────────────────── */
 
 export default function SettingsView({
@@ -621,6 +694,7 @@ export default function SettingsView({
   const [regenLoading, setRegenLoading] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
   const [delTopicOpen, setDelTopicOpen] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
 
   const dirty = useMemo(() => {
     if (name !== cls.name) return true;
@@ -671,7 +745,6 @@ export default function SettingsView({
   }
 
   const canDeleteTopic = topic?.canDelete ?? false;
-  const showDanger = canDeleteTopic || isOwner;
 
   return (
     <div className="pane flex flex-col gap-5">
@@ -851,8 +924,7 @@ export default function SettingsView({
       </div>
 
       {/* danger zone */}
-      {showDanger && (
-        <div>
+      <div>
           <div className="section-label danger">
             <span className="slead">
               <WarnIcon size={14} />
@@ -880,6 +952,24 @@ export default function SettingsView({
                 </button>
               </div>
             )}
+            <div className="sv-row">
+                <div className="sv-sl">
+                  <div className="sv-st">Leave class</div>
+                  <div className="sv-desc">
+                    {isOwner
+                      ? "You own this class and can't leave it. Ownership transfer will be available in a future update."
+                      : "Remove yourself from this class. You can rejoin with an invite link or code."}
+                  </div>
+                </div>
+                <button
+                  className="btn-danger"
+                  disabled={isOwner}
+                  onClick={() => setLeaveOpen(true)}
+                >
+                  <LogOutIcon />
+                  Leave class
+                </button>
+              </div>
             {isOwner && (
               <div className="sv-row">
                 <div className="sv-sl">
@@ -899,7 +989,6 @@ export default function SettingsView({
             )}
           </div>
         </div>
-      )}
 
       {/* save bar */}
       {dirty && (
@@ -951,6 +1040,15 @@ export default function SettingsView({
           classId={classId}
           className={cls.name}
           onClose={() => setDelOpen(false)}
+        />
+      )}
+
+      {/* leave class modal */}
+      {leaveOpen && (
+        <LeaveClassModal
+          classId={classId}
+          className={cls.name}
+          onClose={() => setLeaveOpen(false)}
         />
       )}
     </div>

@@ -5,10 +5,16 @@ export async function proxy(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
 
   if (!session) {
-    return NextResponse.redirect(new URL("/sign-in", request.url));
+    const { pathname, search } = request.nextUrl;
+    const callbackUrl = pathname.startsWith("/home")
+      ? `?callbackUrl=${encodeURIComponent(pathname + search)}`
+      : "";
+    return NextResponse.redirect(new URL(`/sign-in${callbackUrl}`, request.url));
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  response.headers.set("x-search", request.nextUrl.search);
+  return response;
 }
 
 export const config = {

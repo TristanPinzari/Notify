@@ -2198,7 +2198,22 @@ textarea.inwrap:focus {
 .pane.ruled::before {
   content: "";
   position: absolute;
-  left: -2px;
+  left: -30px;
+  top: 30px;
+  bottom: 40px;
+  width: 1px;
+  mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(180, 69, 47, 0.26) 0 7px,
+    transparent 7px 14px
+  );
+}
+.pane.ruled::after {
+  content: "";
+  position: absolute;
+  right: -30px;
   top: 30px;
   bottom: 40px;
   width: 1px;
@@ -3495,6 +3510,15 @@ textarea.inwrap:focus {
 .btn-danger:hover {
   background: var(--danger-bg);
   border-color: var(--danger);
+}
+.btn-danger:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.sv-card.danger .btn-danger {
+  min-width: 130px;
+  justify-content: center;
 }
 .btn-danger svg {
   width: 15px;

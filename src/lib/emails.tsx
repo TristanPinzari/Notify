@@ -15,7 +15,8 @@ const C = {
 };
 
 const serif = "'DM Serif Display', Georgia, 'Times New Roman', serif";
-const sans = "'DM Sans', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+const sans =
+  "'DM Sans', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 const mono = "'DM Mono', ui-monospace, 'SF Mono', Menlo, monospace";
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
@@ -98,49 +99,89 @@ function wrap(inner: string) {
 
 // ─── 1 · Email verification ───────────────────────────────────────────────────
 
-export function renderVerifyEmail({ name, url }: { name: string; url: string }) {
+export function renderVerifyEmail({
+  name,
+  url,
+}: {
+  name: string;
+  url: string;
+}) {
   return wrap(
     h("Confirm your email") +
-    p(`Welcome to Notify, <strong style="color:${C.ink};">${name}</strong>. Confirm this address to activate your account and start pooling notes with your class.`) +
-    button("Verify email address", url) +
-    expiry("This link expires in 24 hours. You must verify before you can sign in.") +
-    fallbackLink(url),
+      p(
+        `Welcome to Notify, <strong style="color:${C.ink};">${name}</strong>. Confirm this address to activate your account and start pooling notes with your class.`,
+      ) +
+      button("Verify email address", url) +
+      expiry(
+        "This link expires in 24 hours. You must verify before you can sign in.",
+      ) +
+      fallbackLink(url),
   );
 }
 
 // ─── 2 · Password reset ───────────────────────────────────────────────────────
 
-export function renderResetPassword({ email, url }: { email: string; url: string }) {
+export function renderResetPassword({
+  email,
+  url,
+}: {
+  email: string;
+  url: string;
+}) {
   return wrap(
     h("Reset your password") +
-    p(`We received a request to reset the password for <strong style="color:${C.ink};">${email}</strong>. Choose a new password using the button below.`) +
-    button("Choose a new password", url) +
-    expiry("This link expires in 60 minutes. If you didn't request a reset, ignore this email — your password stays the same.") +
-    fallbackLink(url),
+      p(
+        `We received a request to reset the password for <strong style="color:${C.ink};">${email}</strong>. Choose a new password using the button below.`,
+      ) +
+      button("Choose a new password", url) +
+      expiry(
+        "This link expires in 60 minutes. If you didn't request a reset, ignore this email — your password stays the same.",
+      ) +
+      fallbackLink(url),
   );
 }
 
 // ─── 3 · Email change verification ───────────────────────────────────────────
 
-export function renderChangeEmail({ newEmail, url }: { newEmail: string; url: string }) {
+export function renderChangeEmail({
+  newEmail,
+  url,
+}: {
+  newEmail: string;
+  url: string;
+}) {
   return wrap(
     h("Verify your new email") +
-    p(`You asked to change your Notify email to <strong style="color:${C.ink};">${newEmail}</strong>. Confirm the change using the button below.`) +
-    button("Confirm email change", url) +
-    expiry("This link expires in 30 minutes. Until you confirm, your account keeps using your current email. If this wasn’t you, change your password.") +
-    fallbackLink(url),
+      p(
+        `You asked to change your Notify email to <strong style="color:${C.ink};">${newEmail}</strong>. Confirm the change using the button below.`,
+      ) +
+      button("Confirm email change", url) +
+      expiry(
+        "This link expires in 30 minutes. Until you confirm, your account keeps using your current email. If this wasn’t you, change your password.",
+      ) +
+      fallbackLink(url),
   );
 }
 
 // ─── 4 · New email verification (post-change) ────────────────────────────────
 
-export function renderVerifyNewEmail({ newEmail, url }: { newEmail: string; url: string }) {
+export function renderVerifyNewEmail({
+  newEmail,
+  url,
+}: {
+  newEmail: string;
+  url: string;
+}) {
   return wrap(
     h("Confirm your new email") +
-    p(`A Notify account has requested <strong style="color:${C.ink};">${newEmail}</strong> as its new email address. Click below to verify this address and complete the transfer.`) +
-    button("Confirm new email", url) +
-    expiry("This link expires in 24 hours. If you didn't initiate this change, ignore this email — no action is needed and the request will expire.") +
-    fallbackLink(url),
+      p(
+        `A Notify account has requested <strong style="color:${C.ink};">${newEmail}</strong> as its new email address. Click below to verify this address and complete the transfer.`,
+      ) +
+      button("Confirm new email", url) +
+      expiry(
+        "This link expires in 24 hours. If you didn't initiate this change, ignore this email — no action is needed and the request will expire.",
+      ) +
+      fallbackLink(url),
   );
 }
 
@@ -185,10 +226,12 @@ export function renderClassInvite({
 
   return wrap(
     h("You’re invited to a class") +
-    p(`<strong style="color:${C.ink};">${inviterName}</strong> invited you to join their class on Notify, where classmates pool notes and compile them into one master document.`) +
-    classCard +
-    button("Join this class", url) +
-    `<p style="margin:16px 0 0;font-family:${sans};font-size:13px;line-height:1.55;color:${C.body};">Or join manually with the code ${codeSpan}</p>` +
-    expiry("This invite link expires in 7 days."),
+      p(
+        `<strong style="color:${C.ink};">${inviterName}</strong> invited you to join their class on Notify, where classmates pool notes and compile them into one master document.`,
+      ) +
+      classCard +
+      button("Join this class", url) +
+      `<p style="margin:16px 0 0;font-family:${sans};font-size:13px;line-height:1.55;color:${C.body};">Or join manually with the code ${codeSpan}</p>` +
+      expiry("The class owner may invalidate this code at any time."),
   );
 }

@@ -11,7 +11,7 @@ import {
   ClassSettings,
   RANK_VALUE,
 } from "@/server/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, gt, count } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import {
@@ -22,6 +22,13 @@ import {
   requireRank,
 } from "./shared";
 import { logActivity } from "@/lib/activity-log";
+import { Resend } from "resend";
+import { renderClassInvite } from "@/lib/emails";
+import { EMAIL_RE } from "@/lib/validation";
+import { emailInvites, topics } from "@/server/db/schema";
+import { getBaseUrl } from "@/lib/utils";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 async function generateUniqueCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -83,21 +90,32 @@ export async function joinClass(code: string) {
       db
         .select({ reason: classBans.reason })
         .from(classBans)
-        .where(and(eq(classBans.classId, classId), eq(classBans.bannedUserId, session.user.id)))
+        .where(
+          and(
+            eq(classBans.classId, classId),
+            eq(classBans.bannedUserId, session.user.id),
+          ),
+        )
         .limit(1),
       db
         .select({ userId: userClasses.userId })
         .from(userClasses)
-        .where(and(eq(userClasses.classId, classId), eq(userClasses.userId, session.user.id)))
+        .where(
+          and(
+            eq(userClasses.classId, classId),
+            eq(userClasses.userId, session.user.id),
+          ),
+        )
         .limit(1),
     ]);
 
     if (banned.length > 0)
-      return { error: "Banned from this class.", reason: banned[0].reason };
-    if (member.length > 0)
-      return { alreadyMember: true, id: classId };
+      return { error: `Banned from this class. Reason: ${banned[0].reason}` };
+    if (member.length > 0) return { alreadyMember: true, id: classId };
 
-    await db.insert(userClasses).values({ userId: session.user.id, classId, rank: defaultRank });
+    await db
+      .insert(userClasses)
+      .values({ userId: session.user.id, classId, rank: defaultRank });
 
     logActivity(classId, session.user.id, { action: "member_joined" });
     return { success: true, id: classId };
@@ -517,4 +535,103 @@ export async function getActivityLog(
     console.error("ERROR: ", e);
     return { error: "Something went wrong." };
   }
+}
+
+export async function sendClassInvites(classId: string, rawEmails: string[]) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return { error: "Not authenticated." };
+
+  const [cls] = await db
+    .select({
+      name: classes.name,
+      code: classes.code,
+      minRankInvite: classes.minRankInvite,
+    })
+    .from(classes)
+    .where(eq(classes.id, classId))
+    .limit(1);
+
+  if (!cls) return { error: "Class not found." };
+
+  const rankCheck = await requireRank(
+    classId,
+    session.user.id,
+    cls.minRankInvite,
+    "invite members",
+  );
+  if ("error" in rankCheck) return rankCheck;
+
+  const emails = [
+    ...new Set(
+      rawEmails
+        .map((e) => e.trim().toLowerCase())
+        .filter((e) => EMAIL_RE.test(e)),
+    ),
+  ];
+  if (emails.length === 0) return { error: "No valid email addresses." };
+
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const [[{ memberCount }], [{ topicCount }], existingMembers, recentInvites] =
+    await Promise.all([
+      db
+        .select({ memberCount: count() })
+        .from(userClasses)
+        .where(eq(userClasses.classId, classId)),
+      db
+        .select({ topicCount: count() })
+        .from(topics)
+        .where(eq(topics.classId, classId)),
+      db
+        .select({ email: user.email })
+        .from(user)
+        .innerJoin(userClasses, eq(user.id, userClasses.userId))
+        .where(eq(userClasses.classId, classId)),
+      db
+        .select({ recipientEmail: emailInvites.recipientEmail })
+        .from(emailInvites)
+        .where(
+          and(
+            eq(emailInvites.senderId, session.user.id),
+            eq(emailInvites.classId, classId),
+            gt(emailInvites.sentAt, oneDayAgo),
+          ),
+        ),
+    ]);
+
+  const memberEmails = new Set(existingMembers.map((m) => m.email.toLowerCase()));
+  const recentSet = new Set(recentInvites.map((r) => r.recipientEmail));
+
+  const toSend = emails.filter((e) => !memberEmails.has(e) && !recentSet.has(e));
+  const skipped = emails.length - toSend.length;
+
+  if (toSend.length > 0) {
+    const joinUrl = `${getBaseUrl()}/home?code=${cls.code}`;
+    await Promise.all(
+      toSend.map((email) =>
+        resend.emails.send({
+          from: "Notify <invites@notifyy.ca>",
+          to: email,
+          subject: `${session.user.name} invited you to ${cls.name} on Notify`,
+          html: renderClassInvite({
+            inviterName: session.user.name,
+            className: cls.name,
+            memberCount,
+            topicCount,
+            classCode: cls.code,
+            url: joinUrl,
+          }),
+        }),
+      ),
+    );
+    await db.insert(emailInvites).values(
+      toSend.map((email) => ({
+        id: crypto.randomUUID(),
+        senderId: session.user.id,
+        recipientEmail: email,
+        classId,
+      })),
+    );
+  }
+
+  return { sent: toSend.length, skipped };
 }

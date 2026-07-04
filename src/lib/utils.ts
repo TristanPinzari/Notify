@@ -9,6 +9,10 @@ export function parseIds(param: string | undefined): string[] | undefined {
   return param ? param.split(",").filter(Boolean) : undefined;
 }
 
+export function getBaseUrl(): string {
+  return process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+}
+
 export function timeAgo(iso: string): string {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 60) return "just now";

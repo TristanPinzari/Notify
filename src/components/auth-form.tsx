@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { USERNAME_RE, EMAIL_RE } from "@/lib/validation";
 import {
@@ -173,6 +173,8 @@ const features = [
 
 export function AuthForm({ defaultMode }: { defaultMode: "login" | "signup" }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/home";
   const [mode, setMode] = useState<"login" | "signup" | "forgot">(defaultMode);
   const isSignup = mode === "signup";
   const isForgot = mode === "forgot";
@@ -247,7 +249,7 @@ export function AuthForm({ defaultMode }: { defaultMode: "login" | "signup" }) {
   async function signInWithGoogle() {
     await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/home",
+      callbackURL: callbackUrl,
     });
   }
 
@@ -315,7 +317,7 @@ export function AuthForm({ defaultMode }: { defaultMode: "login" | "signup" }) {
           );
           setLoading(false);
         } else {
-          router.push("/home");
+          router.push(callbackUrl);
         }
       }
     } catch {

@@ -11,6 +11,7 @@ import {
   unbanFromClass,
   changeUserRank,
   regenerateCode,
+  sendClassInvites,
 } from "@/server/actions/classes";
 import { RANK_VALUE } from "@/server/db/schema";
 import { initials, avatarColor } from "@/lib/format";
@@ -34,6 +35,7 @@ import {
   ExpandIcon,
   MembersIcon,
   ChevIcon,
+  MailIcon,
 } from "@/components/icons";
 import { ConfirmModal } from "@/components/confirm-modal";
 
@@ -86,9 +88,11 @@ type Props = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-
 function copyToClipboard(text: string, msg: string) {
-  navigator.clipboard.writeText(text).then(() => toast.success(msg)).catch(() => toast.error("Clipboard access denied."));
+  navigator.clipboard
+    .writeText(text)
+    .then(() => toast.success(msg))
+    .catch(() => toast.error("Clipboard access denied."));
 }
 
 // ─── Avatar ──────────────────────────────────────────────────────────────────
@@ -412,7 +416,10 @@ function BannedItem({
         onClick={onUnban}
       >
         {busy ? (
-          <span className="spin" style={{ width: 12, height: 12 }} />
+          <span
+            className="spin"
+            style={{ width: 12, height: 12, borderTopColor: "var(--accent)" }}
+          />
         ) : (
           <UnbanIcon size={13} />
         )}
@@ -474,7 +481,12 @@ function CodeModal({
           </button>
           <button
             className="inline-flex items-center gap-1.5 bg-(--paper-raised) border border-(--line) text-(--ink-nav) rounded-[9px] text-[15px] font-semibold px-5.5 py-3 hover:border-(--line-strong) hover:text-(--ink-heading) transition-all cursor-pointer"
-            onClick={() => copyToClipboard(`${window.location.origin}/home?code=${code}`, "Invite link copied to clipboard.")}
+            onClick={() =>
+              copyToClipboard(
+                `${window.location.origin}/home?code=${code}`,
+                "Invite link copied to clipboard.",
+              )
+            }
           >
             <ShareIcon size={15} />
             Copy link
@@ -552,7 +564,14 @@ function BanModal({
             onClick={onConfirm}
           >
             {pending ? (
-              <span className="spin" style={{ width: 14, height: 14 }} />
+              <span
+                className="spin"
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderTopColor: "var(--danger)",
+                }}
+              />
             ) : (
               <BanIcon size={14} />
             )}
@@ -665,6 +684,8 @@ export default function MembersView({
   const [banInfoTarget, setBanInfoTarget] = useState<BannedRow | null>(null);
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [banPending, setBanPending] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [sending, setSending] = useState(false);
 
   const canViewBanned = initialBanned !== null;
   const canRegen = viewerRank === "owner";
@@ -763,12 +784,43 @@ export default function MembersView({
     }
   }
 
+  async function handleSendInvites() {
+    const raw = emailInput
+      .split(",")
+      .map((e) => e.trim())
+      .filter(Boolean);
+    if (raw.length === 0) return;
+    setSending(true);
+    const res = await sendClassInvites(classId, raw);
+    setSending(false);
+    if ("error" in res) {
+      toast.error(res.error);
+      return;
+    }
+    setEmailInput("");
+    if (res.sent === 0) {
+      toast.info(
+        res.skipped > 0
+          ? "All recipients are already members or were recently invited."
+          : "No valid emails found.",
+      );
+    } else {
+      const s = (n: number) => (n !== 1 ? "s" : "");
+      toast.success(
+        `Invite${s(res.sent)} sent to ${res.sent} recipient${s(res.sent)}.${res.skipped > 0 ? ` ${res.skipped} skipped.` : ""}`,
+      );
+    }
+  }
+
   function copyCode() {
     copyToClipboard(code, "Code copied to clipboard.");
   }
 
   function copyLink() {
-    copyToClipboard(`${window.location.origin}/home?code=${code}`, "Invite link copied to clipboard.");
+    copyToClipboard(
+      `${window.location.origin}/home?code=${code}`,
+      "Invite link copied to clipboard.",
+    );
   }
 
   return (
@@ -783,15 +835,6 @@ export default function MembersView({
             control who can manage the class.
           </p>
         </div>
-        {canInvite && (
-          <button
-            className="inline-flex items-center gap-1.5 bg-(--accent) text-(--on-accent) border border-transparent rounded-[9px] text-sm font-semibold px-3.75 py-2.25 hover:bg-(--accent-text) transition-colors cursor-pointer shrink-0"
-            onClick={() => setShowCodeModal(true)}
-          >
-            <ShareIcon size={14} />
-            Invite
-          </button>
-        )}
       </div>
 
       {/* Low rank banner */}
@@ -905,6 +948,29 @@ export default function MembersView({
                 </span>
               </>
             )}
+          </div>
+          <div className="mt-4 pt-4 border-t border-(--line-soft)">
+            <div className="text-[12px] font-medium text-(--ink-faint) mb-2">
+              Invite by email
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSendInvites()}
+                placeholder="student@email.com, another@email.com"
+                className="flex-1 bg-(--paper-deep) border border-(--line) rounded-[10px] py-2.25 px-3.5 text-[13.5px] text-(--ink-body) placeholder:text-(--ink-fainter) outline-none focus:border-(--accent)"
+              />
+              <button
+                onClick={handleSendInvites}
+                disabled={!emailInput.trim() || sending}
+                className="inline-flex items-center gap-1.5 bg-(--accent) text-(--on-accent) border border-transparent rounded-[9px] text-sm font-semibold px-3.75 py-2.25 hover:bg-(--accent-text) transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              >
+                {sending ? <span className="mini-spin" /> : <MailIcon />}
+                Send
+              </button>
+            </div>
           </div>
         </div>
       )}
