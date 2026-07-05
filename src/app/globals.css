@@ -373,20 +373,12 @@ h1.head em {
 .avatars {
   display: flex;
 }
-.avatars span {
-  width: 32px;
-  height: 32px;
+.avatars > * {
   border-radius: 50%;
   border: 2px solid var(--paper);
   margin-left: -9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--on-accent);
 }
-.avatars span:first-child {
+.avatars :first-child {
   margin-left: 0;
 }
 
@@ -1043,7 +1035,14 @@ h1.head em {
 }
 
 /* shared focus ring for all text inputs */
-:is(.inwrap input, textarea.inwrap, .sv-input, .extracted-edit, .tin, .tsel):focus {
+:is(
+  .inwrap input,
+  textarea.inwrap,
+  .sv-input,
+  .extracted-edit,
+  .tin,
+  .tsel
+):focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
   background: var(--paper-raised);

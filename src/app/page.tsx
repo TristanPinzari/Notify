@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
+import Image from "next/image";
 
 export default function Page() {
   const { data: session } = authClient.useSession();
@@ -78,10 +79,30 @@ export default function Page() {
             </div>
             <div className="trust">
               <div className="avatars">
-                <span className="bg-(--accent)">A</span>
-                <span className="bg-(--success)">M</span>
-                <span className="bg-(--danger)">K</span>
-                <span className="bg-[#3a5fa8]">J</span>
+                <Image
+                  src="/avatars/avatar1.jpg"
+                  width={40}
+                  height={40}
+                  alt=""
+                />
+                <Image
+                  src="/avatars/avatar2.jpg"
+                  width={40}
+                  height={40}
+                  alt=""
+                />
+                <Image
+                  src="/avatars/avatar3.jpg"
+                  width={40}
+                  height={40}
+                  alt=""
+                />
+                <Image
+                  src="/avatars/avatar4.jpg"
+                  width={40}
+                  height={40}
+                  alt=""
+                />
               </div>
               <span>Join classmates already studying smarter together</span>
             </div>
