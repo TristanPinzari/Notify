@@ -240,7 +240,7 @@ export default function Page() {
       </section>
 
       {/* FEATURES */}
-      <section className="sec pt-0" id="features">
+      <section className="sec" id="features">
         <div className="wrap">
           <div className="sec-head">
             <div className="sec-kick">Features</div>

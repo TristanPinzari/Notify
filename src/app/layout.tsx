@@ -31,7 +31,15 @@ export default function RootLayout({
     <html
       lang="en"
       className={`h-full antialiased ${dmSans.variable} ${dmSerifDisplay.variable}`}
+      suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('theme');if(t==='dark')document.documentElement.classList.add('dark');else if(t==='light')document.documentElement.classList.add('light');}catch(e){}`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <PostHogProvider>
           {children}

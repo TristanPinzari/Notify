@@ -34,8 +34,7 @@ function ModalAvatar({
   name: string;
   size: 40 | 68;
 }) {
-  const tw =
-    size === 68 ? "w-17 h-17 text-[24px]" : "w-10 h-10 text-[15px]";
+  const tw = size === 68 ? "w-17 h-17 text-[24px]" : "w-10 h-10 text-[15px]";
   return (
     <div
       className={`${tw} rounded-full shrink-0 overflow-hidden flex items-center justify-center font-semibold text-white`}
@@ -562,35 +561,49 @@ function NotificationsPanel() {
   );
 }
 
+/* ── Theme helper — module-level so React Compiler doesn't touch it */
+function applyTheme(t: "light" | "dark" | "auto"): typeof t {
+  const cl = document.documentElement.classList;
+  cl.remove("dark", "light");
+  if (t !== "auto") {
+    cl.add(t);
+    localStorage.setItem("theme", t);
+  } else {
+    localStorage.removeItem("theme");
+  }
+  return t;
+}
+
 /* ── Preferences panel ──────────────────────────────────────────── */
 function PreferencesPanel() {
+  const [theme, setTheme] = useState<"light" | "dark" | "auto">(() => {
+    if (typeof window === "undefined") return "auto";
+    const cl = document.documentElement.classList;
+    if (cl.contains("dark")) return "dark";
+    if (cl.contains("light")) return "light";
+    return "auto";
+  });
+
   return (
-    <>
-      <div className="bg-(--paper) border border-(--line) rounded-xl overflow-hidden opacity-50 pointer-events-none">
-        <Row title="Theme" desc="How Notify looks on this device.">
-          <div className="inline-flex bg-(--paper-deep) border border-(--line) rounded-[9px] p-0.75 gap-0.5 shrink-0">
-            {(["light", "dark", "auto"] as const).map((t) => (
-              <button
-                key={t}
-                className="border-none rounded-md font-sans text-[12px] font-medium px-2.75 py-1.25 bg-transparent text-(--ink-faint)"
-              >
-                {t.charAt(0).toUpperCase() + t.slice(1)}
-              </button>
-            ))}
-          </div>
-        </Row>
-        <Row
-          title="Compact density"
-          desc="Tighter spacing to fit more on screen."
-        >
-          <Toggle checked={false} onChange={() => {}} />
-        </Row>
-      </div>
-      <p className="text-[12.5px] text-(--ink-faint) leading-relaxed mt-3.5">
-        Theme and density preferences are coming soon — these controls are a
-        preview.
-      </p>
-    </>
+    <div className="bg-(--paper) border border-(--line) rounded-xl overflow-hidden">
+      <Row title="Theme" desc="How Notify looks on this device.">
+        <div className="inline-flex bg-(--paper-deep) border border-(--line) rounded-[9px] p-0.75 gap-0.5 shrink-0">
+          {(["light", "dark", "auto"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTheme(applyTheme(t))}
+              className={`capitalize border-none rounded-md font-sans text-[12px] font-medium px-2.75 py-1.25 cursor-pointer transition-colors ${
+                theme === t
+                  ? "bg-(--paper-raised) text-(--ink-heading) shadow-sm"
+                  : "bg-transparent text-(--ink-faint) hover:text-(--ink-nav)"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </Row>
+    </div>
   );
 }
 
