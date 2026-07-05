@@ -1,1 +1,0 @@
-ALTER TYPE "public"."contribution_type" ADD VALUE 'custom';

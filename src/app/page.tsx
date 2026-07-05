@@ -3,6 +3,13 @@
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import Image from "next/image";
+import {
+  SunRaysIcon,
+  FileIcon,
+  SunIcon,
+  TaskCheckIcon,
+  MembersIcon,
+} from "@/components/icons";
 
 export default function Page() {
   const { data: session } = authClient.useSession();
@@ -157,18 +164,7 @@ export default function Page() {
             <div className="mock-floats">
               <div className="float-card float-a">
                 <div className="ic">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
-                  </svg>
+                  <SunRaysIcon />
                 </div>
                 <div>
                   <div className="ft">Compiling…</div>
@@ -177,19 +173,7 @@ export default function Page() {
               </div>
               <div className="float-card float-b">
                 <div className="ic">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <path d="M14 2v6h6" />
-                  </svg>
+                  <FileIcon />
                 </div>
                 <div>
                   <div className="ft">notes_wk3.pdf</div>
@@ -272,19 +256,7 @@ export default function Page() {
           <div className="feat-grid">
             <div className="feat">
               <div className="ic">
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
+                <SunIcon />
               </div>
               <h3>AI that actually compiles</h3>
               <p>
@@ -295,19 +267,7 @@ export default function Page() {
             </div>
             <div className="feat">
               <div className="ic">
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M9 11l3 3L22 4" />
-                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-                </svg>
+                <TaskCheckIcon />
               </div>
               <h3>Grammar & fact-check</h3>
               <p>
@@ -318,20 +278,7 @@ export default function Page() {
             </div>
             <div className="feat">
               <div className="ic">
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-                </svg>
+                <MembersIcon size={22} />
               </div>
               <h3>One shared collection</h3>
               <p>
@@ -342,20 +289,7 @@ export default function Page() {
             </div>
             <div className="feat">
               <div className="ic">
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-                </svg>
+                <MembersIcon size={22} />
               </div>
               <h3>Class roles & permissions</h3>
               <p>

@@ -323,7 +323,7 @@ export function MasterDocView({
   const hasDoc = docs.length > 0;
 
   return (
-    <div className="pane" style={editMode ? { maxWidth: 1200 } : undefined}>
+    <div className={`pane${editMode ? " max-w-300" : ""}`}>
       <div className="pane-head">
         <div>
           <div className="kicker">Master Document</div>
@@ -700,34 +700,18 @@ export function MasterDocView({
       {/* Edit split view */}
       {editMode && (
         <div className="flex gap-4">
-          <div
-            style={{
-              flex: 1,
-              minWidth: 0,
-              height: "calc(100vh - 150px)",
-              overflow: "hidden",
-              borderRadius: 10,
-            }}
-          >
+          <div className="flex-1 min-w-0 h-[calc(100vh-150px)] overflow-hidden rounded-[10px]">
             <CodeMirror
               value={editContent}
               onChange={setEditContent}
               extensions={[markdown()]}
               theme={oneDark}
               height="calc(100vh - 150px)"
-              style={{ fontSize: 13 }}
+              className="text-[13px]"
               basicSetup={{ lineNumbers: false, foldGutter: false }}
             />
           </div>
-          <div
-            style={{
-              flex: 1,
-              minWidth: 0,
-              height: "calc(100vh - 150px)",
-              overflowY: "auto",
-              overflowX: "hidden",
-            }}
-          >
+          <div className="flex-1 min-w-0 h-[calc(100vh-150px)] overflow-y-auto overflow-x-hidden">
             <CompiledDoc
               markdown={editContent}
               classId={classId}
