@@ -9,6 +9,7 @@ import { avatarColor } from "@/lib/format";
 import { ClassModal } from "@/components/class-modal";
 import { TopicModal } from "@/components/topic-modal";
 import { AccountSettingsModal } from "@/components/account-settings-modal";
+import { HelpFeedbackModal } from "@/components/help-feedback-modal";
 import {
   PlusIcon,
   ChevIcon,
@@ -58,6 +59,7 @@ export function Sidebar({ user, initialClasses }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
   const [topicModal, setTopicModal] = useState<string | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -196,6 +198,9 @@ export function Sidebar({ user, initialClasses }: Props) {
           onClose={() => setAccountOpen(false)}
         />
       )}
+      {helpOpen && (
+        <HelpFeedbackModal onClose={() => setHelpOpen(false)} />
+      )}
 
       <div className="side-user" ref={menuRef}>
         <div className={`side-menu${menuOpen ? " show" : ""}`}>
@@ -217,7 +222,13 @@ export function Sidebar({ user, initialClasses }: Props) {
             <BellIcon />
             Notifications
           </button>
-          <button className="mi">
+          <button
+            className="mi"
+            onClick={() => {
+              setMenuOpen(false);
+              setHelpOpen(true);
+            }}
+          >
             <HelpIcon />
             Help &amp; feedback
           </button>
