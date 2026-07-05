@@ -11,9 +11,10 @@ import {
   ClassSettings,
   RANK_VALUE,
 } from "@/server/db/schema";
-import { eq, and, desc, gt, count } from "drizzle-orm";
+import { eq, and, desc, gt, lt, count } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import {
   classExists,
   getUserName,
@@ -630,6 +631,17 @@ export async function sendClassInvites(classId: string, rawEmails: string[]) {
         recipientEmail: email,
         classId,
       })),
+    );
+    after(() =>
+      db
+        .delete(emailInvites)
+        .where(
+          and(
+            eq(emailInvites.senderId, session.user.id),
+            eq(emailInvites.classId, classId),
+            lt(emailInvites.sentAt, oneDayAgo),
+          ),
+        ),
     );
   }
 

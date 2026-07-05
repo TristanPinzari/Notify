@@ -34,13 +34,13 @@ export const auth = betterAuth({
         },
       },
       update: {
-        after: async (user) => {
-          if (user.email) {
+        before: async (data, context) => {
+          if (data.email && context?.context?.session?.user?.id) {
             await db
               .delete(account)
               .where(
                 and(
-                  eq(account.userId, user.id),
+                  eq(account.userId, context.context.session.user.id),
                   eq(account.providerId, "google"),
                 ),
               );
