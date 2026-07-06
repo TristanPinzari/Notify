@@ -2,6 +2,10 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+@theme {
+  --breakpoint-modal-compact: 800px;
+}
+
 :root {
   --paper: #f4efe4;
   --paper-sidebar: #ece4d4;
@@ -4659,6 +4663,19 @@ textarea.inwrap::placeholder {
   /* ── auth ── */
   .formpane {
     padding: 24px 16px;
+  }
+}
+
+@media (max-width: 800px) {
+  .acct-tab-mob {
+    flex-direction: column;
+    flex: 1 1 0%;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 12px 4px;
+    margin-bottom: 0;
+    border-radius: 0;
   }
 }
 

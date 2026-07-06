@@ -633,11 +633,11 @@ export function AccountSettingsModal({ user, onClose }: Props) {
   return (
     <>
       <div className="modal-backdrop" onClick={onClose} />
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-201 flex w-full max-w-190 h-140 max-h-[88vh] bg-(--paper-raised) rounded-[18px] overflow-hidden shadow-[0_40px_100px_-30px_rgba(40,30,15,0.55),0_8px_24px_-8px_rgba(40,30,15,0.18)]">
+      <div className="fixed z-201 flex bg-(--paper-raised) border border-(--line) overflow-hidden shadow-[0_40px_100px_-30px_rgba(40,30,15,0.55),0_8px_24px_-8px_rgba(40,30,15,0.18)] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-190 h-140 max-h-[88vh] rounded-[18px] max-modal-compact:inset-0 max-modal-compact:translate-x-0 max-modal-compact:translate-y-0 max-modal-compact:max-w-full max-modal-compact:h-full max-modal-compact:max-h-none max-modal-compact:rounded-none max-modal-compact:flex-col">
         {/* left rail */}
-        <aside className="w-53 shrink-0 bg-(--paper-sidebar) border-r border-(--line) p-[22px_14px] flex flex-col">
+        <aside className="w-53 shrink-0 bg-(--paper-sidebar) border-r border-(--line) p-[22px_14px] flex flex-col max-modal-compact:w-full max-modal-compact:flex-row max-modal-compact:p-0 max-modal-compact:border-r-0 max-modal-compact:border-b">
           {/* user identity */}
-          <div className="flex items-center gap-2.75 px-2 pb-4.5">
+          <div className="flex items-center gap-2.75 px-2 pb-4.5 max-modal-compact:hidden">
             <ModalAvatar src={displayImage} name={displayName} size={40} />
             <div className="min-w-0">
               <div className="text-[13.5px] font-semibold text-(--ink-heading) truncate">
@@ -649,7 +649,7 @@ export function AccountSettingsModal({ user, onClose }: Props) {
             </div>
           </div>
 
-          <div className="font-mono text-[9.5px] tracking-[0.14em] uppercase text-(--ink-fainter) px-2 pt-3.5 pb-1.5">
+          <div className="font-mono text-[9.5px] tracking-[0.14em] uppercase text-(--ink-fainter) px-2 pt-3.5 pb-1.5 max-modal-compact:hidden">
             Account
           </div>
 
@@ -657,20 +657,20 @@ export function AccountSettingsModal({ user, onClose }: Props) {
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`flex items-center gap-2.5 w-full text-left border-none font-sans text-[13.5px] font-medium px-2.5 py-2.25 rounded-[9px] cursor-pointer transition-colors mb-0.5 ${
+              className={`acct-tab-mob flex items-center gap-2.5 w-full text-left border-none font-sans text-[13.5px] font-medium px-2.5 py-2.25 rounded-[9px] cursor-pointer transition-colors mb-0.5 ${
                 tab === id
                   ? "bg-(--paper-raised) text-(--accent-text) font-semibold shadow-sm [&_svg]:text-(--accent-text)"
                   : "bg-transparent text-(--ink-nav) hover:bg-[rgba(60,45,25,0.05)] hover:text-(--ink-heading) [&_svg]:text-(--ink-faint)"
               }`}
             >
-              <span className="w-4 h-4 shrink-0 flex items-center justify-center">
+              <span className="w-4 h-4 shrink-0 flex items-center justify-center max-modal-compact:w-4.5 max-modal-compact:h-4.5">
                 <Icon />
               </span>
-              {label}
+              <span className="max-modal-compact:hidden">{label}</span>
             </button>
           ))}
 
-          <div className="mt-auto pt-2.5 border-t border-(--line-soft)">
+          <div className="mt-auto pt-2.5 border-t border-(--line-soft) max-modal-compact:hidden">
             <button
               onClick={signOut}
               className="flex items-center gap-2.5 w-full text-left border-none font-sans text-[13.5px] font-medium px-2.5 py-2.25 rounded-[9px] cursor-pointer transition-colors bg-transparent text-(--danger) hover:bg-(--danger-bg) [&_svg]:text-(--danger)"
