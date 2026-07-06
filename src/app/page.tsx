@@ -54,7 +54,7 @@ export default function Page() {
 
       {/* HERO */}
       <section className="hero" id="top">
-        <div className="wrap hero-inner">
+        <div className="wrap hero-inner mt-5!">
           <div className="hero-copy">
             <span className="eyebrow">
               <span className="dot"></span>For students, by students
@@ -187,7 +187,7 @@ export default function Page() {
 
       {/* ORIGIN */}
       <section className="origin" id="origin">
-        <div className="wrap origin-inner">
+        <div className="wrap origin-inner p-10!">
           <q>
             Notify was born in a history lecture where the slides flew by,
             nothing got posted online, and everyone left with half a page of

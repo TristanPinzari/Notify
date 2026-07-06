@@ -329,7 +329,10 @@ export function MasterDocView({
           <div className="kicker">Master Document</div>
           <h1 className="pane-title">{topicName}</h1>
         </div>
-        <div className="flex flex-col gap-2 shrink-0 items-end">
+        <div
+          className="flex flex-col gap-2 shrink-0 items-end"
+          id="master-doc-buttons"
+        >
           {editMode ? (
             <div className="flex gap-2">
               <button
@@ -699,19 +702,19 @@ export function MasterDocView({
 
       {/* Edit split view */}
       {editMode && (
-        <div className="flex gap-4">
-          <div className="flex-1 min-w-0 h-[calc(100vh-150px)] overflow-hidden rounded-[10px]">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 min-w-0 h-[45vh] md:h-[calc(100dvh-150px)] overflow-hidden rounded-[10px]">
             <CodeMirror
               value={editContent}
               onChange={setEditContent}
               extensions={[markdown()]}
               theme={oneDark}
-              height="calc(100vh - 150px)"
+              height="calc(100dvh - 150px)"
               className="text-[13px]"
               basicSetup={{ lineNumbers: false, foldGutter: false }}
             />
           </div>
-          <div className="flex-1 min-w-0 h-[calc(100vh-150px)] overflow-y-auto overflow-x-hidden">
+          <div className="flex-1 min-w-0 h-[45vh] md:h-[calc(100dvh-150px)] overflow-y-auto overflow-x-hidden">
             <CompiledDoc
               markdown={editContent}
               classId={classId}

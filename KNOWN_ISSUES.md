@@ -83,13 +83,3 @@ Doesn't block moving to option 3 later if it's outgrown.
 A class's `"owner"` rank can only be granted at `createClass` time.
 `changeUserRank` can never promote to `"owner"`, and the owner can't
 `leaveClass`. If the owner's account is lost, the class has no recovery path.
-
-## Stuck `processing` contributions need a cleanup job
-
-If the DB is down when Temporal tries to write the final status, the workflow
-fails but the contribution stays `"processing"` forever. Fix: a periodic
-cleanup job that queries for contributions stuck in `"processing"` beyond a
-threshold (e.g. 30 minutes), then restarts their Temporal workflow via the
-client API using a new `workflowId` (e.g. `extract-${id}-retry-${Date.now()}`).
-Alternatively, raise `maximumAttempts` and `maximumInterval` in the retry
-policy so transient DB outages heal themselves before Temporal gives up.

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { mutate } from "swr";
 import { joinClass } from "@/server/actions/classes";
+import { MobileMenuButton } from "@/components/mobile-menu-btn";
 
 export default function HomePage() {
   const router = useRouter();
@@ -27,8 +28,16 @@ export default function HomePage() {
   }, [code, router]);
 
   return (
-    <div className="flex items-center justify-center h-full text-(--ink-faint) text-[14px]">
-      Select a class to get started.
+    <div className="flex flex-col h-full">
+      <div className="justify-between hidden max-[1200px]:flex h-14 shrink-0 items-center gap-3 px-5 border-b border-(--line-soft) bg-(--paper)">
+        <span className="side-brand text-[22px]">
+          <span className="mk">N</span>otify
+        </span>
+        <MobileMenuButton />
+      </div>
+      <div className="flex-1 flex items-center justify-center text-(--ink-faint) text-[14px]">
+        Select a class to get started.
+      </div>
     </div>
   );
 }

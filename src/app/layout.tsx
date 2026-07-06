@@ -32,6 +32,7 @@ export default function RootLayout({
       lang="en"
       className={`h-full antialiased ${dmSans.variable} ${dmSerifDisplay.variable}`}
       suppressHydrationWarning
+      data-scroll-behavior="smooth"
     >
       <head>
         <script
@@ -40,7 +41,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-dvh flex flex-col">
         <PostHogProvider>
           {children}
         </PostHogProvider>

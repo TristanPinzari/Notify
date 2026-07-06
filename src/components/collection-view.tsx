@@ -1111,7 +1111,7 @@ export default function CollectionView({
             <p>PDF, DOCX, TXT, MD, image, MP3, M4A, WAV · up to 50 MB each</p>
           </div>
 
-          <div className="flex gap-2.5 my-3.5">
+          <div className="link-row flex gap-2.5 my-3.5">
             <div className="flex flex-1 items-center gap-2.5 bg-(--paper) border border-(--line) rounded-[10px] py-0.75 pl-3.25 pr-1">
               <span className="text-(--ink-fainter) flex shrink-0">
                 <LinkIcon />

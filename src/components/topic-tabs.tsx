@@ -23,7 +23,7 @@ export function TopicTabs({ base }: Props) {
   ];
 
   return (
-    <div className="overflow-hidden flex items-center gap-0.5 px-5.5 border-b border-(--line-soft) bg-(--paper) shrink-0 overflow-x-auto">
+    <div className="flex items-center gap-0.5 px-5.5 border-b border-(--line-soft) bg-(--paper) shrink-0">
       {tabs.map((tab) => {
         const on = pathname === tab.href;
         return (
