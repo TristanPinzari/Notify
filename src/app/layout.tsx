@@ -8,6 +8,7 @@ const dmSans = DM_Sans({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
   variable: "--font-sans",
+  display: "swap",
 });
 
 const dmSerifDisplay = DM_Serif_Display({
@@ -15,6 +16,7 @@ const dmSerifDisplay = DM_Serif_Display({
   weight: "400",
   style: ["normal", "italic"],
   variable: "--font-serif",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -42,9 +44,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-dvh flex flex-col">
-        <PostHogProvider>
-          {children}
-        </PostHogProvider>
+        <PostHogProvider>{children}</PostHogProvider>
         <Toaster
           position="bottom-right"
           duration={2500}
