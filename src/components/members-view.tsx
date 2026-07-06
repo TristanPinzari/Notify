@@ -34,7 +34,6 @@ import {
   ShieldIcon,
   ExpandIcon,
   MembersIcon,
-  ChevIcon,
   MailIcon,
 } from "@/components/icons";
 import { ConfirmModal } from "@/components/confirm-modal";
@@ -670,7 +669,6 @@ export default function MembersView({
   const [members, setMembers] = useState(initialMembers);
   const [banned, setBanned] = useState<BannedRow[]>(initialBanned ?? []);
   const [code, setCode] = useState(classCode ?? "");
-  const [bannedOpen, setBannedOpen] = useState(true);
   const [unbanBusyId, setUnbanBusyId] = useState<string | null>(null);
   const [kickTarget, setKickTarget] = useState<MemberRow | null>(null);
   const [kickPending, setKickPending] = useState(false);
@@ -1041,51 +1039,38 @@ export default function MembersView({
       {/* Banned section */}
       {canViewBanned && (
         <>
-          <button
-            className="flex items-center gap-2.5 mt-8.5 mb-3 cursor-pointer select-none bg-transparent border-none p-0"
-            onClick={() => setBannedOpen((o) => !o)}
-          >
-            <span
-              className="text-(--ink-fainter) flex transition-transform duration-200"
-              style={{ transform: bannedOpen ? "rotate(90deg)" : undefined }}
-            >
-              <ChevIcon />
-            </span>
-            <div className="section-label mb-0! flex items-center gap-2">
-              Banned{" "}
-              {banned.length > 0 && (
-                <span className="text-(--ink-fainter)">· {banned.length}</span>
-              )}
-            </div>
-          </button>
-          {bannedOpen && (
-            <div className="bg-(--paper-raised) border border-(--line) rounded-[14px] overflow-hidden">
-              {banned.length === 0 ? (
-                <div className="py-10 px-7 text-center">
-                  <div className="w-11.5 h-11.5 rounded-xl bg-(--paper-deep) text-(--ink-fainter) flex items-center justify-center mx-auto mb-3.5">
-                    <BanIcon size={22} />
-                  </div>
-                  <h4 className="text-[15px] font-semibold text-(--ink-heading) m-0 mb-1.5">
-                    No one is banned
-                  </h4>
-                  <p className="text-sm text-(--ink-faint) m-0 max-w-75 mx-auto leading-normal">
-                    Banned members can&apos;t rejoin, even with an invite code.
-                  </p>
+          <div className="section-label mt-8.5! mb-3 flex items-center gap-2">
+            Banned{" "}
+            {banned.length > 0 && (
+              <span className="text-(--ink-fainter)">· {banned.length}</span>
+            )}
+          </div>
+          <div className="bg-(--paper-raised) border border-(--line) rounded-[14px] overflow-hidden">
+            {banned.length === 0 ? (
+              <div className="py-10 px-7 text-center">
+                <div className="w-11.5 h-11.5 rounded-xl bg-(--paper-deep) text-(--ink-fainter) flex items-center justify-center mx-auto mb-3.5">
+                  <BanIcon size={22} />
                 </div>
-              ) : (
-                banned.map((b, i) => (
-                  <BannedItem
-                    key={b.userId}
-                    banned={b}
-                    isLast={i === banned.length - 1}
-                    busy={unbanBusyId === b.userId}
-                    onUnban={() => handleUnban(b)}
-                    onInfo={() => setBanInfoTarget(b)}
-                  />
-                ))
-              )}
-            </div>
-          )}
+                <h4 className="text-[15px] font-semibold text-(--ink-heading) m-0 mb-1.5">
+                  No one is banned
+                </h4>
+                <p className="text-sm text-(--ink-faint) m-0 max-w-75 mx-auto leading-normal">
+                  Banned members can&apos;t rejoin, even with an invite code.
+                </p>
+              </div>
+            ) : (
+              banned.map((b, i) => (
+                <BannedItem
+                  key={b.userId}
+                  banned={b}
+                  isLast={i === banned.length - 1}
+                  busy={unbanBusyId === b.userId}
+                  onUnban={() => handleUnban(b)}
+                  onInfo={() => setBanInfoTarget(b)}
+                />
+              ))
+            )}
+          </div>
         </>
       )}
 
