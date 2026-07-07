@@ -45,7 +45,12 @@ export default async function ClassSettingsPage({
       .limit(1),
 
     db
-      .select({ rank: userClasses.rank })
+      .select({
+        rank: userClasses.rank,
+        notifyRankChange: userClasses.notifyRankChange,
+        notifyMasterDoc: userClasses.notifyMasterDoc,
+        notifyDigest: userClasses.notifyDigest,
+      })
       .from(userClasses)
       .where(
         and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
@@ -74,6 +79,11 @@ export default async function ClassSettingsPage({
         code: member.rank === "owner" ? cls.code : null,
       }}
       viewerRank={member.rank}
+      notifications={{
+        notifyRankChange: member.notifyRankChange,
+        notifyMasterDoc: member.notifyMasterDoc,
+        notifyDigest: member.notifyDigest,
+      }}
     />
   );
 }

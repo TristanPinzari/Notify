@@ -185,7 +185,151 @@ export function renderVerifyNewEmail({
   );
 }
 
-// ─── 5 · Class invite ─────────────────────────────────────────────────────────
+// ─── 5 · Rank changed ────────────────────────────────────────────────────────
+
+export const RANK_LABELS: Record<string, string> = {
+  owner: "Owner",
+  admin: "Admin",
+  contributor: "Contributor",
+  viewer: "Viewer",
+};
+
+const RANK_DESC: Record<string, string> = {
+  owner: `As the <strong style="color:${C.ink};">Owner</strong> you have full control over the class.`,
+  admin: `As an <strong style="color:${C.ink};">Admin</strong> you can invite and manage members, delete contributions, and pin a source of truth for the compiler.`,
+  contributor: `As a <strong style="color:${C.ink};">Contributor</strong> you can upload notes, trigger compilations, and edit master documents.`,
+  viewer: `As a <strong style="color:${C.ink};">Viewer</strong> you can read notes and compiled documents.`,
+};
+
+function rankSwap(oldLabel: string, newLabel: string) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px;">
+    <tbody><tr>
+      <td style="font-family:${sans};font-size:13px;font-weight:600;color:${C.faint};background:${C.deep};border:1px solid ${C.line};border-radius:99px;padding:6px 14px;">${oldLabel}</td>
+      <td style="font-family:${mono};font-size:15px;color:${C.fainter};padding:0 12px;">&rarr;</td>
+      <td style="font-family:${sans};font-size:13px;font-weight:600;color:${C.onAccent};background:${C.accent};border-radius:99px;padding:6px 14px;">${newLabel}</td>
+    </tr></tbody>
+  </table>`;
+}
+
+export function renderRankChanged({
+  className,
+  oldRank,
+  newRank,
+  url,
+}: {
+  className: string;
+  oldRank: string;
+  newRank: string;
+  url: string;
+}) {
+  const desc = RANK_DESC[newRank];
+
+  return wrap(
+    h(`Your role changed in ${className}`) +
+      p(
+        `Your role in <strong style="color:${C.ink};">${className}</strong> was updated. Here's what changed:`,
+      ) +
+      rankSwap(RANK_LABELS[oldRank] ?? oldRank, RANK_LABELS[newRank] ?? newRank) +
+      (desc ? p(desc) : "") +
+      button("View the class", url),
+  );
+}
+
+// ─── 6 · Master doc ready ────────────────────────────────────────────────────
+
+function docCard(topicName: string, sourceCount: number, contributorCount: number) {
+  const src = `${sourceCount} source${sourceCount !== 1 ? "s" : ""}`;
+  const ctr = `${contributorCount} classmate${contributorCount !== 1 ? "s" : ""}`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+    style="margin:4px 0 18px;background:${C.paper};border:1px solid ${C.line};border-radius:13px;">
+    <tbody><tr><td style="padding:16px 18px;">
+      <div style="font-family:${mono};font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:${C.accentText};margin-bottom:6px;">Master Document &middot; compiled</div>
+      <div style="font-family:${serif};font-size:19px;color:${C.ink};line-height:1.2;">${topicName}</div>
+      <div style="font-family:${sans};font-size:12.5px;color:${C.faint};margin-top:6px;">Synthesized from <strong style="color:${C.body};font-weight:600;">${src}</strong> by <strong style="color:${C.body};font-weight:600;">${ctr}</strong></div>
+    </td></tr></tbody>
+  </table>`;
+}
+
+export function renderMasterDoc({
+  className,
+  topicName,
+  sourceCount,
+  contributorCount,
+  url,
+}: {
+  className: string;
+  topicName: string;
+  sourceCount: number;
+  contributorCount: number;
+  url: string;
+}) {
+  return wrap(
+    h("A fresh master document is ready") +
+      p(
+        `A new master document has been compiled for <strong style="color:${C.ink};">${topicName}</strong> in <strong style="color:${C.ink};">${className}</strong>.`,
+      ) +
+      docCard(topicName, sourceCount, contributorCount) +
+      button("Read the document", url) +
+      expiry(
+        "You're getting this because you have master document notifications enabled for this class. Manage email preferences in your account settings.",
+      ),
+  );
+}
+
+// ─── 7 · Weekly digest ───────────────────────────────────────────────────────
+
+export type ClassDigest = {
+  name: string;
+  classId: string;
+  contributions: number;
+  compilations: number;
+  topics: number;
+  membersJoined: number;
+  membersLost: number;
+};
+
+function digestClassCard(c: ClassDigest) {
+  const parts = [
+    c.contributions > 0 && `${c.contributions} contribution${c.contributions !== 1 ? "s" : ""}`,
+    c.compilations > 0 && `${c.compilations} compilation${c.compilations !== 1 ? "s" : ""}`,
+    c.topics > 0 && `${c.topics} new topic${c.topics !== 1 ? "s" : ""}`,
+    c.membersJoined > 0 && `${c.membersJoined} joined`,
+    c.membersLost > 0 && `${c.membersLost} left`,
+  ].filter(Boolean).join(" &middot; ");
+
+  const initial = c.name.trim()[0]?.toUpperCase() ?? "C";
+
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+    style="margin:0 0 8px;background:${C.paper};border:1px solid ${C.line};border-radius:13px;">
+    <tbody><tr><td style="padding:13px 15px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+        <tbody><tr>
+          <td width="38" valign="middle">
+            <div style="width:36px;height:36px;border-radius:8px;background:${C.accent};color:${C.onAccent};font-family:${serif};font-size:18px;text-align:center;line-height:36px;">${initial}</div>
+          </td>
+          <td style="padding-left:11px;" valign="middle">
+            <div style="font-family:${sans};font-size:13.5px;font-weight:600;color:${C.ink};line-height:1.2;">${c.name}</div>
+            <div style="font-family:${sans};font-size:12px;color:${C.faint};margin-top:2px;">${parts}</div>
+          </td>
+        </tr></tbody>
+      </table>
+    </td></tr></tbody>
+  </table>`;
+}
+
+export function renderDigest({ classes }: { classes: ClassDigest[] }) {
+  const cards = classes.map(digestClassCard).join("");
+  return wrap(
+    h("Your weekly digest") +
+      p("Here's what happened across your classes over the past week.") +
+      `<div style="margin:4px 0 18px;">${cards}</div>` +
+      expiry(
+        "You're receiving this because you have weekly digest enabled. Manage email preferences in your account settings.",
+      ),
+  );
+}
+
+// ─── 8 · Class invite ─────────────────────────────────────────────────────────
 
 export function renderClassInvite({
   inviterName,

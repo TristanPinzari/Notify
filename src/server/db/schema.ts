@@ -78,6 +78,9 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
+  notifyRankChange: boolean("notify_rank_change").notNull().default(true),
+  notifyMasterDoc: boolean("notify_master_doc").notNull().default(true),
+  notifyDigest: boolean("notify_digest").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -134,6 +137,9 @@ export const userClasses = pgTable(
       .notNull()
       .references(() => classes.id, { onDelete: "cascade" }),
     rank: rank("rank").notNull(),
+    notifyRankChange: boolean("notify_rank_change").notNull().default(true),
+    notifyMasterDoc: boolean("notify_master_doc").notNull().default(true),
+    notifyDigest: boolean("notify_digest").notNull().default(false),
     joinedAt: timestamp("joined_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

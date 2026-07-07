@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEscapeKey } from "@/hooks/use-escape-key";
@@ -9,6 +9,12 @@ import { toast } from "sonner";
 import { initials, avatarColor } from "@/lib/format";
 import { resizeImage } from "@/lib/image";
 import { getAvatarUploadUrl } from "@/server/actions/avatar";
+import {
+  getUserNotifications,
+  updateUserNotification,
+} from "@/server/actions/user";
+import type { NotifPrefs } from "@/server/actions/user";
+import { Toggle } from "@/components/toggle";
 import {
   LockIcon,
   BellIcon,
@@ -52,27 +58,6 @@ function ModalAvatar({
         initials(name)
       )}
     </div>
-  );
-}
-
-/* ── Toggle ─────────────────────────────────────────────────────── */
-function Toggle({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <label className="relative inline-block w-9 h-5.25 shrink-0 cursor-pointer">
-      <input
-        type="checkbox"
-        className="peer sr-only"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-      <span className="absolute inset-0 rounded-full bg-(--line-strong) transition-colors duration-150 peer-checked:bg-(--accent) after:absolute after:left-0.75 after:top-0.75 after:h-3.75 after:w-3.75 after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:duration-150 after:content-[''] peer-checked:after:translate-x-3.75" />
-    </label>
   );
 }
 
@@ -512,33 +497,35 @@ function SecurityPanel({ email }: { email: string }) {
 
 /* ── Notifications panel ────────────────────────────────────────── */
 function NotificationsPanel() {
-  const [state, setState] = useState({
-    compileDone: true,
-    newSource: true,
-    roleChange: true,
-    weekly: false,
-  });
-  const set = (k: keyof typeof state, v: boolean) =>
-    setState((s) => ({ ...s, [k]: v }));
+  const [prefs, setPrefs] = useState<NotifPrefs | null>(null);
 
-  const rows: { key: keyof typeof state; title: string; desc: string }[] = [
+  useEffect(() => {
+    getUserNotifications().then((p) => {
+      if (p) setPrefs(p);
+    });
+  }, []);
+
+  async function toggle(
+    key: keyof NotifPrefs,
+    value: boolean,
+  ) {
+    setPrefs((p) => p && { ...p, [key]: value });
+    await updateUserNotification(key, value);
+  }
+
+  const rows: { key: keyof NotifPrefs; title: string; desc: string }[] = [
     {
-      key: "compileDone",
-      title: "Compile finished",
-      desc: "When a master document you follow finishes compiling.",
+      key: "notifyMasterDoc",
+      title: "Master doc compiled",
+      desc: "Email when a master document finishes compiling in any class.",
     },
     {
-      key: "newSource",
-      title: "New sources added",
-      desc: "When classmates upload notes to your topics.",
+      key: "notifyRankChange",
+      title: "Role changed",
+      desc: "Email when your role in a class changes.",
     },
     {
-      key: "roleChange",
-      title: "Role changes",
-      desc: "When your role in a class changes.",
-    },
-    {
-      key: "weekly",
+      key: "notifyDigest",
       title: "Weekly digest",
       desc: "A Monday summary of activity across your classes.",
     },
@@ -547,13 +534,17 @@ function NotificationsPanel() {
   return (
     <>
       <p className="text-[12.5px] text-(--ink-faint) leading-relaxed mb-4">
-        Email notification preferences — coming soon. In-app activity logs are
-        always on.
+        Default email preferences for new classes. You can override these per
+        class in its settings.
       </p>
       <div className="bg-(--paper) border border-(--line) rounded-xl overflow-hidden">
         {rows.map(({ key, title, desc }) => (
           <Row key={key} title={title} desc={desc}>
-            <Toggle checked={state[key]} onChange={(v) => set(key, v)} />
+            {prefs ? (
+              <Toggle checked={prefs[key]} onChange={(v) => toggle(key, v)} />
+            ) : (
+              <div className="w-9 h-5.25 rounded-full bg-(--line-strong) shrink-0 opacity-50" />
+            )}
           </Row>
         ))}
       </div>

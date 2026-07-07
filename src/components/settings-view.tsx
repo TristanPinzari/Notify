@@ -6,6 +6,7 @@ import Link from "next/link";
 import { mutate } from "swr";
 import {
   updateClassSettings,
+  updateClassNotification,
   regenerateCode,
   deleteClass,
   leaveClass,
@@ -16,7 +17,10 @@ import { useEscapeKey } from "@/hooks/use-escape-key";
 import { timeAgo } from "@/lib/utils";
 import type { MemberRef, TopicRef, ContribRef } from "@/lib/activity-log";
 import type { Rank, ClassSettings } from "@/server/db/schema";
+import type { NotifPrefs } from "@/server/actions/user";
+import { Toggle } from "@/components/toggle";
 import {
+  BellIcon,
   CheckIcon,
   HistoryIcon,
   InfoIcon,
@@ -74,6 +78,7 @@ type Props = {
   cls: ClsData;
   topic?: TopicData;
   viewerRank: Rank;
+  notifications: NotifPrefs;
 };
 
 /* ─── rank metadata ──────────────────────────────────────────────── */
@@ -173,6 +178,12 @@ const PERM_GROUPS: {
 const PERM_KEYS = PERM_GROUPS.flatMap((g) => g.items.map((i) => i.k));
 
 /* ─── sub-components ─────────────────────────────────────────────── */
+
+const NOTIF_ROWS: { key: keyof NotifPrefs; title: string; desc: string }[] = [
+  { key: "notifyMasterDoc", title: "Master doc compiled", desc: "Email when a master document finishes compiling." },
+  { key: "notifyRankChange", title: "Role changed", desc: "Email when your role in this class changes." },
+  { key: "notifyDigest", title: "Weekly digest", desc: "A weekly summary of activity in this class." },
+];
 
 function RankControl({
   value,
@@ -673,6 +684,7 @@ export default function SettingsView({
   cls,
   topic,
   viewerRank,
+  notifications: initialNotifications,
 }: Props) {
   const router = useRouter();
   const isOwner = viewerRank === "owner";
@@ -695,6 +707,12 @@ export default function SettingsView({
   const [delOpen, setDelOpen] = useState(false);
   const [delTopicOpen, setDelTopicOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
+  const [notifs, setNotifs] = useState<NotifPrefs>(initialNotifications);
+
+  async function toggleNotif(key: keyof NotifPrefs, value: boolean) {
+    setNotifs((n) => ({ ...n, [key]: value }));
+    await updateClassNotification(classId, key, value);
+  }
 
   const dirty = useMemo(() => {
     if (name !== cls.name) return true;
@@ -911,6 +929,30 @@ export default function SettingsView({
           </div>
         </div>
       ))}
+
+      {/* notifications */}
+      <div>
+          <div className="section-label">
+            <span className="slead">
+              <BellIcon />
+              Notifications — this class
+            </span>
+          </div>
+          <div className="sv-card">
+            {NOTIF_ROWS.map(({ key, title, desc }) => (
+              <div key={key} className="sv-row">
+                <div className="sv-sl">
+                  <div className="sv-st">{title}</div>
+                  <div className="sv-desc">{desc}</div>
+                </div>
+                <Toggle
+                  checked={notifs[key]}
+                  onChange={(v) => toggleNotif(key, v)}
+                />
+              </div>
+            ))}
+          </div>
+      </div>
 
       {/* activity log */}
       <div>

@@ -1,6 +1,13 @@
 import { db } from "@/server/db";
 import { activityLogs } from "@/server/db/schema";
 import type { Rank } from "@/server/db/schema";
+import { triggerEmailNotifications } from "@/lib/email-notifications";
+
+export const MEMBER_LOSS_ACTIONS = [
+  "member_left",
+  "member_kicked",
+  "member_banned",
+] as const;
 
 export type MemberRef = { id: string; name: string };
 export type TopicRef  = { id: string; name: string };
@@ -13,7 +20,7 @@ export type ActivityPayload =
   | { action: "member_kicked";   target: MemberRef }
   | { action: "member_banned";   target: MemberRef }
   | { action: "member_unbanned"; target: MemberRef }
-  | { action: "rank_changed";    target: MemberRef; rank: Rank }
+  | { action: "rank_changed";    target: MemberRef; rank: Rank; oldRank: Rank }
   | { action: "topic_created";   topic: TopicRef }
   | { action: "topic_deleted";   topicName: string }
   | { action: "settings_changed" }
@@ -47,4 +54,7 @@ export function logActivity(
       metadata: Object.keys(metadata).length ? JSON.stringify(metadata) : null,
     })
     .catch((e) => console.error("Failed to log activity:", e));
+  triggerEmailNotifications(classId, payload, topicId).catch(
+    (e) => console.error("Failed to send notification email:", e),
+  );
 }

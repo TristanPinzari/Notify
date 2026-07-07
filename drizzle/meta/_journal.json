@@ -8,6 +8,13 @@
       "when": 1783271795104,
       "tag": "0000_quiet_the_anarchist",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783443128088,
+      "tag": "0001_notification_prefs",
+      "breakpoints": true
     }
   ]
 }

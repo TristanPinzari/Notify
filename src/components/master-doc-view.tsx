@@ -279,6 +279,7 @@ export function MasterDocView({
 
   async function compile() {
     setCompileStep("fetching");
+    setShowConfig(false);
 
     const res = await createMasterDocument(classId, topicId, draft);
 

@@ -31,6 +31,12 @@ import { getBaseUrl } from "@/lib/utils";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+const DEFAULT_NOTIF_PREFS = {
+  notifyRankChange: true,
+  notifyMasterDoc: true,
+  notifyDigest: false,
+} as const;
+
 async function generateUniqueCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const rand = () => chars[Math.floor(Math.random() * chars.length)];
@@ -60,10 +66,22 @@ export async function createClass(name: string) {
     const code = await generateUniqueCode();
 
     const classId = crypto.randomUUID();
-    await db.insert(classes).values({ id: classId, name, code });
+    const [, userPrefsRows] = await Promise.all([
+      db.insert(classes).values({ id: classId, name, code }),
+      db
+        .select({
+          notifyRankChange: user.notifyRankChange,
+          notifyMasterDoc: user.notifyMasterDoc,
+          notifyDigest: user.notifyDigest,
+        })
+        .from(user)
+        .where(eq(user.id, session.user.id))
+        .limit(1),
+    ]);
+    const notifDefaults = userPrefsRows[0] ?? DEFAULT_NOTIF_PREFS;
     await db
       .insert(userClasses)
-      .values({ userId: session.user.id, classId, rank: "owner" });
+      .values({ userId: session.user.id, classId, rank: "owner", ...notifDefaults });
 
     return { success: true, id: classId };
   } catch (e) {
@@ -87,7 +105,7 @@ export async function joinClass(code: string) {
     const { defaultRank } = cls[0];
     classId = cls[0].id;
 
-    const [banned, member] = await Promise.all([
+    const [banned, member, userPrefsRows] = await Promise.all([
       db
         .select({ reason: classBans.reason })
         .from(classBans)
@@ -108,15 +126,25 @@ export async function joinClass(code: string) {
           ),
         )
         .limit(1),
+      db
+        .select({
+          notifyRankChange: user.notifyRankChange,
+          notifyMasterDoc: user.notifyMasterDoc,
+          notifyDigest: user.notifyDigest,
+        })
+        .from(user)
+        .where(eq(user.id, session.user.id))
+        .limit(1),
     ]);
 
     if (banned.length > 0)
       return { error: `Banned from this class. Reason: ${banned[0].reason}` };
     if (member.length > 0) return { alreadyMember: true, id: classId };
 
+    const notifDefaults = userPrefsRows[0] ?? DEFAULT_NOTIF_PREFS;
     await db
       .insert(userClasses)
-      .values({ userId: session.user.id, classId, rank: defaultRank });
+      .values({ userId: session.user.id, classId, rank: defaultRank, ...notifDefaults });
 
     logActivity(classId, session.user.id, { action: "member_joined" });
     return { success: true, id: classId };
@@ -406,12 +434,29 @@ export async function changeUserRank(
       action: "rank_changed",
       target: { id: userId, name: targetName },
       rank: newRank,
+      oldRank: rankSubject,
     });
     return { success: true };
   } catch (e) {
     console.error("ERROR: ", e);
     return { error: "Something went wrong." };
   }
+}
+
+export async function updateClassNotification(
+  classId: string,
+  key: "notifyRankChange" | "notifyMasterDoc" | "notifyDigest",
+  value: boolean,
+) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return { error: "Not authenticated." };
+  await db
+    .update(userClasses)
+    .set({ [key]: value })
+    .where(
+      and(eq(userClasses.classId, classId), eq(userClasses.userId, session.user.id)),
+    );
+  return { success: true };
 }
 
 export async function updateClassSettings(
