@@ -81,6 +81,10 @@ export const user = pgTable("user", {
   notifyRankChange: boolean("notify_rank_change").notNull().default(true),
   notifyMasterDoc: boolean("notify_master_doc").notNull().default(true),
   notifyDigest: boolean("notify_digest").notNull().default(false),
+  notifyKick: boolean("notify_kick").notNull().default(true),
+  notifyBanned: boolean("notify_banned").notNull().default(true),
+  notifyUnbanned: boolean("notify_unbanned").notNull().default(true),
+  notifyInvite: boolean("notify_invite").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -369,6 +373,26 @@ export const emailInvites = pgTable(
     sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("email_invites_dedup_idx").on(t.senderId, t.recipientEmail, t.classId)],
+);
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    classId: text("class_id").references(() => classes.id, {
+      onDelete: "cascade",
+    }),
+    type: text("type").notNull(),
+    payload: text("payload").notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("notifications_userId_idx").on(t.userId)],
 );
 
 export const userRelations = relations(user, ({ many }) => ({

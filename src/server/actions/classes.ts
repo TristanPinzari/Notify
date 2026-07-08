@@ -11,7 +11,7 @@ import {
   ClassSettings,
   RANK_VALUE,
 } from "@/server/db/schema";
-import { eq, and, desc, gt, lt, count } from "drizzle-orm";
+import { eq, and, desc, gt, lt, count, inArray } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import { after } from "next/server";
@@ -26,7 +26,7 @@ import { logActivity } from "@/lib/activity-log";
 import { Resend } from "resend";
 import { renderClassInvite } from "@/lib/emails";
 import { EMAIL_RE } from "@/lib/validation";
-import { emailInvites, topics } from "@/server/db/schema";
+import { emailInvites, topics, notifications } from "@/server/db/schema";
 import { getBaseUrl } from "@/lib/utils";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -252,6 +252,7 @@ export async function kickFromClass(classId: string, userId: string) {
     logActivity(classId, session.user.id, {
       action: "member_kicked",
       target: { id: userId, name: targetName },
+      actor: { id: session.user.id, name: session.user.name },
     });
     return { success: true };
   } catch (e) {
@@ -317,6 +318,7 @@ export async function banFromClass(
     logActivity(classId, session.user.id, {
       action: "member_banned",
       target: { id: userId, name: targetName },
+      actor: { id: session.user.id, name: session.user.name },
     });
     return { success: true };
   } catch (e) {
@@ -373,6 +375,7 @@ export async function unbanFromClass(classId: string, userId: string) {
     logActivity(classId, session.user.id, {
       action: "member_unbanned",
       target: { id: userId, name: targetName },
+      actor: { id: session.user.id, name: session.user.name },
     });
     return { success: true };
   } catch (e) {
@@ -617,7 +620,7 @@ export async function sendClassInvites(classId: string, rawEmails: string[]) {
   if (emails.length === 0) return { error: "No valid email addresses." };
 
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const [[{ memberCount }], [{ topicCount }], existingMembers, recentInvites] =
+  const [[{ memberCount }], [{ topicCount }], existingMembers, recentInvites, bannedUsers] =
     await Promise.all([
       db
         .select({ memberCount: count() })
@@ -642,13 +645,20 @@ export async function sendClassInvites(classId: string, rawEmails: string[]) {
             gt(emailInvites.sentAt, oneDayAgo),
           ),
         ),
+      db
+        .select({ email: user.email })
+        .from(classBans)
+        .innerJoin(user, eq(classBans.bannedUserId, user.id))
+        .where(eq(classBans.classId, classId)),
     ]);
 
   const memberEmails = new Set(existingMembers.map((m) => m.email.toLowerCase()));
   const recentSet = new Set(recentInvites.map((r) => r.recipientEmail));
+  const bannedEmails = new Set(bannedUsers.map((b) => b.email.toLowerCase()));
 
-  const toSend = emails.filter((e) => !memberEmails.has(e) && !recentSet.has(e));
-  const skipped = emails.length - toSend.length;
+  const toSend = emails.filter((e) => !memberEmails.has(e) && !recentSet.has(e) && !bannedEmails.has(e));
+  const banned = emails.filter((e) => bannedEmails.has(e)).length;
+  const skipped = emails.length - toSend.length - banned;
 
   if (toSend.length > 0) {
     const joinUrl = `${getBaseUrl()}/home?code=${cls.code}`;
@@ -677,8 +687,26 @@ export async function sendClassInvites(classId: string, rawEmails: string[]) {
         classId,
       })),
     );
-    after(() =>
-      db
+
+    const { name: className } = cls;
+    const inviterName = session.user.name;
+    after(async () => {
+      const inviteeUsers = await db
+        .select({ id: user.id })
+        .from(user)
+        .where(inArray(user.email, toSend));
+      if (inviteeUsers.length > 0) {
+        await db.insert(notifications).values(
+          inviteeUsers.map((u) => ({
+            id: crypto.randomUUID(),
+            userId: u.id,
+            classId,
+            type: "class_invitation",
+            payload: JSON.stringify({ className, inviterName, url: joinUrl }),
+          })),
+        );
+      }
+      await db
         .delete(emailInvites)
         .where(
           and(
@@ -686,9 +714,9 @@ export async function sendClassInvites(classId: string, rawEmails: string[]) {
             eq(emailInvites.classId, classId),
             lt(emailInvites.sentAt, oneDayAgo),
           ),
-        ),
-    );
+        );
+    });
   }
 
-  return { sent: toSend.length, skipped };
+  return { sent: toSend.length, skipped, banned };
 }

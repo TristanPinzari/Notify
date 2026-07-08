@@ -19,7 +19,7 @@ const CODE_RE = /^[A-Z2-9]{4}-[A-Z2-9]{4}$/;
 
 export function ClassModal({ onClose, onSuccess }: Props) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("create");
+  const [mode, setMode] = useState<Mode>("join");
   const [className, setClassName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -89,16 +89,16 @@ export function ClassModal({ onClose, onSuccess }: Props) {
 
         <div className="mtabs">
           <button
-            className={`mtab${mode === "create" ? " on" : ""}`}
-            onClick={() => switchMode("create")}
-          >
-            Create
-          </button>
-          <button
             className={`mtab${mode === "join" ? " on" : ""}`}
             onClick={() => switchMode("join")}
           >
             Join
+          </button>
+          <button
+            className={`mtab${mode === "create" ? " on" : ""}`}
+            onClick={() => switchMode("create")}
+          >
+            Create
           </button>
         </div>
 

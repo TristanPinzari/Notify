@@ -6,7 +6,6 @@ import Link from "next/link";
 import { mutate } from "swr";
 import {
   updateClassSettings,
-  updateClassNotification,
   regenerateCode,
   deleteClass,
   leaveClass,
@@ -17,10 +16,7 @@ import { useEscapeKey } from "@/hooks/use-escape-key";
 import { timeAgo } from "@/lib/utils";
 import type { MemberRef, TopicRef, ContribRef } from "@/lib/activity-log";
 import type { Rank, ClassSettings } from "@/server/db/schema";
-import type { NotifPrefs } from "@/server/actions/user";
-import { Toggle } from "@/components/toggle";
 import {
-  BellIcon,
   CheckIcon,
   HistoryIcon,
   InfoIcon,
@@ -78,7 +74,6 @@ type Props = {
   cls: ClsData;
   topic?: TopicData;
   viewerRank: Rank;
-  notifications: NotifPrefs;
 };
 
 /* ─── rank metadata ──────────────────────────────────────────────── */
@@ -178,12 +173,6 @@ const PERM_GROUPS: {
 const PERM_KEYS = PERM_GROUPS.flatMap((g) => g.items.map((i) => i.k));
 
 /* ─── sub-components ─────────────────────────────────────────────── */
-
-const NOTIF_ROWS: { key: keyof NotifPrefs; title: string; desc: string }[] = [
-  { key: "notifyMasterDoc", title: "Master doc compiled", desc: "Email when a master document finishes compiling." },
-  { key: "notifyRankChange", title: "Role changed", desc: "Email when your role in this class changes." },
-  { key: "notifyDigest", title: "Weekly digest", desc: "A weekly summary of activity in this class." },
-];
 
 function RankControl({
   value,
@@ -305,8 +294,16 @@ function renderLogLine(classId: string, entry: LogEntry): React.ReactNode {
     case "member_kicked":
     case "member_banned":
     case "member_unbanned": {
-      const verb = { member_kicked: "removed", member_banned: "banned", member_unbanned: "unbanned" }[entry.action];
-      return <>{actor} {verb} {meta.target ? ml(meta.target) : <>a member</>}</>;
+      const verb = {
+        member_kicked: "removed",
+        member_banned: "banned",
+        member_unbanned: "unbanned",
+      }[entry.action];
+      return (
+        <>
+          {actor} {verb} {meta.target ? ml(meta.target) : <>a member</>}
+        </>
+      );
     }
     case "rank_changed":
       return (
@@ -351,8 +348,21 @@ function renderLogLine(classId: string, entry: LogEntry): React.ReactNode {
     case "contribution_pinned":
     case "contribution_unpinned":
     case "contribution_reprocessed": {
-      const verb = { contribution_uploaded: "uploaded", contribution_edited: "edited", contribution_pinned: "pinned", contribution_unpinned: "unpinned", contribution_reprocessed: "reprocessed" }[entry.action];
-      return <>{actor} {verb} {entry.topicId && meta.contribution ? cl(meta.contribution, entry.topicId) : cn(meta.contribution)}</>;
+      const verb = {
+        contribution_uploaded: "uploaded",
+        contribution_edited: "edited",
+        contribution_pinned: "pinned",
+        contribution_unpinned: "unpinned",
+        contribution_reprocessed: "reprocessed",
+      }[entry.action];
+      return (
+        <>
+          {actor} {verb}{" "}
+          {entry.topicId && meta.contribution
+            ? cl(meta.contribution, entry.topicId)
+            : cn(meta.contribution)}
+        </>
+      );
     }
     case "contribution_deleted":
       return (
@@ -541,11 +551,13 @@ function DeleteClassModal({
   async function confirm() {
     setDeleting(true);
     const res = await deleteClass(classId);
-    setDeleting(false);
     if ("success" in res) {
       mutate("/api/sidebar");
       router.push("/home");
+    } else if ("error" in res) {
+      toast.error(res.error);
     }
+    setDeleting(false);
   }
 
   return (
@@ -622,7 +634,6 @@ function LeaveClassModal({
   async function confirm() {
     setLeaving(true);
     const res = await leaveClass(classId);
-    setLeaving(false);
     if ("error" in res) {
       toast.error(res.error);
     } else {
@@ -630,6 +641,7 @@ function LeaveClassModal({
       mutate("/api/sidebar");
       router.push("/home");
     }
+    setLeaving(false);
   }
 
   return (
@@ -684,7 +696,6 @@ export default function SettingsView({
   cls,
   topic,
   viewerRank,
-  notifications: initialNotifications,
 }: Props) {
   const router = useRouter();
   const isOwner = viewerRank === "owner";
@@ -707,13 +718,6 @@ export default function SettingsView({
   const [delOpen, setDelOpen] = useState(false);
   const [delTopicOpen, setDelTopicOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
-  const [notifs, setNotifs] = useState<NotifPrefs>(initialNotifications);
-
-  async function toggleNotif(key: keyof NotifPrefs, value: boolean) {
-    setNotifs((n) => ({ ...n, [key]: value }));
-    await updateClassNotification(classId, key, value);
-  }
-
   const dirty = useMemo(() => {
     if (name !== cls.name) return true;
     if (defaultRank !== cls.defaultRank) return true;
@@ -930,30 +934,6 @@ export default function SettingsView({
         </div>
       ))}
 
-      {/* notifications */}
-      <div>
-          <div className="section-label">
-            <span className="slead">
-              <BellIcon />
-              Notifications — this class
-            </span>
-          </div>
-          <div className="sv-card">
-            {NOTIF_ROWS.map(({ key, title, desc }) => (
-              <div key={key} className="sv-row">
-                <div className="sv-sl">
-                  <div className="sv-st">{title}</div>
-                  <div className="sv-desc">{desc}</div>
-                </div>
-                <Toggle
-                  checked={notifs[key]}
-                  onChange={(v) => toggleNotif(key, v)}
-                />
-              </div>
-            ))}
-          </div>
-      </div>
-
       {/* activity log */}
       <div>
         <div className="section-label">
@@ -967,70 +947,69 @@ export default function SettingsView({
 
       {/* danger zone */}
       <div>
-          <div className="section-label danger">
-            <span className="slead">
-              <WarnIcon size={14} />
-              Danger zone
-            </span>
-          </div>
-          <div className="sv-card danger">
-            {canDeleteTopic && topic && (
-              <div className="sv-row">
-                <div className="sv-sl">
-                  <div className="sv-st">Delete topic</div>
-                  <div className="sv-desc">
-                    Permanently removes{" "}
-                    <b className="text-(--ink-heading)">{topic.name}</b>, its
-                    collection, and every compiled document. Can&apos;t be
-                    undone.
-                  </div>
-                </div>
-                <button
-                  className="btn-danger"
-                  onClick={() => setDelTopicOpen(true)}
-                >
-                  <TrashIcon />
-                  Delete topic
-                </button>
-              </div>
-            )}
-            <div className="sv-row">
-                <div className="sv-sl">
-                  <div className="sv-st">Leave class</div>
-                  <div className="sv-desc">
-                    {isOwner
-                      ? "You own this class and can't leave it. Ownership transfer will be available in a future update."
-                      : "Remove yourself from this class. You can rejoin with an invite link or code."}
-                  </div>
-                </div>
-                <button
-                  className="btn-danger"
-                  disabled={isOwner}
-                  onClick={() => setLeaveOpen(true)}
-                >
-                  <LogOutIcon />
-                  Leave class
-                </button>
-              </div>
-            {isOwner && (
-              <div className="sv-row">
-                <div className="sv-sl">
-                  <div className="sv-st">Delete class</div>
-                  <div className="sv-desc">
-                    Permanently deletes{" "}
-                    <b className="text-(--ink-heading)">{cls.name} </b>— every
-                    topic, collection, contribution, and master document — for
-                    all members. This can&apos;t be undone.
-                  </div>
-                </div>
-                <button className="btn-danger" onClick={() => setDelOpen(true)}>
-                  <TrashIcon />
-                  Delete class
-                </button>
-              </div>
-            )}
-          </div>
+        <div className="section-label danger">
+          <span className="slead">
+            <WarnIcon size={14} />
+            Danger zone
+          </span>
         </div>
+        <div className="sv-card danger">
+          {canDeleteTopic && topic && (
+            <div className="sv-row">
+              <div className="sv-sl">
+                <div className="sv-st">Delete topic</div>
+                <div className="sv-desc">
+                  Permanently removes{" "}
+                  <b className="text-(--ink-heading)">{topic.name}</b>, its
+                  collection, and every compiled document. Can&apos;t be undone.
+                </div>
+              </div>
+              <button
+                className="btn-danger"
+                onClick={() => setDelTopicOpen(true)}
+              >
+                <TrashIcon />
+                Delete topic
+              </button>
+            </div>
+          )}
+          <div className="sv-row">
+            <div className="sv-sl">
+              <div className="sv-st">Leave class</div>
+              <div className="sv-desc">
+                {isOwner
+                  ? "You own this class and can't leave it. Ownership transfer will be available in a future update."
+                  : "Remove yourself from this class. You can rejoin with an invite link or code."}
+              </div>
+            </div>
+            <button
+              className="btn-danger"
+              disabled={isOwner}
+              onClick={() => setLeaveOpen(true)}
+            >
+              <LogOutIcon />
+              Leave class
+            </button>
+          </div>
+          {isOwner && (
+            <div className="sv-row">
+              <div className="sv-sl">
+                <div className="sv-st">Delete class</div>
+                <div className="sv-desc">
+                  Permanently deletes{" "}
+                  <b className="text-(--ink-heading)">{cls.name} </b>— every
+                  topic, collection, contribution, and master document — for all
+                  members. This can&apos;t be undone.
+                </div>
+              </div>
+              <button className="btn-danger" onClick={() => setDelOpen(true)}>
+                <TrashIcon />
+                Delete class
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* save bar */}
       {dirty && (

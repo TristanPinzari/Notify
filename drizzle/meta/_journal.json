@@ -15,6 +15,13 @@
       "when": 1783443128088,
       "tag": "0001_notification_prefs",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783532062604,
+      "tag": "0002_silly_big_bertha",
+      "breakpoints": true
     }
   ]
 }

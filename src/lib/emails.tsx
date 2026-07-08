@@ -276,6 +276,66 @@ export function renderMasterDoc({
   );
 }
 
+// ─── 6b · Kicked ─────────────────────────────────────────────────────────────
+
+export function renderKicked({
+  className,
+  actorName,
+}: {
+  className: string;
+  actorName: string;
+}) {
+  return wrap(
+    h(`You were removed from ${className}`) +
+      p(
+        `<strong style="color:${C.ink};">${actorName}</strong> removed you from <strong style="color:${C.ink};">${className}</strong>. You can still join other classes on Notify.`,
+      ) +
+      expiry(
+        "If you believe this was a mistake, reach out to the class admin directly.",
+      ),
+  );
+}
+
+// ─── 6c · Banned ─────────────────────────────────────────────────────────────
+
+export function renderBanned({
+  className,
+  actorName,
+}: {
+  className: string;
+  actorName: string;
+}) {
+  return wrap(
+    h(`You were banned from ${className}`) +
+      p(
+        `<strong style="color:${C.ink};">${actorName}</strong> banned you from <strong style="color:${C.ink};">${className}</strong>. Banned members cannot rejoin, even with an invite code.`,
+      ) +
+      expiry(
+        "If you believe this was a mistake, reach out to the class admin directly.",
+      ),
+  );
+}
+
+// ─── 6d · Unbanned ───────────────────────────────────────────────────────────
+
+export function renderUnbanned({
+  className,
+  actorName,
+  url,
+}: {
+  className: string;
+  actorName: string;
+  url: string;
+}) {
+  return wrap(
+    h(`You can rejoin ${className}`) +
+      p(
+        `<strong style="color:${C.ink};">${actorName}</strong> lifted your ban from <strong style="color:${C.ink};">${className}</strong>. You can now rejoin the class.`,
+      ) +
+      button("Rejoin class", url),
+  );
+}
+
 // ─── 7 · Weekly digest ───────────────────────────────────────────────────────
 
 export type ClassDigest = {

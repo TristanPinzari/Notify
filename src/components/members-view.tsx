@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { createPortal } from "react-dom";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { ContextFilterBar } from "@/components/context-filter-bar";
@@ -211,16 +212,26 @@ function ActionMenu({
   onBan: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node))
+    const onDown = (e: MouseEvent) => {
+      if (
+        !btnRef.current?.contains(e.target as Node) &&
+        !menuRef.current?.contains(e.target as Node)
+      )
         setOpen(false);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const onScroll = () => setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("scroll", onScroll, true);
+    };
   }, [open]);
 
   const vIdx = RANK_VALUE[viewerRank];
@@ -236,19 +247,30 @@ function ActionMenu({
 
   const assignable = RANKS.filter((r) => RANK_VALUE[r] < vIdx);
 
+  function handleOpen() {
+    if (open) { setOpen(false); return; }
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
+    }
+    setOpen(true);
+  }
+
   return (
-    <div className="relative shrink-0" ref={ref}>
+    <div className="shrink-0">
       <button
+        ref={btnRef}
         className="icon-btn"
-        onClick={() => setOpen((o) => !o)}
+        onClick={handleOpen}
         title="Manage member"
       >
         <DotsVerticalIcon size={18} />
       </button>
-      {open && (
+      {open && pos && createPortal(
         <div
-          className="absolute right-0 top-[calc(100%+6px)] w-48 bg-(--paper-raised) border border-(--line-strong) rounded-[11px] shadow-[0_14px_34px_-12px_rgba(40,30,15,0.4)] p-1.5 z-30"
-          style={{ animation: "pop 0.13s ease" }}
+          ref={menuRef}
+          className="fixed w-48 bg-(--paper-raised) border border-(--line-strong) rounded-[11px] shadow-[0_14px_34px_-12px_rgba(40,30,15,0.4)] p-1.5 z-200"
+          style={{ top: pos.top, right: pos.right, animation: "pop 0.13s ease" }}
         >
           {showChangeRank && (
             <>
@@ -259,10 +281,7 @@ function ActionMenu({
                 <button
                   key={r}
                   className="w-full flex items-center justify-between gap-2 bg-transparent border-none text-left text-sm text-(--ink-body) px-2.5 py-2 rounded-[7px] hover:bg-[rgba(60,45,25,0.05)] cursor-pointer transition-colors"
-                  onClick={() => {
-                    setOpen(false);
-                    onChangeRank(r);
-                  }}
+                  onClick={() => { setOpen(false); onChangeRank(r); }}
                 >
                   <span className="flex items-center gap-2">
                     <span
@@ -282,10 +301,7 @@ function ActionMenu({
           {showKick && (
             <button
               className="w-full flex items-center gap-2 bg-transparent border-none text-left text-sm text-(--ink-body) px-2.5 py-2 rounded-[7px] hover:bg-[rgba(60,45,25,0.05)] cursor-pointer transition-colors"
-              onClick={() => {
-                setOpen(false);
-                onKick();
-              }}
+              onClick={() => { setOpen(false); onKick(); }}
             >
               <LockIcon />
               Remove from class
@@ -295,16 +311,14 @@ function ActionMenu({
             <button
               className="w-full flex items-center gap-2 bg-transparent border-none text-left text-sm px-2.5 py-2 rounded-[7px] hover:bg-(--danger-bg) cursor-pointer transition-colors"
               style={{ color: "var(--danger)" }}
-              onClick={() => {
-                setOpen(false);
-                onBan();
-              }}
+              onClick={() => { setOpen(false); onBan(); }}
             >
               <BanIcon size={15} />
               Ban member
             </button>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
@@ -796,12 +810,15 @@ export default function MembersView({
       return;
     }
     setEmailInput("");
+    if (res.banned > 0) toast.error(`${res.banned} recipient${res.banned !== 1 ? "s are" : " is"} banned from this class.`);
     if (res.sent === 0) {
-      toast.info(
-        res.skipped > 0
-          ? "All recipients are already members or were recently invited."
-          : "No valid emails found.",
-      );
+      if (res.banned === 0) {
+        toast.info(
+          res.skipped > 0
+            ? "All recipients are already members or were recently invited."
+            : "No valid emails found.",
+        );
+      }
     } else {
       const s = (n: number) => (n !== 1 ? "s" : "");
       toast.success(
@@ -1032,22 +1049,22 @@ export default function MembersView({
         ) : (
           <div className="max-h-100 overflow-y-auto">
             {filteredMembers.map((m) => (
-                <MemberItem
-                  key={m.userId}
-                  member={m}
-                  topicId={topicId}
-                  isSelf={m.userId === viewerId}
-                  viewerRank={viewerRank}
-                  canKick={canKick}
-                  canBan={canBan}
-                  canChangeRank={canChangeRank}
-                  onChangeRank={(rank) =>
-                    setRankChangeTarget({ member: m, rank })
-                  }
-                  onKick={() => setKickTarget(m)}
-                  onBan={() => setBanTarget(m)}
-                />
-              ))}
+              <MemberItem
+                key={m.userId}
+                member={m}
+                topicId={topicId}
+                isSelf={m.userId === viewerId}
+                viewerRank={viewerRank}
+                canKick={canKick}
+                canBan={canBan}
+                canChangeRank={canChangeRank}
+                onChangeRank={(rank) =>
+                  setRankChangeTarget({ member: m, rank })
+                }
+                onKick={() => setKickTarget(m)}
+                onBan={() => setBanTarget(m)}
+              />
+            ))}
           </div>
         )}
       </div>

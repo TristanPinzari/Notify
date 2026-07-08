@@ -51,12 +51,7 @@ export default async function TopicSettingsPage({
       .limit(1),
 
     db
-      .select({
-        rank: userClasses.rank,
-        notifyRankChange: userClasses.notifyRankChange,
-        notifyMasterDoc: userClasses.notifyMasterDoc,
-        notifyDigest: userClasses.notifyDigest,
-      })
+      .select({ rank: userClasses.rank })
       .from(userClasses)
       .where(
         and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
@@ -115,11 +110,6 @@ export default async function TopicSettingsPage({
         canRename,
       }}
       viewerRank={member.rank}
-      notifications={{
-        notifyRankChange: member.notifyRankChange,
-        notifyMasterDoc: member.notifyMasterDoc,
-        notifyDigest: member.notifyDigest,
-      }}
     />
   );
 }

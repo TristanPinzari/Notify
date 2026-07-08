@@ -6,15 +6,19 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 
-type NotifKey = "notifyRankChange" | "notifyMasterDoc" | "notifyDigest";
-
 export type NotifPrefs = {
   notifyRankChange: boolean;
   notifyMasterDoc: boolean;
   notifyDigest: boolean;
+  notifyKick: boolean;
+  notifyBanned: boolean;
+  notifyUnbanned: boolean;
+  notifyInvite: boolean;
 };
 
-export async function getUserNotifications() {
+type NotifKey = keyof NotifPrefs;
+
+export async function getUserNotifications(): Promise<NotifPrefs | null> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return null;
   const rows = await db
@@ -22,6 +26,10 @@ export async function getUserNotifications() {
       notifyRankChange: user.notifyRankChange,
       notifyMasterDoc: user.notifyMasterDoc,
       notifyDigest: user.notifyDigest,
+      notifyKick: user.notifyKick,
+      notifyBanned: user.notifyBanned,
+      notifyUnbanned: user.notifyUnbanned,
+      notifyInvite: user.notifyInvite,
     })
     .from(user)
     .where(eq(user.id, session.user.id))

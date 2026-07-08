@@ -496,6 +496,51 @@ function SecurityPanel({ email }: { email: string }) {
 }
 
 /* ── Notifications panel ────────────────────────────────────────── */
+const NOTIF_PLACEHOLDER = (
+  <div className="w-9 h-5.25 rounded-full bg-(--line-strong) shrink-0 opacity-50" />
+);
+
+const DEFAULT_NOTIF_ROWS: { key: keyof NotifPrefs; title: string; desc: string }[] = [
+  {
+    key: "notifyMasterDoc",
+    title: "Master doc compiled",
+    desc: "Email when a master document finishes compiling.",
+  },
+  {
+    key: "notifyRankChange",
+    title: "Role changed",
+    desc: "Email when your role in a class changes.",
+  },
+  {
+    key: "notifyDigest",
+    title: "Weekly digest",
+    desc: "A Monday summary of activity across your classes.",
+  },
+];
+
+const MEMBERSHIP_NOTIF_ROWS: { key: keyof NotifPrefs; title: string; desc: string }[] = [
+  {
+    key: "notifyInvite",
+    title: "Invited to a class",
+    desc: "Email when someone sends you a class invitation.",
+  },
+  {
+    key: "notifyKick",
+    title: "Removed from class",
+    desc: "Email when you are removed from a class.",
+  },
+  {
+    key: "notifyBanned",
+    title: "Banned from class",
+    desc: "Email when you are banned from a class.",
+  },
+  {
+    key: "notifyUnbanned",
+    title: "Ban lifted",
+    desc: "Email when your ban is lifted and you can rejoin.",
+  },
+];
+
 function NotificationsPanel() {
   const [prefs, setPrefs] = useState<NotifPrefs | null>(null);
 
@@ -505,45 +550,44 @@ function NotificationsPanel() {
     });
   }, []);
 
-  async function toggle(
-    key: keyof NotifPrefs,
-    value: boolean,
-  ) {
+  async function toggle(key: keyof NotifPrefs, value: boolean) {
     setPrefs((p) => p && { ...p, [key]: value });
     await updateUserNotification(key, value);
   }
 
-  const rows: { key: keyof NotifPrefs; title: string; desc: string }[] = [
-    {
-      key: "notifyMasterDoc",
-      title: "Master doc compiled",
-      desc: "Email when a master document finishes compiling in any class.",
-    },
-    {
-      key: "notifyRankChange",
-      title: "Role changed",
-      desc: "Email when your role in a class changes.",
-    },
-    {
-      key: "notifyDigest",
-      title: "Weekly digest",
-      desc: "A Monday summary of activity across your classes.",
-    },
-  ];
-
   return (
     <>
-      <p className="text-[12.5px] text-(--ink-faint) leading-relaxed mb-4">
-        Default email preferences for new classes. You can override these per
-        class in its settings.
+      <div className="font-mono text-[9.5px] tracking-[0.12em] uppercase text-(--ink-fainter) mb-2">
+        Defaults
+      </div>
+      <p className="text-[12.5px] text-(--ink-faint) leading-relaxed mb-3">
+        Applied when you join new classes. Override per class from the bell icon.
       </p>
-      <div className="bg-(--paper) border border-(--line) rounded-xl overflow-hidden">
-        {rows.map(({ key, title, desc }) => (
+      <div className="bg-(--paper) border border-(--line) rounded-xl overflow-hidden mb-6">
+        {DEFAULT_NOTIF_ROWS.map(({ key, title, desc }) => (
           <Row key={key} title={title} desc={desc}>
             {prefs ? (
               <Toggle checked={prefs[key]} onChange={(v) => toggle(key, v)} />
             ) : (
-              <div className="w-9 h-5.25 rounded-full bg-(--line-strong) shrink-0 opacity-50" />
+              NOTIF_PLACEHOLDER
+            )}
+          </Row>
+        ))}
+      </div>
+
+      <div className="font-mono text-[9.5px] tracking-[0.12em] uppercase text-(--ink-fainter) mb-2">
+        Membership
+      </div>
+      <p className="text-[12.5px] text-(--ink-faint) leading-relaxed mb-3">
+        Events that happen outside of a class you&apos;re currently in.
+      </p>
+      <div className="bg-(--paper) border border-(--line) rounded-xl overflow-hidden">
+        {MEMBERSHIP_NOTIF_ROWS.map(({ key, title, desc }) => (
+          <Row key={key} title={title} desc={desc}>
+            {prefs ? (
+              <Toggle checked={prefs[key]} onChange={(v) => toggle(key, v)} />
+            ) : (
+              NOTIF_PLACEHOLDER
             )}
           </Row>
         ))}
@@ -602,7 +646,7 @@ function PreferencesPanel() {
 const TABS: { id: Tab; label: string; Icon: () => React.ReactNode }[] = [
   { id: "profile", label: "Profile", Icon: UserIcon },
   { id: "security", label: "Password & security", Icon: LockIcon },
-  { id: "notifications", label: "Notifications", Icon: BellIcon },
+  { id: "notifications", label: "Email Notifications", Icon: BellIcon },
   { id: "preferences", label: "Preferences", Icon: SettingsIcon },
 ];
 
