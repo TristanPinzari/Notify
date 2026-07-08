@@ -44,7 +44,7 @@ export default async function TopicLayout({
           <span className="text-(--ink) font-semibold overflow-hidden text-ellipsis whitespace-nowrap">{topic[0].name}</span>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <NotificationBell classId={classId} topicId={topicId} />
+          <NotificationBell classId={classId} />
           <MobileMenuButton />
         </div>
       </div>
