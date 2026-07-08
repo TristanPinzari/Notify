@@ -4,8 +4,9 @@ import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { TopicTabs } from "@/components/topic-tabs";
 import type { ReactNode } from "react";
-import { HomeIcon, BellIcon } from "@/components/icons";
+import { HomeIcon } from "@/components/icons";
 import { MobileMenuButton } from "@/components/mobile-menu-btn";
+import { NotificationBell } from "@/components/notification-bell";
 
 export default async function TopicLayout({
   children,
@@ -43,10 +44,7 @@ export default async function TopicLayout({
           <span className="text-(--ink) font-semibold overflow-hidden text-ellipsis whitespace-nowrap">{topic[0].name}</span>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <button className="icon-btn relative" title="Notifications">
-            <BellIcon />
-            <span className="absolute top-1.25 right-1.5 w-1.75 h-1.75 rounded-full bg-(--accent) border-[1.5px] border-(--paper)" />
-          </button>
+          <NotificationBell classId={classId} topicId={topicId} />
           <MobileMenuButton />
         </div>
       </div>

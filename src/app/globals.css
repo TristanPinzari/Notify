@@ -3565,6 +3565,7 @@ textarea.inwrap::placeholder {
   color: #f4efe4;
   padding: 12px 14px 12px 20px;
   border-radius: 13px;
+  border: 1px solid var(--line);
   box-shadow: 0 18px 44px -14px rgba(40, 30, 15, 0.6);
   animation: sv-rise 0.2s ease;
   white-space: nowrap;

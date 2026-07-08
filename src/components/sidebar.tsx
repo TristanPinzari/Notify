@@ -6,7 +6,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { authClient } from "@/lib/auth-client";
 import { avatarColor } from "@/lib/format";
-import { useSidebarState, useSidebarDispatch } from "@/components/sidebar-provider";
+import {
+  useSidebarState,
+  useSidebarDispatch,
+} from "@/components/sidebar-provider";
 import { ClassModal } from "@/components/class-modal";
 import { TopicModal } from "@/components/topic-modal";
 import { AccountSettingsModal } from "@/components/account-settings-modal";
@@ -15,7 +18,6 @@ import {
   PlusIcon,
   ChevIcon,
   SettingsIcon,
-  BellIcon,
   HelpIcon,
   LogOutIcon,
   GearSvg,
@@ -105,9 +107,11 @@ export function Sidebar({ user, initialClasses }: Props) {
       />
       <aside className={`side${mobileOpen ? " mobile-open" : ""}`}>
         <div className="side-head">
-          <span className="side-brand">
-            <span className="mk">N</span>otify
-          </span>
+          <Link href={"/home"}>
+            <span className="side-brand">
+              <span className="mk">N</span>otify
+            </span>
+          </Link>
           <button
             className="side-close icon-btn"
             aria-label="Close navigation"
@@ -225,10 +229,6 @@ export function Sidebar({ user, initialClasses }: Props) {
               <SettingsIcon />
               Account settings
             </button>
-            <button className="mi">
-              <BellIcon />
-              Notifications
-            </button>
             <button
               className="mi"
               onClick={() => {
@@ -281,7 +281,10 @@ export function Sidebar({ user, initialClasses }: Props) {
         <TopicModal classId={topicModal} onClose={() => setTopicModal(null)} />
       )}
       {accountOpen && (
-        <AccountSettingsModal user={user} onClose={() => setAccountOpen(false)} />
+        <AccountSettingsModal
+          user={user}
+          onClose={() => setAccountOpen(false)}
+        />
       )}
       {helpOpen && <HelpFeedbackModal onClose={() => setHelpOpen(false)} />}
     </>

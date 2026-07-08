@@ -316,7 +316,6 @@ function MemberItem({
   member,
   topicId,
   isSelf,
-  isLast,
   viewerRank,
   canKick,
   canBan,
@@ -328,7 +327,6 @@ function MemberItem({
   member: MemberRow;
   topicId?: string;
   isSelf: boolean;
-  isLast: boolean;
   viewerRank: Rank;
   canKick: boolean;
   canBan: boolean;
@@ -338,9 +336,7 @@ function MemberItem({
   onBan: () => void;
 }) {
   return (
-    <div
-      className={`flex items-center gap-3.5 px-4.5 py-3.25 hover:bg-[rgba(60,45,25,0.025)] transition-colors ${!isLast ? "border-b border-(--line-soft)" : ""}`}
-    >
+    <div className="flex items-center gap-3.5 px-4.5 py-3.25 hover:bg-[rgba(60,45,25,0.025)] transition-[background-color] border-b border-(--line-soft) last:border-b-0">
       <Avatar name={member.name} image={member.image} size={40} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 text-[14.5px] font-semibold text-(--ink-heading)">
@@ -376,21 +372,17 @@ function MemberItem({
 
 function BannedItem({
   banned,
-  isLast,
   busy,
   onUnban,
   onInfo,
 }: {
   banned: BannedRow;
-  isLast: boolean;
   busy: boolean;
   onUnban: () => void;
   onInfo: () => void;
 }) {
   return (
-    <div
-      className={`flex items-center gap-3.5 px-4.5 py-3.25 ${!isLast ? "border-b border-(--line-soft)" : ""}`}
-    >
+    <div className="flex items-center gap-3.5 px-4.5 py-3.25 border-b border-(--line-soft) last:border-b-0">
       <Avatar name={banned.name} image={banned.image} size={40} faded />
       <div className="flex-1 min-w-0">
         <div className="text-sm font-semibold text-(--ink-nav)">
@@ -688,15 +680,23 @@ export default function MembersView({
   const canViewBanned = initialBanned !== null;
   const canRegen = viewerRank === "owner";
 
-  const sortedMembers = useMemo(
-    () => [...members].sort((a, b) => RANK_VALUE[b.rank] - RANK_VALUE[a.rank]),
-    [members],
-  );
+  const [sort, setSort] = useState<"rank" | "newest" | "oldest">("rank");
 
   const highlightSet = useMemo(
     () => (highlightMembers ? new Set(highlightMembers) : null),
     [highlightMembers],
   );
+
+  const filteredMembers = useMemo(() => {
+    const visible = highlightSet
+      ? members.filter((m) => highlightSet.has(m.userId))
+      : members;
+    const copy = [...visible];
+    if (sort === "rank")
+      return copy.sort((a, b) => RANK_VALUE[b.rank] - RANK_VALUE[a.rank]);
+    const dir = sort === "newest" ? -1 : 1;
+    return copy.sort((a, b) => dir * a.joinedAt.localeCompare(b.joinedAt));
+  }, [members, highlightSet, sort]);
 
   async function handleKickConfirm() {
     if (!kickTarget) return;
@@ -979,6 +979,23 @@ export default function MembersView({
           Members ·{" "}
           <span className="text-(--ink-fainter)">{members.length}</span>
         </span>
+        <div className="sortseg ml-auto">
+          {(
+            [
+              ["rank", "Rank"],
+              ["newest", "Newest"],
+              ["oldest", "Oldest"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              className={sort === key ? "on" : ""}
+              onClick={() => setSort(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
       {highlightMembers && (
         <ContextFilterBar
@@ -998,7 +1015,7 @@ export default function MembersView({
         />
       )}
       <div className="bg-(--paper-raised) border border-(--line) rounded-[14px] overflow-visible">
-        {sortedMembers.length === 0 ? (
+        {filteredMembers.length === 0 ? (
           <div className="py-10 px-7 text-center">
             <div className="w-11.5 h-11.5 rounded-xl bg-(--paper-deep) text-(--ink-fainter) flex items-center justify-center mx-auto mb-3.5">
               <MembersIcon />
@@ -1013,26 +1030,25 @@ export default function MembersView({
             </p>
           </div>
         ) : (
-          sortedMembers
-            .filter((m) => !highlightSet || highlightSet.has(m.userId))
-            .map((m, i, arr) => (
-              <MemberItem
-                key={m.userId}
-                member={m}
-                topicId={topicId}
-                isSelf={m.userId === viewerId}
-                isLast={i === arr.length - 1}
-                viewerRank={viewerRank}
-                canKick={canKick}
-                canBan={canBan}
-                canChangeRank={canChangeRank}
-                onChangeRank={(rank) =>
-                  setRankChangeTarget({ member: m, rank })
-                }
-                onKick={() => setKickTarget(m)}
-                onBan={() => setBanTarget(m)}
-              />
-            ))
+          <div className="max-h-100 overflow-y-auto">
+            {filteredMembers.map((m) => (
+                <MemberItem
+                  key={m.userId}
+                  member={m}
+                  topicId={topicId}
+                  isSelf={m.userId === viewerId}
+                  viewerRank={viewerRank}
+                  canKick={canKick}
+                  canBan={canBan}
+                  canChangeRank={canChangeRank}
+                  onChangeRank={(rank) =>
+                    setRankChangeTarget({ member: m, rank })
+                  }
+                  onKick={() => setKickTarget(m)}
+                  onBan={() => setBanTarget(m)}
+                />
+              ))}
+          </div>
         )}
       </div>
 
@@ -1059,16 +1075,17 @@ export default function MembersView({
                 </p>
               </div>
             ) : (
-              banned.map((b, i) => (
-                <BannedItem
-                  key={b.userId}
-                  banned={b}
-                  isLast={i === banned.length - 1}
-                  busy={unbanBusyId === b.userId}
-                  onUnban={() => handleUnban(b)}
-                  onInfo={() => setBanInfoTarget(b)}
-                />
-              ))
+              <div className="max-h-100 overflow-y-auto">
+                {banned.map((b) => (
+                  <BannedItem
+                    key={b.userId}
+                    banned={b}
+                    busy={unbanBusyId === b.userId}
+                    onUnban={() => handleUnban(b)}
+                    onInfo={() => setBanInfoTarget(b)}
+                  />
+                ))}
+              </div>
             )}
           </div>
         </>

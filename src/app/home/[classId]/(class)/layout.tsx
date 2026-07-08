@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { ClassTabs } from "@/components/class-tabs";
 import { HomeIcon } from "@/components/icons";
 import { MobileMenuButton } from "@/components/mobile-menu-btn";
+import { NotificationBell } from "@/components/notification-bell";
 import type { ReactNode } from "react";
 
 export default async function ClassLayout({
@@ -37,7 +38,10 @@ export default async function ClassLayout({
             {cls.name}
           </span>
         </div>
-        <MobileMenuButton className="ml-auto" />
+        <div className="ml-auto flex items-center gap-2">
+          <NotificationBell classId={classId} />
+          <MobileMenuButton />
+        </div>
       </div>
       <ClassTabs base={base} />
       <div

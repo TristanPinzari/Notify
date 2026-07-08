@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { mutate } from "swr";
 import { joinClass } from "@/server/actions/classes";
 import { MobileMenuButton } from "@/components/mobile-menu-btn";
+import { NotificationBell } from "@/components/notification-bell";
 
 export default function HomePage() {
   const router = useRouter();
@@ -29,11 +30,14 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="justify-between hidden max-[1200px]:flex h-14 shrink-0 items-center gap-3 px-5 border-b border-(--line-soft) bg-(--paper)">
-        <span className="side-brand text-[22px]">
+      <div className="h-14 shrink-0 flex items-center gap-3 px-5 border-b border-(--line-soft) bg-(--paper)">
+        <span className="side-brand text-[22px] hidden max-[1200px]:block">
           <span className="mk">N</span>otify
         </span>
-        <MobileMenuButton />
+        <div className="ml-auto flex items-center gap-2">
+          <NotificationBell />
+          <MobileMenuButton />
+        </div>
       </div>
       <div className="flex-1 flex items-center justify-center text-(--ink-faint) text-[14px]">
         Select a class to get started.
