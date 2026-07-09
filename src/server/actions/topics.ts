@@ -5,7 +5,7 @@ import { classes, topics } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
-import { getUserRank, requireRank, topicBelongsToClass } from "./shared";
+import { getUserRank, rateLimit, requireRank, topicBelongsToClass } from "./shared";
 import { logActivity } from "@/lib/activity-log";
 
 export async function createTopic(
@@ -14,6 +14,8 @@ export async function createTopic(
 ): Promise<{ error: string } | { success: true; id: string }> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
+  const limit = await rateLimit(session.user.id, "createTopic");
+  if (limit) return limit;
 
   try {
     const cls = await db

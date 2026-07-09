@@ -17,7 +17,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
-import { getUserRank, requireRank, topicBelongsToClass } from "./shared";
+import { getUserRank, rateLimit, requireRank, topicBelongsToClass } from "./shared";
 import { logActivity } from "@/lib/activity-log";
 import { getTemporalClient } from "@/temporal/client";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -53,6 +53,8 @@ export async function createMasterDocument(
     console.error("ERROR: createMasterDocument called with no session");
     return { error: "Not authenticated." };
   }
+  const limit = await rateLimit(session.user.id, "createMasterDocument");
+  if (limit) return limit;
 
   try {
     if (!(await topicBelongsToClass(classId, topicId))) {
@@ -209,6 +211,8 @@ export async function createPDF(
 > {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
+  const limit = await rateLimit(session.user.id, "createPDF");
+  if (limit) return limit;
 
   try {
     const rank = await getUserRank(classId, session.user.id);
@@ -288,6 +292,8 @@ export async function updateMasterDocumentContent(
 ): Promise<{ error: string } | { success: true }> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
+  const limit = await rateLimit(session.user.id, "updateMasterDocumentContent");
+  if (limit) return limit;
 
   try {
     const [membership] = await db

@@ -4,6 +4,7 @@ import {
   text,
   timestamp,
   boolean,
+  integer,
   primaryKey,
   unique,
   index,
@@ -373,6 +374,17 @@ export const emailInvites = pgTable(
     sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("email_invites_dedup_idx").on(t.senderId, t.recipientEmail, t.classId)],
+);
+
+export const rateLimits = pgTable(
+  "rate_limits",
+  {
+    userId: text("user_id").notNull(),
+    action: text("action").notNull(),
+    windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+    count: integer("count").notNull().default(1),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.action] })],
 );
 
 export const notifications = pgTable(

@@ -2,13 +2,14 @@ import { db } from "@/server/db";
 import {
   classes,
   contributions,
+  rateLimits,
   Rank,
   RANK_VALUE,
   topics,
   user,
   userClasses,
 } from "@/server/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 export async function classExists(classId: string) {
   const [cls] = await db
@@ -68,6 +69,49 @@ export function isUniqueViolation(e: unknown): boolean {
   if (typeof e !== "object" || e === null) return false;
   const err = e as { code?: string; cause?: { code?: string } };
   return err.code === "23505" || err.cause?.code === "23505";
+}
+
+const WINDOW_MS = 60 * 60 * 1000;
+
+const RATE_LIMITS = {
+  createClass:                 5,
+  joinClass:                  20,
+  createTopic:                20,
+  createContribution:         30,
+  sendClassInvites:           10,
+  createMasterDocument:       10,
+  sendFeedback:                5,
+  getAvatarUploadUrl:         20,
+  createPDF:                  20,
+  updateMasterDocumentContent:60,
+} as const;
+
+export async function rateLimit(
+  userId: string,
+  action: keyof typeof RATE_LIMITS,
+): Promise<{ error: string } | null> {
+  const max = RATE_LIMITS[action];
+  const windowStart = new Date(Math.floor(Date.now() / WINDOW_MS) * WINDOW_MS);
+  const windowStartISO = windowStart.toISOString();
+
+  const [row] = await db
+    .insert(rateLimits)
+    .values({ userId, action, windowStart, count: 1 })
+    .onConflictDoUpdate({
+      target: [rateLimits.userId, rateLimits.action],
+      set: {
+        count: sql`CASE WHEN ${rateLimits.windowStart} = ${windowStartISO} THEN ${rateLimits.count} + 1 ELSE 1 END`,
+        windowStart: windowStart,
+      },
+    })
+    .returning({ count: rateLimits.count });
+
+  return (row?.count ?? 1) > max
+    ? {
+        error:
+          "You have made too many requests. Please try again in less than an hour.",
+      }
+    : null;
 }
 
 export async function requireRank(

@@ -20,12 +20,13 @@ import {
   getUserName,
   getUserRank,
   isUniqueViolation,
+  rateLimit,
   requireRank,
 } from "./shared";
 import { logActivity } from "@/lib/activity-log";
 import { Resend } from "resend";
 import { renderClassInvite } from "@/lib/emails";
-import { EMAIL_RE } from "@/lib/validation";
+import { EMAIL_RE, MAX_INVITE_BATCH } from "@/lib/validation";
 import { emailInvites, topics, notifications } from "@/server/db/schema";
 import { getBaseUrl } from "@/lib/utils";
 
@@ -57,6 +58,8 @@ async function generateUniqueCode() {
 export async function createClass(name: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
+  const limit = await rateLimit(session.user.id, "createClass");
+  if (limit) return limit;
 
   name = name.trim();
   if (name.length < 3)
@@ -93,6 +96,8 @@ export async function createClass(name: string) {
 export async function joinClass(code: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
+  const limit = await rateLimit(session.user.id, "joinClass");
+  if (limit) return limit;
 
   let classId = "";
   try {
@@ -589,6 +594,8 @@ export async function getActivityLog(
 export async function sendClassInvites(classId: string, rawEmails: string[]) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
+  const limit = await rateLimit(session.user.id, "sendClassInvites");
+  if (limit) return limit;
 
   const [cls] = await db
     .select({
@@ -618,6 +625,7 @@ export async function sendClassInvites(classId: string, rawEmails: string[]) {
     ),
   ];
   if (emails.length === 0) return { error: "No valid email addresses." };
+  if (emails.length > MAX_INVITE_BATCH) return { error: `You can invite at most ${MAX_INVITE_BATCH} people at a time.` };
 
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const [[{ memberCount }], [{ topicCount }], existingMembers, recentInvites, bannedUsers] =

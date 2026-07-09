@@ -3,6 +3,7 @@
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import { Resend } from "resend";
+import { rateLimit } from "./shared";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -11,6 +12,8 @@ export async function sendFeedback(
 ): Promise<{ error: string } | { ok: true }> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
+  const limit = await rateLimit(session.user.id, "sendFeedback");
+  if (limit) return limit;
 
   const trimmed = message.trim();
   if (!trimmed) return { error: "Message cannot be empty." };

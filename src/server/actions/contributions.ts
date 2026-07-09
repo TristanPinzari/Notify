@@ -23,6 +23,7 @@ import { headers } from "next/headers";
 import {
   getUserRank,
   isUniqueViolation,
+  rateLimit,
   requireRank,
   topicBelongsToClass,
 } from "./shared";
@@ -68,6 +69,8 @@ export async function createContribution(
     console.error("ERROR: createContribution called with no session");
     return { error: "Not authenticated." };
   }
+  const limit = await rateLimit(session.user.id, "createContribution");
+  if (limit) return limit;
 
   let s3Key: string | undefined;
 

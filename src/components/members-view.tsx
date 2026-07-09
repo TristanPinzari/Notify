@@ -16,6 +16,7 @@ import {
 } from "@/server/actions/classes";
 import { RANK_VALUE } from "@/server/db/schema";
 import { initials, avatarColor } from "@/lib/format";
+import { MAX_INVITE_BATCH } from "@/lib/validation";
 import type { Rank } from "@/server/db/schema";
 import { timeAgo } from "@/lib/utils";
 import { useEscapeKey } from "@/hooks/use-escape-key";
@@ -802,6 +803,10 @@ export default function MembersView({
       .map((e) => e.trim())
       .filter(Boolean);
     if (raw.length === 0) return;
+    if (raw.length > MAX_INVITE_BATCH) {
+      toast.error(`You can invite at most ${MAX_INVITE_BATCH} people at a time.`);
+      return;
+    }
     setSending(true);
     const res = await sendClassInvites(classId, raw);
     setSending(false);
