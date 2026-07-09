@@ -105,7 +105,7 @@ function Field({
 const features = [
   "Pool every classmate's notes in one place",
   "AI compiles them into one master doc",
-  "Grammar-checked and fact-checked",
+  "Fact-checked and cross-referenced by AI",
 ];
 
 export function AuthForm({ defaultMode }: { defaultMode: "login" | "signup" }) {

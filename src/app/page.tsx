@@ -7,7 +7,7 @@ import {
   SunRaysIcon,
   FileIcon,
   SunIcon,
-  TaskCheckIcon,
+  BellIcon,
   MembersIcon,
 } from "@/components/icons";
 
@@ -235,9 +235,9 @@ export default function Page() {
               <div className="num">3</div>
               <h3>Get the master doc</h3>
               <p>
-                Notify compiles every source into one clean document —
-                grammar-polished, fact-checked, and organized — so the whole
-                class studies from the same complete notes.
+                Notify reads every source, cross-references them, and produces
+                one fact-checked document — so the whole class studies from the
+                same complete record.
               </p>
             </div>
           </div>
@@ -267,13 +267,13 @@ export default function Page() {
             </div>
             <div className="feat">
               <div className="ic">
-                <TaskCheckIcon />
+                <BellIcon />
               </div>
-              <h3>Grammar & fact-check</h3>
+              <h3>Stay in the loop</h3>
               <p>
-                Toggle grammar polishing and fact verification on every compile,
-                so the shared doc is clean and trustworthy — not just a
-                copy-paste of everyone&apos;s typos.
+                Get notified when a new master document drops, your role
+                changes, or a classmate sends an invite. Weekly digests keep
+                everything you missed within reach.
               </p>
             </div>
             <div className="feat">
