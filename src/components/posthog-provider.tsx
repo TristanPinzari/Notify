@@ -30,6 +30,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       capture_pageview: false,
       capture_pageleave: true,
       persistence: consented ? "localStorage+cookie" : "memory",
+      opt_out_capturing_by_default: !consented,
     });
   }, []);
 
