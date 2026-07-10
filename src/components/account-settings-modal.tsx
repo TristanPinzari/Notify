@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEscapeKey } from "@/hooks/use-escape-key";
 import { authClient } from "@/lib/auth-client";
@@ -25,6 +26,7 @@ import {
   CheckIcon,
   UploadIcon,
 } from "@/components/icons";
+import { applyConsent, useConsent } from "@/lib/consent";
 
 type Tab = "profile" | "security" | "notifications" | "preferences";
 type User = { name: string; email: string; image?: string | null };
@@ -68,7 +70,7 @@ function Row({
   children,
 }: {
   title: string;
-  desc: string;
+  desc: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -500,7 +502,11 @@ const NOTIF_PLACEHOLDER = (
   <div className="w-9 h-5.25 rounded-full bg-(--line-strong) shrink-0 opacity-50" />
 );
 
-const DEFAULT_NOTIF_ROWS: { key: keyof NotifPrefs; title: string; desc: string }[] = [
+const DEFAULT_NOTIF_ROWS: {
+  key: keyof NotifPrefs;
+  title: string;
+  desc: string;
+}[] = [
   {
     key: "notifyMasterDoc",
     title: "Master doc compiled",
@@ -518,7 +524,11 @@ const DEFAULT_NOTIF_ROWS: { key: keyof NotifPrefs; title: string; desc: string }
   },
 ];
 
-const MEMBERSHIP_NOTIF_ROWS: { key: keyof NotifPrefs; title: string; desc: string }[] = [
+const MEMBERSHIP_NOTIF_ROWS: {
+  key: keyof NotifPrefs;
+  title: string;
+  desc: string;
+}[] = [
   {
     key: "notifyInvite",
     title: "Invited to a class",
@@ -561,7 +571,8 @@ function NotificationsPanel() {
         Defaults
       </div>
       <p className="text-[12.5px] text-(--ink-faint) leading-relaxed mb-3">
-        Applied when you join new classes. Override per class from the bell icon.
+        Applied when you join new classes. Override per class from the bell
+        icon.
       </p>
       <div className="bg-(--paper) border border-(--line) rounded-xl overflow-hidden mb-6">
         {DEFAULT_NOTIF_ROWS.map(({ key, title, desc }) => (
@@ -619,6 +630,8 @@ function PreferencesPanel() {
     return "auto";
   });
 
+  const consent = useConsent();
+
   return (
     <div className="bg-(--paper) border border-(--line) rounded-xl overflow-hidden">
       <Row title="Theme" desc="How Notify looks on this device.">
@@ -637,6 +650,22 @@ function PreferencesPanel() {
             </button>
           ))}
         </div>
+      </Row>
+      <Row
+        title="Analytics cookies"
+        desc={
+          <>
+            Allow PostHog to anonymously collect app usage data.{" "}
+            <Link href="/privacy" className="lk-accent">
+              Privacy Policy
+            </Link>
+          </>
+        }
+      >
+        <Toggle
+          checked={consent === "accepted"}
+          onChange={(v) => applyConsent(v ? "accepted" : "declined")}
+        />
       </Row>
     </div>
   );

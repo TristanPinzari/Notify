@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getSidebarClasses } from "@/server/queries/sidebar";
 import { Sidebar } from "@/components/sidebar";
 import { SidebarProvider } from "@/components/sidebar-provider";
+import { CookieBanner } from "@/components/cookie-banner";
 import type { ReactNode } from "react";
 
 export default async function HomeLayout({
@@ -34,6 +35,7 @@ export default async function HomeLayout({
         <main className="flex-1 min-h-0 min-w-0 overflow-x-hidden">
           {children}
         </main>
+        <CookieBanner />
       </div>
     </SidebarProvider>
   );

@@ -559,6 +559,7 @@ function DeleteClassModal({
     if ("success" in res) {
       mutate("/api/sidebar");
       router.push("/home");
+      toast.success(`Successfully deleted ${className}.`);
     } else if ("error" in res) {
       toast.error(res.error);
     }

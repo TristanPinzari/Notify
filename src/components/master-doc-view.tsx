@@ -749,7 +749,7 @@ export function MasterDocView({
             allSources={activeDoc.sources}
           />
         ) : (
-          <div className="flex flex-col items-center text-center py-16 gap-3">
+          <div className="flex flex-col items-center text-center py-16 gap-3 mt-15">
             <DocEmptyIcon />
             <p className="text-[15px] text-(--ink-heading) font-semibold m-0">
               No document yet

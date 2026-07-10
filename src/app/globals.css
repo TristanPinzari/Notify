@@ -266,6 +266,16 @@ a {
 .nav-links .lk:hover {
   color: var(--ink);
 }
+.lk-accent {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: color-mix(in srgb, var(--accent-text) 40%, transparent);
+  transition: text-decoration-color 0.15s;
+}
+.lk-accent:hover {
+  text-decoration-color: var(--accent-text);
+}
 .nav-cta {
   display: flex;
   align-items: center;
