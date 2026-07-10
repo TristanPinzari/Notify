@@ -6,6 +6,7 @@ import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import SettingsView from "@/components/settings-view";
+import { getUserName } from "@/server/actions/shared";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -39,6 +40,7 @@ export default async function ClassSettingsPage({
         minRankKickUsers: classes.minRankKickUsers,
         minRankChangeRanks: classes.minRankChangeRanks,
         minRankPinContribution: classes.minRankPinContribution,
+        nextOwnerId: classes.nextOwnerId,
       })
       .from(classes)
       .where(eq(classes.id, classId))
@@ -63,6 +65,8 @@ export default async function ClassSettingsPage({
   if (!cls) notFound();
   if (!member) redirect("/home");
 
+  const nextOwnerName = cls.nextOwnerId ? await getUserName(cls.nextOwnerId) : null;
+
   return (
     <SettingsView
       classId={classId}
@@ -72,6 +76,8 @@ export default async function ClassSettingsPage({
         ownerName: ownerRow?.name ?? "Unknown",
         ownerId: ownerRow?.id ?? "",
         code: member.rank === "owner" ? cls.code : null,
+        nextOwnerId: cls.nextOwnerId,
+        nextOwnerName,
       }}
       viewerRank={member.rank}
     />

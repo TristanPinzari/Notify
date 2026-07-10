@@ -119,7 +119,9 @@ export async function triggerNotifications(
         await resend.emails.send({
           from: FROM,
           to: targetUser[0].email,
-          subject: `You're now a ${RANK_LABELS[payload.rank] ?? payload.rank} in ${classRow[0].name}`,
+          subject: payload.rank === "owner"
+            ? `You're now the owner of ${classRow[0].name}`
+            : `You're now a ${RANK_LABELS[payload.rank] ?? payload.rank} in ${classRow[0].name}`,
           html: renderRankChanged({
             className: classRow[0].name,
             oldRank: payload.oldRank,

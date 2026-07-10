@@ -11,6 +11,7 @@ import {
   UnbanIcon,
   MailIcon,
   SettingsIcon,
+  WarnIcon,
 } from "@/components/icons";
 import {
   getNotifications,
@@ -32,6 +33,7 @@ type NotifPayload = {
   topicName?: string;
   inviterName?: string;
   actorName?: string;
+  memberName?: string;
   url?: string;
 };
 
@@ -79,6 +81,8 @@ function NotifIcon({ type }: { type: string }) {
       return <UnbanIcon size={13} />;
     case "class_invitation":
       return <MailIcon size={13} />;
+    case "next_owner_left":
+      return <WarnIcon size={13} />;
     default:
       return <BellIcon />;
   }
@@ -98,6 +102,8 @@ function notifText(type: string, p: NotifPayload): string {
       return `${p.actorName} lifted your ban in ${p.className}`;
     case "class_invitation":
       return `${p.inviterName} invited you to ${p.className}`;
+    case "next_owner_left":
+      return `Your successor ${p.memberName} left ${p.className}. Please designate a new one.`;
     default:
       return "New notification";
   }

@@ -46,7 +46,7 @@ export function ClassModal({ onClose, onSuccess }: Props) {
     const result = await createClass(clsName);
     setLoading(false);
 
-    if (result.error) return setError(result.error);
+    if ("error" in result) return setError(result.error ?? "Something went wrong.");
 
     toast.success("Class created!");
     mutate("/api/sidebar");
@@ -67,7 +67,7 @@ export function ClassModal({ onClose, onSuccess }: Props) {
     const result = await joinClass(code);
     setLoading(false);
 
-    if (result.error) return setError(result.error);
+    if ("error" in result) return setError(result.error ?? "Something went wrong.");
 
     toast.success("Joined class!");
     onSuccess?.();

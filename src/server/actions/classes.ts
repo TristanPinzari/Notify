@@ -11,7 +11,7 @@ import {
   ClassSettings,
   RANK_VALUE,
 } from "@/server/db/schema";
-import { eq, and, desc, gt, lt, count, inArray } from "drizzle-orm";
+import { eq, and, desc, gt, lt, count, inArray, ne } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import { after } from "next/server";
@@ -169,22 +169,254 @@ export async function leaveClass(classId: string) {
       return { error: "Class does not exist." };
 
     const rank = await getUserRank(classId, session.user.id);
-
     if (!rank) return { error: "You are not a member of this class." };
-    if (rank === "owner")
-      return { error: "You cannot leave as the class owner." };
 
-    await db
-      .delete(userClasses)
-      .where(
-        and(
-          eq(userClasses.classId, classId),
-          eq(userClasses.userId, session.user.id),
-        ),
-      );
+    const [cls] = await db
+      .select({ nextOwnerId: classes.nextOwnerId, name: classes.name })
+      .from(classes)
+      .where(eq(classes.id, classId))
+      .limit(1);
+
+    if (rank === "owner") {
+      if (!cls?.nextOwnerId)
+        return { error: "Designate a successor before leaving." };
+
+      const nextOwnerId = cls.nextOwnerId;
+      const [nextOwnerRow] = await db
+        .select({ name: user.name, rank: userClasses.rank })
+        .from(userClasses)
+        .innerJoin(user, eq(userClasses.userId, user.id))
+        .where(
+          and(
+            eq(userClasses.classId, classId),
+            eq(userClasses.userId, nextOwnerId),
+          ),
+        )
+        .limit(1);
+
+      await db.transaction(async (tx) => {
+        await tx
+          .update(userClasses)
+          .set({ rank: "owner" })
+          .where(
+            and(
+              eq(userClasses.classId, classId),
+              eq(userClasses.userId, nextOwnerId),
+            ),
+          );
+        await tx
+          .delete(userClasses)
+          .where(
+            and(
+              eq(userClasses.classId, classId),
+              eq(userClasses.userId, session.user.id),
+            ),
+          );
+        await tx
+          .update(classes)
+          .set({ nextOwnerId: null })
+          .where(eq(classes.id, classId));
+      });
+
+      if (nextOwnerRow) {
+        logActivity(classId, session.user.id, {
+          action: "rank_changed",
+          target: { id: nextOwnerId, name: nextOwnerRow.name },
+          rank: "owner",
+          oldRank: nextOwnerRow.rank,
+        });
+      }
+      logActivity(classId, session.user.id, { action: "member_left" });
+      return { success: true };
+    }
+
+    const isSuccessor = cls?.nextOwnerId === session.user.id;
+
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(userClasses)
+        .where(
+          and(
+            eq(userClasses.classId, classId),
+            eq(userClasses.userId, session.user.id),
+          ),
+        );
+      if (isSuccessor)
+        await tx
+          .update(classes)
+          .set({ nextOwnerId: null })
+          .where(eq(classes.id, classId));
+    });
+
+    if (isSuccessor) {
+      const [ownerRow] = await db
+        .select({ userId: userClasses.userId })
+        .from(userClasses)
+        .where(
+          and(
+            eq(userClasses.classId, classId),
+            eq(userClasses.rank, "owner"),
+          ),
+        )
+        .limit(1);
+      if (ownerRow) {
+        const className = cls!.name;
+        const memberName = session.user.name;
+        after(async () => {
+          await db.insert(notifications).values({
+            id: crypto.randomUUID(),
+            userId: ownerRow.userId,
+            classId,
+            type: "next_owner_left",
+            payload: JSON.stringify({ className, memberName }),
+          });
+        });
+      }
+    }
 
     logActivity(classId, session.user.id, { action: "member_left" });
     return { success: true };
+  } catch (e) {
+    console.error("ERROR: ", e);
+    return { error: "Something went wrong." };
+  }
+}
+
+export async function setNextOwner(classId: string, userId: string | null) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return { error: "Not authenticated." };
+
+  try {
+    if (!(await classExists(classId)))
+      return { error: "Class does not exist." };
+
+    const allowed = await requireRank(
+      classId,
+      session.user.id,
+      "owner",
+      "transfer ownership",
+    );
+    if ("error" in allowed) return allowed;
+
+    if (userId !== null) {
+      if (userId === session.user.id)
+        return { error: "You cannot designate yourself as successor." };
+      const rank = await getUserRank(classId, userId);
+      if (!rank)
+        return { error: "That user is not a member of this class." };
+    }
+
+    await db
+      .update(classes)
+      .set({ nextOwnerId: userId })
+      .where(eq(classes.id, classId));
+    return { success: true };
+  } catch (e) {
+    console.error("ERROR: ", e);
+    return { error: "Something went wrong." };
+  }
+}
+
+export async function transferOwnership(classId: string) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return { error: "Not authenticated." };
+
+  try {
+    const rank = await getUserRank(classId, session.user.id);
+    if (rank !== "owner") return { error: "Only the owner can transfer ownership." };
+
+    const [cls] = await db
+      .select({ nextOwnerId: classes.nextOwnerId, defaultRank: classes.defaultRank })
+      .from(classes)
+      .where(eq(classes.id, classId))
+      .limit(1);
+    if (!cls) return { error: "Class does not exist." };
+    if (!cls.nextOwnerId) return { error: "Designate a successor before transferring." };
+
+    const nextOwnerId = cls.nextOwnerId;
+    const [nextOwnerRow] = await db
+      .select({ name: user.name, rank: userClasses.rank })
+      .from(userClasses)
+      .innerJoin(user, eq(userClasses.userId, user.id))
+      .where(
+        and(
+          eq(userClasses.classId, classId),
+          eq(userClasses.userId, nextOwnerId),
+        ),
+      )
+      .limit(1);
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(userClasses)
+        .set({ rank: "owner" })
+        .where(
+          and(
+            eq(userClasses.classId, classId),
+            eq(userClasses.userId, nextOwnerId),
+          ),
+        );
+      await tx
+        .update(userClasses)
+        .set({ rank: cls.defaultRank })
+        .where(
+          and(
+            eq(userClasses.classId, classId),
+            eq(userClasses.userId, session.user.id),
+          ),
+        );
+      await tx
+        .update(classes)
+        .set({ nextOwnerId: null })
+        .where(eq(classes.id, classId));
+    });
+
+    if (nextOwnerRow) {
+      logActivity(classId, session.user.id, {
+        action: "rank_changed",
+        target: { id: nextOwnerId, name: nextOwnerRow.name },
+        rank: "owner",
+        oldRank: nextOwnerRow.rank,
+      });
+    }
+    logActivity(classId, session.user.id, {
+      action: "rank_changed",
+      target: { id: session.user.id, name: session.user.name },
+      rank: cls.defaultRank,
+      oldRank: "owner",
+    });
+    return { success: true };
+  } catch (e) {
+    console.error("ERROR: ", e);
+    return { error: "Something went wrong." };
+  }
+}
+
+export async function getMembersForTransfer(classId: string) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return { error: "Not authenticated." };
+
+  try {
+    const allowed = await requireRank(
+      classId,
+      session.user.id,
+      "owner",
+      "view members",
+    );
+    if ("error" in allowed) return allowed;
+
+    const members = await db
+      .select({ id: user.id, name: user.name })
+      .from(userClasses)
+      .innerJoin(user, eq(userClasses.userId, user.id))
+      .where(
+        and(
+          eq(userClasses.classId, classId),
+          ne(userClasses.userId, session.user.id),
+        ),
+      );
+
+    return { success: true as const, members };
   } catch (e) {
     console.error("ERROR: ", e);
     return { error: "Something went wrong." };
@@ -224,7 +456,10 @@ export async function kickFromClass(classId: string, userId: string) {
 
   try {
     const cls = await db
-      .select({ minRankKickUsers: classes.minRankKickUsers })
+      .select({
+        minRankKickUsers: classes.minRankKickUsers,
+        nextOwnerId: classes.nextOwnerId,
+      })
       .from(classes)
       .where(eq(classes.id, classId))
       .limit(1);
@@ -252,6 +487,9 @@ export async function kickFromClass(classId: string, userId: string) {
         .where(
           and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
         ),
+      cls[0].nextOwnerId === userId
+        ? db.update(classes).set({ nextOwnerId: null }).where(eq(classes.id, classId))
+        : Promise.resolve(),
     ]);
 
     logActivity(classId, session.user.id, {
@@ -278,7 +516,10 @@ export async function banFromClass(
 
   try {
     const cls = await db
-      .select({ minRankBanUsers: classes.minRankBanUsers })
+      .select({
+        minRankBanUsers: classes.minRankBanUsers,
+        nextOwnerId: classes.nextOwnerId,
+      })
       .from(classes)
       .where(eq(classes.id, classId))
       .limit(1);
@@ -317,6 +558,11 @@ export async function banFromClass(
           bannedByUserId: session.user.id,
           reason: reason ?? null,
         });
+        if (cls[0].nextOwnerId === userId)
+          await tx
+            .update(classes)
+            .set({ nextOwnerId: null })
+            .where(eq(classes.id, classId));
       }),
     ]);
 

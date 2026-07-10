@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { mutate } from "swr";
@@ -9,6 +9,9 @@ import {
   regenerateCode,
   deleteClass,
   leaveClass,
+  setNextOwner,
+  getMembersForTransfer,
+  transferOwnership,
   getActivityLog,
 } from "@/server/actions/classes";
 import { changeTopicName, deleteTopic } from "@/server/actions/topics";
@@ -56,6 +59,8 @@ type ClsData = {
   minRankKickUsers: Rank;
   minRankChangeRanks: Rank;
   minRankPinContribution: Rank;
+  nextOwnerId: string | null;
+  nextOwnerName: string | null;
 };
 
 type TopicData = {
@@ -621,10 +626,12 @@ function DeleteClassModal({
 function LeaveClassModal({
   classId,
   className,
+  successorName,
   onClose,
 }: {
   classId: string;
   className: string;
+  successorName?: string;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -652,11 +659,25 @@ function LeaveClassModal({
           <span className="del-mic">
             <WarnIcon size={19} />
           </span>
-          <h3>Leave this class?</h3>
+          <h3>
+            {successorName
+              ? "Transfer ownership and leave?"
+              : "Leave this class?"}
+          </h3>
         </div>
         <p className="del-mbody">
-          You will lose access to <b>{className}</b> and all its topics. You can
-          rejoin with an invite link or code if one is available.
+          {successorName ? (
+            <>
+              Ownership of <b>{className}</b> will transfer to{" "}
+              <b>{successorName}</b>. You will leave the class entirely — to
+              rejoin you&apos;ll need an invite or the join code.
+            </>
+          ) : (
+            <>
+              You will lose access to <b>{className}</b> and all its topics. You
+              can rejoin with an invite link or code if one is available.
+            </>
+          )}
         </p>
         <div className="del-actions">
           <button
@@ -679,7 +700,193 @@ function LeaveClassModal({
             ) : (
               <>
                 <LogOutIcon />
-                Leave class
+                {successorName ? "Transfer and leave" : "Leave class"}
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function TransferOwnershipModal({
+  classId,
+  currentSuccessorId,
+  onSelect,
+  onClose,
+}: {
+  classId: string;
+  currentSuccessorId: string | null;
+  onSelect: (id: string, name: string) => void;
+  onClose: () => void;
+}) {
+  const [members, setMembers] = useState<{ id: string; name: string }[] | null>(
+    null,
+  );
+  const [search, setSearch] = useState("");
+  const [saving, setSaving] = useState<string | null>(null);
+  useEscapeKey(() => saving === null && onClose());
+
+  useEffect(() => {
+    getMembersForTransfer(classId).then((res) => {
+      if ("success" in res) setMembers(res.members);
+    });
+  }, [classId]);
+
+  const filtered =
+    members?.filter((m) =>
+      m.name.toLowerCase().includes(search.toLowerCase()),
+    ) ?? [];
+
+  async function select(id: string, name: string) {
+    setSaving(id);
+    const res = await setNextOwner(classId, id);
+    setSaving(null);
+    if ("error" in res) {
+      toast.error(res.error);
+    } else {
+      onSelect(id, name);
+    }
+  }
+
+  return (
+    <>
+      <div
+        className="modal-backdrop"
+        onClick={() => saving === null && onClose()}
+      />
+      <div className="modal max-w-115">
+        <div className="del-mhead">
+          <span className="del-mic">
+            <MembersIcon />
+          </span>
+          <h3>Choose a successor</h3>
+        </div>
+        <p className="del-mbody">
+          Select a member to inherit ownership of this class when you leave.
+        </p>
+        <input
+          className="sv-input"
+          placeholder="Search members…"
+          value={search}
+          autoFocus
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        {!members ? (
+          <div className="py-6 text-center text-sm text-(--ink-faint)">
+            Loading…
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="py-6 text-center text-sm text-(--ink-faint)">
+            {search
+              ? "No members match your search."
+              : "No other members in this class."}
+          </div>
+        ) : (
+          <div className="max-h-64 overflow-y-auto mt-2 border border-(--line-soft) rounded-lg">
+            {filtered.map((m) => (
+              <button
+                key={m.id}
+                className={`w-full flex items-center gap-3 px-4 py-3 text-left border-b border-(--line-soft) last:border-b-0 hover:bg-[rgba(60,45,25,0.04)] transition-[background-color]${m.id === currentSuccessorId ? " bg-[rgba(196,121,24,0.04)]" : ""}`}
+                onClick={() => select(m.id, m.name)}
+                disabled={saving !== null}
+              >
+                <span className="flex-1 text-[13px] text-(--ink-heading)">
+                  {m.name}
+                </span>
+                {m.id === currentSuccessorId && (
+                  <span className="text-[11.5px] text-(--ink-faint)">
+                    Current
+                  </span>
+                )}
+                {saving === m.id && <span className="mini-spin" />}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="del-actions">
+          <button
+            className="btn btn-ghost"
+            onClick={onClose}
+            disabled={saving !== null}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function TransferNowModal({
+  classId,
+  successorName,
+  defaultRank,
+  onClose,
+}: {
+  classId: string;
+  successorName: string;
+  defaultRank: Rank;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [transferring, setTransferring] = useState(false);
+  useEscapeKey(() => !transferring && onClose());
+
+  async function confirm() {
+    setTransferring(true);
+    const res = await transferOwnership(classId);
+    if ("error" in res) {
+      toast.error(res.error);
+      setTransferring(false);
+    } else {
+      toast.success("Ownership transferred.");
+      mutate("/api/sidebar");
+      router.refresh();
+      onClose();
+    }
+  }
+
+  return (
+    <>
+      <div
+        className="modal-backdrop"
+        onClick={() => !transferring && onClose()}
+      />
+      <div className="modal max-w-115">
+        <div className="del-mhead">
+          <span className="del-mic">
+            <MembersIcon />
+          </span>
+          <h3>Transfer ownership?</h3>
+        </div>
+        <p className="del-mbody">
+          <b>{successorName}</b> will become the new owner. You will remain in
+          the class as a <b>{cap(defaultRank)}</b>.
+        </p>
+        <div className="del-actions">
+          <button
+            className="btn btn-ghost"
+            onClick={onClose}
+            disabled={transferring}
+          >
+            Cancel
+          </button>
+          <button
+            className="btn-danger-solid"
+            disabled={transferring}
+            onClick={confirm}
+          >
+            {transferring ? (
+              <>
+                <span className="mini-spin" />
+                Transferring…
+              </>
+            ) : (
+              <>
+                <MembersIcon />
+                Transfer ownership
               </>
             )}
           </button>
@@ -712,12 +919,35 @@ export default function SettingsView({
   });
   const [defaultRank, setDefaultRank] = useState<Rank>(cls.defaultRank);
 
+  const [successor, setSuccessor] = useState<{
+    id: string;
+    name: string;
+  } | null>(
+    cls.nextOwnerId && cls.nextOwnerName
+      ? { id: cls.nextOwnerId, name: cls.nextOwnerName }
+      : null,
+  );
+
   const [saving, setSaving] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [regenLoading, setRegenLoading] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
   const [delTopicOpen, setDelTopicOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferNowOpen, setTransferNowOpen] = useState(false);
+  const [clearingSuccessor, setClearingSuccessor] = useState(false);
+
+  async function clearSuccessor() {
+    setClearingSuccessor(true);
+    const res = await setNextOwner(classId, null);
+    setClearingSuccessor(false);
+    if ("error" in res) {
+      toast.error(res.error);
+    } else {
+      setSuccessor(null);
+    }
+  }
   const dirty = useMemo(() => {
     if (name !== cls.name) return true;
     if (defaultRank !== cls.defaultRank) return true;
@@ -973,18 +1203,76 @@ export default function SettingsView({
               </button>
             </div>
           )}
+          {isOwner && (
+            <div className="sv-row">
+              <div className="sv-sl">
+                <div className="sv-st">Transfer ownership</div>
+                <div className="sv-desc">
+                  {successor ? (
+                    <>
+                      Ownership will transfer to{" "}
+                      <b className="text-(--ink-heading)">{successor.name}</b>{" "}
+                      when you leave.
+                    </>
+                  ) : (
+                    "Designate a member to take ownership before you can leave."
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2 items-center shrink-0">
+                {successor && (
+                  <button
+                    className="btn btn-ghost"
+                    style={{ padding: "9px 15px", fontSize: 13 }}
+                    disabled={clearingSuccessor}
+                    onClick={clearSuccessor}
+                  >
+                    {clearingSuccessor ? (
+                      <span className="mini-spin" />
+                    ) : (
+                      "Clear"
+                    )}
+                  </button>
+                )}
+                {successor && (
+                  <button
+                    className="btn-danger-solid"
+                    onClick={() => setTransferNowOpen(true)}
+                  >
+                    Transfer now
+                  </button>
+                )}
+                <button
+                  className="btn-danger"
+                  onClick={() => setTransferOpen(true)}
+                >
+                  <MembersIcon />
+                  {successor?.name ? "Change" : "Choose"}
+                </button>
+              </div>
+            </div>
+          )}
           <div className="sv-row">
             <div className="sv-sl">
               <div className="sv-st">Leave class</div>
               <div className="sv-desc">
-                {isOwner
-                  ? "You own this class and can't leave it. Ownership transfer will be available in a future update."
-                  : "Remove yourself from this class. You can rejoin with an invite link or code."}
+                {isOwner ? (
+                  successor ? (
+                    <>
+                      Leaving will transfer ownership to{" "}
+                      <b className="text-(--ink-heading)">{successor.name}</b>.
+                    </>
+                  ) : (
+                    "Designate a successor above before leaving."
+                  )
+                ) : (
+                  "Remove yourself from this class. You can rejoin with an invite link or code."
+                )}
               </div>
             </div>
             <button
               className="btn-danger"
-              disabled={isOwner}
+              disabled={isOwner && !successor}
               onClick={() => setLeaveOpen(true)}
             >
               <LogOutIcon />
@@ -1069,7 +1357,31 @@ export default function SettingsView({
         <LeaveClassModal
           classId={classId}
           className={cls.name}
+          successorName={successor?.name}
           onClose={() => setLeaveOpen(false)}
+        />
+      )}
+
+      {/* transfer now modal */}
+      {transferNowOpen && successor && (
+        <TransferNowModal
+          classId={classId}
+          successorName={successor.name}
+          defaultRank={cls.defaultRank}
+          onClose={() => setTransferNowOpen(false)}
+        />
+      )}
+
+      {/* transfer ownership modal */}
+      {transferOpen && (
+        <TransferOwnershipModal
+          classId={classId}
+          currentSuccessorId={successor?.id ?? null}
+          onSelect={(id, name) => {
+            setSuccessor({ id, name });
+            setTransferOpen(false);
+          }}
+          onClose={() => setTransferOpen(false)}
         />
       )}
     </div>

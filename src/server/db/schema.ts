@@ -123,6 +123,9 @@ export const classes = pgTable("classes", {
   minRankPinContribution: rank("min_rank_pin_contribution")
     .notNull()
     .default("admin"),
+  nextOwnerId: text("next_owner_id").references(() => user.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

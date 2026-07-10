@@ -12,6 +12,7 @@ import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import SettingsView from "@/components/settings-view";
+import { getUserName } from "@/server/actions/shared";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -45,6 +46,7 @@ export default async function TopicSettingsPage({
         minRankKickUsers: classes.minRankKickUsers,
         minRankChangeRanks: classes.minRankChangeRanks,
         minRankPinContribution: classes.minRankPinContribution,
+        nextOwnerId: classes.nextOwnerId,
       })
       .from(classes)
       .where(eq(classes.id, classId))
@@ -83,6 +85,8 @@ export default async function TopicSettingsPage({
   if (!member) redirect("/home");
   if (!topicRow) notFound();
 
+  const nextOwnerName = cls.nextOwnerId ? await getUserName(cls.nextOwnerId) : null;
+
   const canDelete =
     RANK_VALUE[member.rank] >= RANK_VALUE[cls.minRankDeleteTopic];
   const canRename =
@@ -98,6 +102,8 @@ export default async function TopicSettingsPage({
         ownerName: ownerRow?.name ?? "Unknown",
         ownerId: ownerRow?.id ?? "",
         code: member.rank === "owner" ? cls.code : null,
+        nextOwnerId: cls.nextOwnerId,
+        nextOwnerName,
       }}
       topic={{
         id: topicRow.id,
