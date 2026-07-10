@@ -2761,6 +2761,103 @@ textarea.inwrap::placeholder {
   transform: translateX(-50%) translateY(0);
 }
 
+/* multi-source citation group */
+.src-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--accent-text);
+  background: var(--accent-soft);
+  height: 15px;
+  padding: 0 5px;
+  border-radius: 5px;
+  margin: 0 2px;
+  position: relative;
+  cursor: default;
+  gap: 3px;
+  transition:
+    background 0.14s,
+    color 0.14s;
+}
+.src-group:hover {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.sg-count {
+  letter-spacing: 0;
+}
+.sg-tip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  opacity: 0;
+  pointer-events: none;
+  background: var(--surface-overlay);
+  border-radius: 10px;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 160px;
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.45);
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
+  z-index: 5;
+}
+.sg-tip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--surface-overlay);
+}
+.src-group:hover .sg-tip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+.sg-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 7px;
+  border-radius: 6px;
+  color: #f4efe4;
+  font-family: var(--sans);
+  font-size: 11.5px;
+  font-weight: 400;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.12s;
+}
+.sg-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.sg-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--accent-text);
+  background: var(--accent-soft);
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
 /* deleted sources chip tooltip */
 .deleted-chip {
   position: relative;
@@ -3997,6 +4094,7 @@ textarea.inwrap::placeholder {
   background: var(--danger-bg);
 }
 .spin-amber {
+  display: block;
   width: 11px;
   height: 11px;
   border: 2px solid var(--accent-soft);
@@ -4565,6 +4663,7 @@ textarea.inwrap::placeholder {
   background: var(--paper-raised);
 }
 .hb-ic svg {
+  display: block;
   width: 13px;
   height: 13px;
 }

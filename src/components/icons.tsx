@@ -1,3 +1,13 @@
+export function MultiSourceIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor">
+      <rect x="0" y="1" width="12" height="2" rx="1" opacity="0.45" />
+      <rect x="0" y="5" width="12" height="2" rx="1" opacity="0.7" />
+      <rect x="0" y="9" width="12" height="2" rx="1" />
+    </svg>
+  );
+}
+
 export function CookieIcon() {
   return (
     <svg

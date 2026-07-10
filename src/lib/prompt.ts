@@ -52,7 +52,7 @@ Use these tags within your markdown output:
   Use when a claim is clearly wrong and you are replacing it — write the correction inside the tags and put a clean paraphrase of what the source said in the original attribute. The correction is shown to the reader; the original appears on hover. Never quote verbatim, especially transcribed speech.
 
 - <source id="CONTRIBUTION_ID" name="CONTRIBUTION_NAME" />
-  Inline source citation. Place after the sentence it supports.
+  Inline source citation. Place after the sentence it supports. Multiple <source /> tags may follow a single sentence when it draws from more than one contribution.
 `.trim();
 
 function formatContributions(contributions: ContributionForPrompt[]): string {

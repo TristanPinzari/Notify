@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { FlagDocIcon, ConflictSplitIcon } from "@/components/icons";
+import { FlagDocIcon, ConflictSplitIcon, MultiSourceIcon } from "@/components/icons";
 
 /* ─── types ─────────────────────────────────────────────────────────── */
 
@@ -18,14 +18,21 @@ function getAttr(s: string, name: string): string | undefined {
   return s.match(new RegExp(`${name}="([^"]*)"`))?.at(1);
 }
 
-/** Remove <source .../> from text; capture the last source found */
-function stripSources(text: string): { text: string; src: SrcRef | null } {
-  let src: SrcRef | null = null;
-  const cleaned = text.replace(/<source(\s[^>]*)?\s*\/>/g, (_, a = "") => {
-    src = { id: getAttr(a, "id"), name: getAttr(a, "name") ?? "?" };
+/** Remove <source .../> from text; capture all distinct sources found */
+function stripSources(text: string): { text: string; srcs: SrcRef[] } {
+  const srcs: SrcRef[] = [];
+  const seen = new Set<string>();
+  const cleaned = text.replace(/\s*<source(\s[^>]*)?\s*\/>/g, (_, a = "") => {
+    const id = getAttr(a, "id");
+    const name = getAttr(a, "name") ?? "?";
+    const key = id ?? name;
+    if (!seen.has(key)) {
+      seen.add(key);
+      srcs.push({ id, name });
+    }
     return "";
   });
-  return { text: cleaned, src };
+  return { text: cleaned, srcs };
 }
 
 function sameSource(a: SrcRef | null, b: SrcRef | null): boolean {
@@ -60,8 +67,8 @@ function makeRegistry(): SourceReg {
 
 type LiItem = {
   text: string;
-  src: SrcRef | null;
-  cite: SrcRef | null;
+  srcs: SrcRef[];
+  cite: SrcRef[];
   children: LiItem[];
 };
 
@@ -69,8 +76,8 @@ type Block =
   | {
       kind: "h1" | "h2" | "h3" | "h4" | "p";
       text: string;
-      src: SrcRef | null;
-      cite: SrcRef | null;
+      srcs: SrcRef[];
+      cite: SrcRef[];
     }
   | { kind: "li-group"; items: LiItem[] }
   | { kind: "conflict"; a?: string; b?: string; inner: string }
@@ -109,30 +116,11 @@ function parseBlocks(md: string): Block[] {
       continue;
     }
 
-    if (/^####\s+/.test(line)) {
-      const s = stripSources(line.replace(/^####\s+/, ""));
-      blocks.push({ kind: "h4", text: s.text, src: s.src, cite: null });
-      i++;
-      continue;
-    }
-
-    if (/^###\s+/.test(line)) {
-      const s = stripSources(line.replace(/^###\s+/, ""));
-      blocks.push({ kind: "h3", text: s.text, src: s.src, cite: null });
-      i++;
-      continue;
-    }
-
-    if (/^##\s+/.test(line)) {
-      const s = stripSources(line.replace(/^##\s+/, ""));
-      blocks.push({ kind: "h2", text: s.text, src: s.src, cite: null });
-      i++;
-      continue;
-    }
-
-    if (/^#\s+/.test(line)) {
-      const s = stripSources(line.replace(/^#\s+/, ""));
-      blocks.push({ kind: "h1", text: s.text, src: s.src, cite: null });
+    const hm = line.match(/^(#{1,4})\s+(.*)/);
+    if (hm) {
+      const kind = `h${hm[1].length}` as "h1" | "h2" | "h3" | "h4";
+      const s = stripSources(hm[2]);
+      blocks.push({ kind, text: s.text, srcs: s.srcs, cite: [] });
       i++;
       continue;
     }
@@ -146,8 +134,8 @@ function parseBlocks(md: string): Block[] {
         const s = stripSources(raw.replace(/^\s*[*-]\s+/, ""));
         const item: LiItem = {
           text: s.text,
-          src: s.src,
-          cite: null,
+          srcs: s.srcs,
+          cite: [],
           children: [],
         };
         while (stack.length > 0 && stack[stack.length - 1].indent >= indent)
@@ -168,7 +156,7 @@ function parseBlocks(md: string): Block[] {
     }
 
     const s = stripSources(line);
-    blocks.push({ kind: "p", text: s.text, src: s.src, cite: null });
+    blocks.push({ kind: "p", text: s.text, srcs: s.srcs, cite: [] });
     i++;
   }
 
@@ -182,16 +170,11 @@ function parseBlocks(md: string): Block[] {
  * Blank and conflict blocks are transparent — they don't break a run.
  */
 function assignCitations(blocks: Block[]): void {
-  type Slot = { src: SrcRef | null; set: (c: SrcRef) => void };
+  type Slot = { srcs: SrcRef[]; set: (c: SrcRef[]) => void };
   const flat: Slot[] = [];
 
   function flattenItem(item: LiItem) {
-    flat.push({
-      src: item.src,
-      set: (c) => {
-        item.cite = c;
-      },
-    });
+    flat.push({ srcs: item.srcs, set: (c) => { item.cite = c; } });
     for (const child of item.children) flattenItem(child);
   }
 
@@ -199,13 +182,8 @@ function assignCitations(blocks: Block[]): void {
     if (b.kind === "li-group") {
       for (const item of b.items) flattenItem(item);
     } else if (b.kind !== "blank" && b.kind !== "conflict") {
-      const tb = b as { src: SrcRef | null; cite: SrcRef | null };
-      flat.push({
-        src: tb.src,
-        set: (c) => {
-          tb.cite = c;
-        },
-      });
+      const tb = b as { srcs: SrcRef[]; cite: SrcRef[] };
+      flat.push({ srcs: tb.srcs, set: (c) => { tb.cite = c; } });
     }
   }
 
@@ -213,15 +191,21 @@ function assignCitations(blocks: Block[]): void {
   let runEnd = -1;
 
   for (let i = 0; i < flat.length; i++) {
-    const src = flat[i].src;
-    if (!src) continue;
+    const { srcs, set } = flat[i];
+    if (srcs.length === 0) continue;
+    if (srcs.length > 1) {
+      if (runEnd >= 0 && runSrc) { flat[runEnd].set([runSrc]); runSrc = null; runEnd = -1; }
+      set(srcs);
+      continue;
+    }
+    const src = srcs[0];
     if (!sameSource(src, runSrc)) {
-      if (runEnd >= 0 && runSrc) flat[runEnd].set(runSrc);
+      if (runEnd >= 0 && runSrc) flat[runEnd].set([runSrc]);
       runSrc = src;
     }
     runEnd = i;
   }
-  if (runEnd >= 0 && runSrc) flat[runEnd].set(runSrc);
+  if (runEnd >= 0 && runSrc) flat[runEnd].set([runSrc]);
 }
 
 /* ─── sub-components ─────────────────────────────────────────────────── */
@@ -247,6 +231,32 @@ function SourceCite({
   );
 }
 
+function SourceGroup({
+  sources,
+}: {
+  sources: { n: number; name: string; href?: string }[];
+}) {
+  return (
+    <span className="src-group">
+      <MultiSourceIcon />
+      <span className="sg-count">{sources.length}</span>
+      <span className="sg-tip">
+        {sources.map(({ n, name, href }) => (
+          <a
+            key={n}
+            className="sg-item"
+            href={href ?? "#"}
+            onClick={(e) => !href && e.preventDefault()}
+          >
+            <span className="sg-n">{n}</span>
+            {name}
+          </a>
+        ))}
+      </span>
+    </span>
+  );
+}
+
 function Flagged({
   correction,
   original,
@@ -256,22 +266,13 @@ function Flagged({
   original?: string;
   children: React.ReactNode;
 }) {
-  if (original) {
-    // replace mode: correction is visible, original shown on hover
-    return (
-      <span className="flagged">
-        <span className="flag-text">{children}</span>
-        <span className="fmark">
-          <FlagDocIcon />
-        </span>
-        <span className="tip">
-          <b>Original claim</b>
-          {original}
-        </span>
-      </span>
-    );
-  }
-  // flag mode: paraphrased original is visible, AI suggestion shown on hover
+  const tipLabel = original
+    ? "Original claim"
+    : correction
+      ? "AI suggestion"
+      : "Flagged · verify";
+  const tipBody =
+    original ?? correction ?? "This claim could not be confirmed against a cited source.";
   return (
     <span className="flagged">
       <span className="flag-text">{children}</span>
@@ -279,8 +280,8 @@ function Flagged({
         <FlagDocIcon />
       </span>
       <span className="tip">
-        <b>{correction ? "AI suggestion" : "Flagged · verify"}</b>
-        {correction ?? "This claim could not be confirmed against a cited source."}
+        <b>{tipLabel}</b>
+        {tipBody}
       </span>
     </span>
   );
@@ -366,64 +367,42 @@ function renderBlocks(
   function renderItems(items: LiItem[]): React.ReactNode[] {
     return items.map((item, j) => (
       <li key={j}>
-        {renderInline(item.text)}
-        {cite(item.cite)}
+        {renderWithCite(item.text, item.cite)}
         {item.children.length > 0 && <ul>{renderItems(item.children)}</ul>}
       </li>
     ));
   }
 
-  function cite(src: SrcRef | null) {
-    if (!src) return null;
-    const n = reg.getNum(src);
-    const href = src.id
-      ? `/home/${classId}/${topicId}/collection?sources=${src.id}`
-      : undefined;
-    return <SourceCite n={n} name={src.name} href={href} />;
+  function cite(srcs: SrcRef[]) {
+    if (srcs.length === 0) return null;
+    const resolved = srcs.map((src) => ({
+      n: reg.getNum(src),
+      name: src.name,
+      href: src.id ? `/home/${classId}/${topicId}/collection?sources=${src.id}` : undefined,
+    }));
+    if (resolved.length === 1) {
+      const { n, name, href } = resolved[0];
+      return <SourceCite n={n} name={name} href={href} />;
+    }
+    return <SourceGroup sources={resolved} />;
+  }
+
+  function renderWithCite(text: string, srcs: SrcRef[]): React.ReactNode {
+    if (srcs.length === 0) return renderInline(text);
+    return <>{renderInline(text)}{cite(srcs)}</>;
   }
 
   for (const b of blocks) {
     switch (b.kind) {
       case "h1":
-        out.push(
-          <h1 key={k++}>
-            {renderInline(b.text)}
-            {cite(b.cite)}
-          </h1>,
-        );
-        break;
       case "h2":
-        out.push(
-          <h2 key={k++}>
-            {renderInline(b.text)}
-            {cite(b.cite)}
-          </h2>,
-        );
-        break;
       case "h3":
-        out.push(
-          <h3 key={k++}>
-            {renderInline(b.text)}
-            {cite(b.cite)}
-          </h3>,
-        );
-        break;
       case "h4":
-        out.push(
-          <h4 key={k++}>
-            {renderInline(b.text)}
-            {cite(b.cite)}
-          </h4>,
-        );
+      case "p": {
+        const Tag = b.kind;
+        out.push(<Tag key={k++}>{renderWithCite(b.text, b.cite)}</Tag>);
         break;
-      case "p":
-        out.push(
-          <p key={k++}>
-            {renderInline(b.text)}
-            {cite(b.cite)}
-          </p>,
-        );
-        break;
+      }
       case "li-group":
         out.push(<ul key={k++}>{renderItems(b.items)}</ul>);
         break;
