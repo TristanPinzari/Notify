@@ -3,22 +3,6 @@
 Things that are noted but intentionally not fixed yet. Not bugs in the sense
 of "broken," but gaps worth closing eventually.
 
-## Master doc language translation not yet implemented
-
-Post-compile translation is the planned approach — run the finished master doc
-text through a translation API (e.g. DeepL or Google Translate) rather than
-prompting the AI to write in a target language. Add as a standalone action on
-an existing master doc.
-
-## Sentry `tracesSampleRate` set to 1 in all environments
-
-`tracesSampleRate: 1` traces 100% of requests. Acceptable in development but
-will burn through Sentry's free quota quickly in production (50K traces/month
-on the free tier). Lower to `0.1` (10%) before deploying.
-
-Fix: set `tracesSampleRate` to `0.1` in all three Sentry config files
-(`sentry.server.config.ts`, `sentry.edge.config.ts`, `src/instrumentation-client.ts`).
-
 ## No cookie consent banner
 
 PostHog analytics runs without user consent. GDPR (EU) and PIPEDA (Canada)
@@ -28,22 +12,6 @@ Skip for now; add before any public launch.
 Fix idea: use PostHog's consent mode (`persistence: "memory"` until accepted,
 then `posthog.opt_in_capturing()` on consent) paired with a simple banner
 component shown to new visitors.
-
-## No rate limiting anywhere
-
-None of the server actions (`classes.ts`, `topics.ts`, `contributions.ts`)
-track call frequency per user. `createClass`, `joinClass`, `createTopic`,
-`createContribution`, etc. only check auth + rank before executing — there's
-no cooldown or per-user/per-IP cap.
-
-- `createClass`/`createTopic`/`createContribution` can be spammed to fill
-  tables with junk and waste DB/connection resources.
-- `joinClass(code)` is a guessing oracle. Codes are 8 chars from a 32-char
-  alphabet (~40 bits), so brute force isn't practical today, but nothing
-  besides keyspace size prevents rapid guessing.
-
-Fix idea: a sliding-window counter (Redis, or a Postgres table) keyed by
-`userId` + action name, checked before the DB write.
 
 ## Deployment platform — not yet decided
 
@@ -77,9 +45,3 @@ Options considered:
 on its native platform, Temporal without self-hosting its server, managed
 Postgres) without taking on infra ops the project doesn't need to own yet.
 Doesn't block moving to option 3 later if it's outgrown.
-
-## No ownership transfer / recovery path
-
-A class's `"owner"` rank can only be granted at `createClass` time.
-`changeUserRank` can never promote to `"owner"`, and the owner can't
-`leaveClass`. If the owner's account is lost, the class has no recovery path.

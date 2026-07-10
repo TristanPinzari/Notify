@@ -551,7 +551,7 @@ export async function cleanOrphanedFiles() {
       if (now - (obj.LastModified?.getTime() ?? now) <= GRACE_MS) continue;
       if (obj.Key.startsWith("contributions/") && !contribKeySet.has(obj.Key))
         orphans.push(obj.Key);
-      else if (obj.Key.startsWith("master-pdfs/") && !pdfKeySet.has(obj.Key))
+      else if (obj.Key.startsWith("pdfs/") && !pdfKeySet.has(obj.Key))
         orphans.push(obj.Key);
     }
     continuationToken =
