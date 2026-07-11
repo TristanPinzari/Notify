@@ -369,7 +369,7 @@ export async function deleteContribution(
       })
       .from(contributions)
       .innerJoin(topics, eq(contributions.topicId, topics.id))
-      .innerJoin(user, eq(contributions.uploadedBy, user.id))
+      .leftJoin(user, eq(contributions.uploadedBy, user.id))
       .where(
         and(eq(contributions.id, contributionId), eq(topics.classId, classId)),
       )

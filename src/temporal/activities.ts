@@ -228,7 +228,7 @@ export async function runCompilation(
         uploadedBy: contributions.uploadedBy,
       })
       .from(contributions)
-      .innerJoin(user, eq(user.id, contributions.uploadedBy))
+      .leftJoin(user, eq(user.id, contributions.uploadedBy))
       .where(
         and(
           eq(contributions.topicId, topicId),
@@ -239,7 +239,7 @@ export async function runCompilation(
 
     const forPrompt = rows
       .filter((r) => r.text !== null)
-      .map((r) => ({ ...r, text: r.text! }));
+      .map((r) => ({ ...r, text: r.text!, uploaderName: r.uploaderName ?? "Deleted user" }));
 
     if (forPrompt.length === 0) {
       console.error(

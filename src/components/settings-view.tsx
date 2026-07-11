@@ -261,11 +261,11 @@ function renderLogLine(classId: string, entry: LogEntry): React.ReactNode {
   const actor = entry.userId ? (
     <b>
       <Link href={`/home/${classId}/members?members=${entry.userId}`}>
-        {entry.userName ?? "Someone"}
+        {entry.userName ?? "Deleted user"}
       </Link>
     </b>
   ) : (
-    <b>{entry.userName ?? "Someone"}</b>
+    <b>{entry.userName ?? "Deleted user"}</b>
   );
 
   const ml = (ref: { id: string; name: string }) => (
@@ -885,10 +885,7 @@ function TransferNowModal({
                 Transferring…
               </>
             ) : (
-              <>
-                <MembersIcon />
-                Transfer ownership
-              </>
+              <>Transfer ownership</>
             )}
           </button>
         </div>

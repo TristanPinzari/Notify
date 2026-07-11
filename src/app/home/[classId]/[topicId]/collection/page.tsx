@@ -59,7 +59,7 @@ export default async function CollectionPage({
         createdAt: contributions.createdAt,
       })
       .from(contributions)
-      .innerJoin(user, eq(contributions.uploadedBy, user.id))
+      .leftJoin(user, eq(contributions.uploadedBy, user.id))
       .innerJoin(topics, eq(contributions.topicId, topics.id))
       .where(
         and(eq(contributions.topicId, topicId), eq(topics.classId, classId)),
@@ -98,6 +98,8 @@ export default async function CollectionPage({
 
   const serialized = rows.map((r) => ({
     ...r,
+    uploaderName: r.uploaderName ?? "Deleted user",
+    uploaderId: r.uploaderId ?? "",
     createdAt: r.createdAt.toISOString(),
   }));
 

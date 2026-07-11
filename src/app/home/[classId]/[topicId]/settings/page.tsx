@@ -69,7 +69,7 @@ export default async function TopicSettingsPage({
         creatorName: user.name,
       })
       .from(topics)
-      .innerJoin(user, eq(topics.createdBy, user.id))
+      .leftJoin(user, eq(topics.createdBy, user.id))
       .where(and(eq(topics.id, topicId), eq(topics.classId, classId)))
       .limit(1),
 
@@ -109,8 +109,8 @@ export default async function TopicSettingsPage({
         id: topicRow.id,
         name: topicRow.name,
         createdAt: topicRow.createdAt.toISOString(),
-        createdByName: topicRow.creatorName,
-        createdById: topicRow.createdBy,
+        createdByName: topicRow.creatorName ?? "Deleted user",
+        createdById: topicRow.createdBy ?? "",
         createdByMe: topicRow.createdBy === userId,
         canDelete,
         canRename,

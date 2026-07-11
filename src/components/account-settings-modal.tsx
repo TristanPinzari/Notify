@@ -13,6 +13,8 @@ import { getAvatarUploadUrl } from "@/server/actions/avatar";
 import {
   getUserNotifications,
   updateUserNotification,
+  getAccountDeletionPreview,
+  deleteAccount,
 } from "@/server/actions/user";
 import type { NotifPrefs } from "@/server/actions/user";
 import { Toggle } from "@/components/toggle";
@@ -25,6 +27,7 @@ import {
   UserIcon,
   CheckIcon,
   UploadIcon,
+  WarnIcon,
 } from "@/components/icons";
 import { applyConsent, useConsent } from "@/lib/consent";
 
@@ -348,6 +351,179 @@ function ProfilePanel({
   );
 }
 
+/* ── Delete account modal ───────────────────────────────────────── */
+const DELETE_PHRASE = "delete my account";
+
+function DeleteAccountModal({ onClose }: { onClose: () => void }) {
+  const router = useRouter();
+  const [text, setText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [preview, setPreview] = useState<{
+    willDelete: { id: string; name: string }[];
+    willTransfer: { id: string; name: string }[];
+  } | null>(null);
+  const [noTransfer, setNoTransfer] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    getAccountDeletionPreview().then(setPreview);
+  }, []);
+
+  function toggleTransfer(id: string) {
+    setNoTransfer((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const willDelete = preview?.willDelete ?? [];
+  const willTransfer = preview?.willTransfer ?? [];
+
+  async function confirm() {
+    setDeleting(true);
+    const decisions = [
+      ...willTransfer.map((c) => ({
+        classId: c.id,
+        transfer: !noTransfer.has(c.id),
+      })),
+      ...willDelete.map((c) => ({
+        classId: c.id,
+        transfer: true as const,
+      })),
+    ];
+    const res = await deleteAccount(decisions);
+    if ("error" in res) {
+      if ("code" in res && res.code === "OUT_OF_SYNC") {
+        setNoTransfer(new Set());
+        setPreview(null);
+        getAccountDeletionPreview().then(setPreview);
+        toast.warning(
+          "Your class list changed. Please review and confirm again.",
+        );
+      } else {
+        toast.error(res.error);
+      }
+      setDeleting(false);
+      return;
+    }
+    try {
+      await authClient.signOut();
+    } catch {
+      // session already gone — ignore
+    }
+    router.push("/");
+  }
+
+  return (
+    <>
+      <div className="modal-backdrop" onClick={() => !deleting && onClose()} />
+      <div className="modal max-w-115">
+        <div className="del-mhead">
+          <span className="del-mic">
+            <WarnIcon size={19} />
+          </span>
+          <h3>Delete your account?</h3>
+        </div>
+        <p className="del-mbody m-0!">
+          This permanently deletes your account and removes you from all
+          classes. There is no recovery.
+        </p>
+
+        {preview && preview.willTransfer.length > 0 && (
+          <div className="mt-3 rounded-lg border border-(--line) bg-(--paper) overflow-hidden">
+            <p className="text-[11px] font-semibold text-(--ink-faint) uppercase tracking-wide px-3.5 pt-3 pb-2">
+              Ownership transfer
+            </p>
+            {preview.willTransfer.map((c) => {
+              const transferring = !noTransfer.has(c.id);
+              return (
+                <div
+                  key={c.id}
+                  className="flex items-center gap-3 px-3.5 py-2.5 border-t border-(--line-soft)"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12.5px] font-medium text-(--ink-heading) truncate">
+                      {c.name}
+                    </p>
+                    <p
+                      className={`text-[11.5px] mt-0.5 ${transferring ? "text-(--ink-faint)" : "text-(--danger)"}`}
+                    >
+                      {transferring
+                        ? "Oldest member becomes owner"
+                        : "Class will have no owner"}
+                    </p>
+                  </div>
+                  <Toggle
+                    checked={transferring}
+                    onChange={() => toggleTransfer(c.id)}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {willDelete.length > 0 && (
+          <div className="my-3 rounded-lg border border-(--danger-soft) overflow-hidden">
+            <p className="text-[11px] font-semibold text-(--danger) uppercase tracking-wide px-3.5 pt-3 pb-2">
+              Will be permanently deleted
+            </p>
+            {willDelete.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center gap-2 px-3.5 py-2.5 border-t border-(--danger-soft)"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-(--danger) shrink-0" />
+                <span className="text-[12.5px] text-(--ink-body)">
+                  {c.name}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <p className="del-hint mt-3!">
+          To confirm, type <code>{DELETE_PHRASE}</code> below.
+        </p>
+        <input
+          className={`sv-input${text && text !== DELETE_PHRASE ? " border-(--danger-soft)" : ""}`}
+          value={text}
+          autoFocus
+          placeholder={DELETE_PHRASE}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && text === DELETE_PHRASE) confirm();
+          }}
+        />
+        <div className="del-actions">
+          <button
+            className="btn btn-ghost"
+            onClick={onClose}
+            disabled={deleting}
+          >
+            Cancel
+          </button>
+          <button
+            className="btn-danger-solid"
+            disabled={text !== DELETE_PHRASE || deleting}
+            onClick={confirm}
+          >
+            {deleting ? (
+              <>
+                <span className="mini-spin" />
+                Deleting…
+              </>
+            ) : (
+              "Delete my account"
+            )}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 /* ── Security panel ─────────────────────────────────────────────── */
 function SecurityPanel({ email }: { email: string }) {
   const [cur, setCur] = useState("");
@@ -357,6 +533,7 @@ function SecurityPanel({ email }: { email: string }) {
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [delAccountOpen, setDelAccountOpen] = useState(false);
 
   const ready = cur.length > 0 && nw.length >= 8 && nw === cf;
 
@@ -493,6 +670,27 @@ function SecurityPanel({ email }: { email: string }) {
           </button>
         </Row>
       </div>
+      <div className="mt-5 border-t border-(--line-soft) pt-5">
+        <p className="text-[12px] font-semibold text-(--danger) mb-2.5">
+          Danger zone
+        </p>
+        <div className="bg-(--paper) border border-(--line) rounded-xl overflow-hidden">
+          <Row
+            title="Delete account"
+            desc="Permanently remove your account, contributions, and owned classes."
+          >
+            <button
+              className="btn-danger btn-sm"
+              onClick={() => setDelAccountOpen(true)}
+            >
+              Delete account
+            </button>
+          </Row>
+        </div>
+      </div>
+      {delAccountOpen && (
+        <DeleteAccountModal onClose={() => setDelAccountOpen(false)} />
+      )}
     </>
   );
 }
