@@ -34,6 +34,7 @@ import {
   UploadIcon,
   WarnIcon,
 } from "@/components/icons";
+import { Toggle } from "@/components/toggle";
 import { toast } from "sonner";
 
 /* ─── types ──────────────────────────────────────────────────────── */
@@ -79,6 +80,7 @@ type Props = {
   cls: ClsData;
   topic?: TopicData;
   viewerRank: Rank;
+  hasOtherMembers: boolean;
 };
 
 /* ─── rank metadata ──────────────────────────────────────────────── */
@@ -628,20 +630,26 @@ function LeaveClassModal({
   classId,
   className,
   successorName,
+  isOwner,
   onClose,
 }: {
   classId: string;
   className: string;
   successorName?: string;
+  isOwner?: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
   const [leaving, setLeaving] = useState(false);
+  const [transfer, setTransfer] = useState(true);
   useEscapeKey(() => !leaving && onClose());
 
   async function confirm() {
     setLeaving(true);
-    const res = await leaveClass(classId);
+    const res = await leaveClass(
+      classId,
+      isOwner ? (successorName ? true : transfer) : undefined,
+    );
     if ("error" in res) {
       toast.error(res.error);
     } else {
@@ -675,11 +683,33 @@ function LeaveClassModal({
             </>
           ) : (
             <>
-              You will lose access to <b>{className}</b> and all its topics. You
-              can rejoin with an invite link or code if one is available.
+              You will leave <b>{className}</b>. To rejoin you&apos;ll need an
+              invite link or code.
             </>
           )}
         </p>
+        {isOwner && !successorName && (
+          <div className="mt-3 rounded-lg border border-(--line) bg-(--paper) overflow-hidden">
+            <div className="flex items-center gap-3 px-3.5 py-2.5">
+              <div className="flex-1 min-w-0">
+                <p className="text-[12.5px] font-medium text-(--ink-heading)">
+                  Auto-transfer ownership
+                </p>
+                <p
+                  className={`text-[11.5px] mt-0.5 ${transfer ? "text-(--ink-faint)" : "text-(--danger)"}`}
+                >
+                  {transfer
+                    ? "The oldest member becomes the new owner"
+                    : "Class will have no owner"}
+                </p>
+              </div>
+              <Toggle
+                checked={transfer}
+                onChange={() => setTransfer((t) => !t)}
+              />
+            </div>
+          </div>
+        )}
         <div className="del-actions">
           <button
             className="btn btn-ghost"
@@ -901,6 +931,7 @@ export default function SettingsView({
   cls,
   topic,
   viewerRank,
+  hasOtherMembers,
 }: Props) {
   const router = useRouter();
   const isOwner = viewerRank === "owner";
@@ -1201,7 +1232,7 @@ export default function SettingsView({
               </button>
             </div>
           )}
-          {isOwner && (
+          {isOwner && hasOtherMembers && (
             <div className="sv-row">
               <div className="sv-sl">
                 <div className="sv-st">Transfer ownership</div>
@@ -1250,33 +1281,42 @@ export default function SettingsView({
               </div>
             </div>
           )}
-          <div className="sv-row">
-            <div className="sv-sl">
-              <div className="sv-st">Leave class</div>
-              <div className="sv-desc">
-                {isOwner ? (
-                  successor ? (
+          {isOwner && hasOtherMembers && (
+            <div className="sv-row">
+              <div className="sv-sl">
+                <div className="sv-st">Leave class</div>
+                <div className="sv-desc">
+                  {successor ? (
                     <>
                       Leaving will transfer ownership to{" "}
                       <b className="text-(--ink-heading)">{successor.name}</b>.
                     </>
                   ) : (
-                    "Designate a successor above before leaving."
-                  )
-                ) : (
-                  "Remove yourself from this class. You can rejoin with an invite link or code."
-                )}
+                    "Leave and automatically transfer ownership to the oldest member."
+                  )}
+                </div>
               </div>
+              <button className="btn-danger" onClick={() => setLeaveOpen(true)}>
+                <LogOutIcon />
+                Leave class
+              </button>
             </div>
-            <button
-              className="btn-danger"
-              disabled={isOwner && !successor}
-              onClick={() => setLeaveOpen(true)}
-            >
-              <LogOutIcon />
-              Leave class
-            </button>
-          </div>
+          )}
+          {!isOwner && (
+            <div className="sv-row">
+              <div className="sv-sl">
+                <div className="sv-st">Leave class</div>
+                <div className="sv-desc">
+                  Remove yourself from this class. You can rejoin with an invite
+                  link or code.
+                </div>
+              </div>
+              <button className="btn-danger" onClick={() => setLeaveOpen(true)}>
+                <LogOutIcon />
+                Leave class
+              </button>
+            </div>
+          )}
           {isOwner && (
             <div className="sv-row">
               <div className="sv-sl">
@@ -1356,6 +1396,7 @@ export default function SettingsView({
           classId={classId}
           className={cls.name}
           successorName={successor?.name}
+          isOwner={isOwner}
           onClose={() => setLeaveOpen(false)}
         />
       )}

@@ -270,7 +270,11 @@ a {
   color: var(--accent-text);
   text-decoration: underline;
   text-underline-offset: 2px;
-  text-decoration-color: color-mix(in srgb, var(--accent-text) 40%, transparent);
+  text-decoration-color: color-mix(
+    in srgb,
+    var(--accent-text) 40%,
+    transparent
+  );
   transition: text-decoration-color 0.15s;
 }
 .lk-accent:hover {
@@ -2261,6 +2265,14 @@ textarea.inwrap::placeholder {
   background: rgba(50, 45, 35, 0.38);
   backdrop-filter: blur(2px);
   z-index: 200;
+}
+
+.modal-backdrop-top {
+  position: fixed;
+  inset: 0;
+  background: rgba(50, 45, 35, 0.45);
+  backdrop-filter: blur(6px);
+  z-index: 202;
 }
 
 .modal {

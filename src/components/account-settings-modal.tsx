@@ -417,8 +417,11 @@ function DeleteAccountModal({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <div className="modal-backdrop" onClick={() => !deleting && onClose()} />
-      <div className="modal max-w-115">
+      <div
+        className="modal-backdrop-top"
+        onClick={() => !deleting && onClose()}
+      />
+      <div className="modal max-w-115 z-203!">
         <div className="del-mhead">
           <span className="del-mic">
             <WarnIcon size={19} />
@@ -450,7 +453,7 @@ function DeleteAccountModal({ onClose }: { onClose: () => void }) {
                       className={`text-[11.5px] mt-0.5 ${transferring ? "text-(--ink-faint)" : "text-(--danger)"}`}
                     >
                       {transferring
-                        ? "Oldest member becomes owner"
+                        ? "The oldest member becomes the new owner"
                         : "Class will have no owner"}
                     </p>
                   </div>
@@ -525,7 +528,13 @@ function DeleteAccountModal({ onClose }: { onClose: () => void }) {
 }
 
 /* ── Security panel ─────────────────────────────────────────────── */
-function SecurityPanel({ email }: { email: string }) {
+function SecurityPanel({
+  email,
+  onDeleteAccount,
+}: {
+  email: string;
+  onDeleteAccount: () => void;
+}) {
   const [cur, setCur] = useState("");
   const [nw, setNw] = useState("");
   const [cf, setCf] = useState("");
@@ -533,7 +542,6 @@ function SecurityPanel({ email }: { email: string }) {
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  const [delAccountOpen, setDelAccountOpen] = useState(false);
 
   const ready = cur.length > 0 && nw.length >= 8 && nw === cf;
 
@@ -679,18 +687,12 @@ function SecurityPanel({ email }: { email: string }) {
             title="Delete account"
             desc="Permanently remove your account, contributions, and owned classes."
           >
-            <button
-              className="btn-danger btn-sm"
-              onClick={() => setDelAccountOpen(true)}
-            >
+            <button className="btn-danger btn-sm" onClick={onDeleteAccount}>
               Delete account
             </button>
           </Row>
         </div>
       </div>
-      {delAccountOpen && (
-        <DeleteAccountModal onClose={() => setDelAccountOpen(false)} />
-      )}
     </>
   );
 }
@@ -884,8 +886,9 @@ export function AccountSettingsModal({ user, onClose }: Props) {
   const [displayImage, setDisplayImage] = useState<string | null>(
     user.image ?? null,
   );
+  const [delAccountOpen, setDelAccountOpen] = useState(false);
 
-  useEscapeKey(onClose);
+  useEscapeKey(!delAccountOpen ? onClose : () => {});
 
   async function signOut() {
     await authClient.signOut();
@@ -965,12 +968,20 @@ export function AccountSettingsModal({ user, onClose }: Props) {
                 onImageSaved={setDisplayImage}
               />
             )}
-            {tab === "security" && <SecurityPanel email={user.email} />}
+            {tab === "security" && (
+              <SecurityPanel
+                email={user.email}
+                onDeleteAccount={() => setDelAccountOpen(true)}
+              />
+            )}
             {tab === "notifications" && <NotificationsPanel />}
             {tab === "preferences" && <PreferencesPanel />}
           </div>
         </section>
       </div>
+      {delAccountOpen && (
+        <DeleteAccountModal onClose={() => setDelAccountOpen(false)} />
+      )}
     </>
   );
 }

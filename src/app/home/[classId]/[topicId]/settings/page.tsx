@@ -7,7 +7,7 @@ import {
   topics,
   RANK_VALUE,
 } from "@/server/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
@@ -27,7 +27,7 @@ export default async function TopicSettingsPage({
 
   const userId = session.user.id;
 
-  const [[cls], [member], [topicRow], [ownerRow]] = await Promise.all([
+  const [[cls], [member], [topicRow], [ownerRow], [otherMember]] = await Promise.all([
     db
       .select({
         id: classes.id,
@@ -79,6 +79,12 @@ export default async function TopicSettingsPage({
       .innerJoin(user, eq(userClasses.userId, user.id))
       .where(and(eq(userClasses.classId, classId), eq(userClasses.rank, "owner")))
       .limit(1),
+
+    db
+      .select({ userId: userClasses.userId })
+      .from(userClasses)
+      .where(and(eq(userClasses.classId, classId), ne(userClasses.userId, userId)))
+      .limit(1),
   ]);
 
   if (!cls) notFound();
@@ -116,6 +122,7 @@ export default async function TopicSettingsPage({
         canRename,
       }}
       viewerRank={member.rank}
+      hasOtherMembers={!!otherMember}
     />
   );
 }

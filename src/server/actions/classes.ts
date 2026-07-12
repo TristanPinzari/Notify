@@ -11,7 +11,7 @@ import {
   ClassSettings,
   RANK_VALUE,
 } from "@/server/db/schema";
-import { eq, and, desc, gt, lt, count, inArray, ne } from "drizzle-orm";
+import { eq, and, desc, gt, lt, count, inArray, ne, asc } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import { after } from "next/server";
@@ -160,7 +160,7 @@ export async function joinClass(code: string) {
   }
 }
 
-export async function leaveClass(classId: string) {
+export async function leaveClass(classId: string, transfer = true) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
 
@@ -178,54 +178,71 @@ export async function leaveClass(classId: string) {
       .limit(1);
 
     if (rank === "owner") {
-      if (!cls?.nextOwnerId)
-        return { error: "Designate a successor before leaving." };
+      const nextOwnerId = cls?.nextOwnerId ?? null;
 
-      const nextOwnerId = cls.nextOwnerId;
-      const [nextOwnerRow] = await db
-        .select({ name: user.name, rank: userClasses.rank })
-        .from(userClasses)
-        .innerJoin(user, eq(userClasses.userId, user.id))
-        .where(
-          and(
-            eq(userClasses.classId, classId),
-            eq(userClasses.userId, nextOwnerId),
-          ),
-        )
-        .limit(1);
+      if (nextOwnerId) {
+        // Designated successor — promote them
+        const [nextOwnerRow] = await db
+          .select({ name: user.name, rank: userClasses.rank })
+          .from(userClasses)
+          .innerJoin(user, eq(userClasses.userId, user.id))
+          .where(and(eq(userClasses.classId, classId), eq(userClasses.userId, nextOwnerId)))
+          .limit(1);
 
-      await db.transaction(async (tx) => {
-        await tx
-          .update(userClasses)
-          .set({ rank: "owner" })
-          .where(
-            and(
-              eq(userClasses.classId, classId),
-              eq(userClasses.userId, nextOwnerId),
-            ),
+        await db.transaction(async (tx) => {
+          await tx.update(userClasses).set({ rank: "owner" }).where(
+            and(eq(userClasses.classId, classId), eq(userClasses.userId, nextOwnerId)),
           );
-        await tx
-          .delete(userClasses)
-          .where(
-            and(
-              eq(userClasses.classId, classId),
-              eq(userClasses.userId, session.user.id),
-            ),
+          await tx.delete(userClasses).where(
+            and(eq(userClasses.classId, classId), eq(userClasses.userId, session.user.id)),
           );
-        await tx
-          .update(classes)
-          .set({ nextOwnerId: null })
-          .where(eq(classes.id, classId));
-      });
-
-      if (nextOwnerRow) {
-        logActivity(classId, session.user.id, {
-          action: "rank_changed",
-          target: { id: nextOwnerId, name: nextOwnerRow.name },
-          rank: "owner",
-          oldRank: nextOwnerRow.rank,
+          await tx.update(classes).set({ nextOwnerId: null }).where(eq(classes.id, classId));
         });
+
+        if (nextOwnerRow) {
+          logActivity(classId, session.user.id, {
+            action: "rank_changed",
+            target: { id: nextOwnerId, name: nextOwnerRow.name },
+            rank: "owner",
+            oldRank: nextOwnerRow.rank,
+          });
+        }
+      } else if (transfer) {
+        // Auto-transfer to oldest remaining member
+        const [oldest] = await db
+          .select({ userId: userClasses.userId, name: user.name, rank: userClasses.rank })
+          .from(userClasses)
+          .innerJoin(user, eq(userClasses.userId, user.id))
+          .where(and(eq(userClasses.classId, classId), ne(userClasses.userId, session.user.id)))
+          .orderBy(asc(userClasses.joinedAt))
+          .limit(1);
+
+        await db.transaction(async (tx) => {
+          if (oldest) {
+            await tx.update(userClasses).set({ rank: "owner" }).where(
+              and(eq(userClasses.classId, classId), eq(userClasses.userId, oldest.userId)),
+            );
+          }
+          await tx.delete(userClasses).where(
+            and(eq(userClasses.classId, classId), eq(userClasses.userId, session.user.id)),
+          );
+        });
+
+        if (oldest) {
+          logActivity(classId, session.user.id, {
+            action: "rank_changed",
+            target: { id: oldest.userId, name: oldest.name },
+            rank: "owner",
+            oldRank: oldest.rank,
+          });
+        }
+      } else {
+        // Orphan — just leave
+        await db.delete(userClasses).where(
+          and(eq(userClasses.classId, classId), eq(userClasses.userId, session.user.id)),
+        );
       }
+
       logActivity(classId, session.user.id, { action: "member_left" });
       return { success: true };
     }
