@@ -49,15 +49,51 @@ const RANK_LABEL: Record<Rank, string> = {
   admin: "Admin",
   owner: "Owner",
 };
+const RANK_BADGE_STYLES: Record<
+  Rank,
+  { bg: string; border: string; color: string }
+> = {
+  viewer: { bg: "var(--line-soft)", border: "var(--line)", color: "var(--ink-nav)" },
+  contributor: { bg: "rgba(58,95,168,0.1)", border: "rgba(58,95,168,0.2)", color: "#3a5fa8" },
+  admin: { bg: "rgba(196,121,24,0.12)", border: "rgba(196,121,24,0.25)", color: "var(--accent-text)" },
+  owner: { bg: "rgba(158,59,50,0.1)", border: "rgba(158,59,50,0.22)", color: "var(--danger)" },
+};
+
+// ─── Shared permission derivation ─────────────────────────────────────────────
+
+function derivePermissions(
+  viewerRank: Rank,
+  memberRank: Rank,
+  canChangeRank: boolean,
+  canKick: boolean,
+  canBan: boolean,
+) {
+  const vIdx = RANK_VALUE[viewerRank];
+  const outranks = RANK_VALUE[memberRank] < vIdx && memberRank !== "owner";
+  const showChangeRank = canChangeRank && outranks;
+  const showKick = canKick && outranks;
+  const showBan = canBan && outranks;
+  return {
+    vIdx,
+    showChangeRank,
+    showKick,
+    showBan,
+    showActions: showChangeRank || showKick || showBan,
+    assignable: RANKS.filter((r) => RANK_VALUE[r] < vIdx),
+  };
+}
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type MemberRow = {
   userId: string;
   name: string;
   image: string | null;
+  email: string | null;
   rank: Rank;
   joinedAt: string;
   contributions: number;
+  lastActive: string | null;
+  sharedClasses: number;
 };
 
 export type BannedRow = {
@@ -94,6 +130,19 @@ function copyToClipboard(text: string, msg: string) {
     .writeText(text)
     .then(() => toast.success(msg))
     .catch(() => toast.error("Clipboard access denied."));
+}
+
+// ─── You pill ────────────────────────────────────────────────────────────────
+
+function YouPill({ bg = "var(--paper-deep)" }: { bg?: string }) {
+  return (
+    <span
+      className="text-[10px] font-semibold text-(--ink-nav) border border-(--line) px-1.5 py-px rounded-full"
+      style={{ background: bg }}
+    >
+      You
+    </span>
+  );
 }
 
 // ─── Avatar ──────────────────────────────────────────────────────────────────
@@ -144,41 +193,19 @@ function Avatar({
 
 // ─── Rank badge ──────────────────────────────────────────────────────────────
 
-function RankBadge({ rank }: { rank: Rank }) {
-  const styles: Record<Rank, { bg: string; border: string; color: string }> = {
-    viewer: {
-      bg: "rgba(60,45,25,0.07)",
-      border: "rgba(60,45,25,0.10)",
-      color: "var(--ink-nav)",
-    },
-    contributor: {
-      bg: "rgba(58,95,168,0.1)",
-      border: "rgba(58,95,168,0.2)",
-      color: "#3a5fa8",
-    },
-    admin: {
-      bg: "rgba(196,121,24,0.12)",
-      border: "rgba(196,121,24,0.25)",
-      color: "var(--accent-text)",
-    },
-    owner: {
-      bg: "rgba(158,59,50,0.1)",
-      border: "rgba(158,59,50,0.22)",
-      color: "var(--danger)",
-    },
-  };
-  const s = styles[rank];
+function RankBadge({ rank, lg }: { rank: Rank; lg?: boolean }) {
+  const s = RANK_BADGE_STYLES[rank];
   return (
     <span
-      className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.75 rounded-full shrink-0 capitalize"
+      className={`inline-flex items-center gap-1 font-semibold rounded-full shrink-0 capitalize ${lg ? "text-[12.5px] px-3 py-1.25" : "text-[11px] px-2 py-0.75"}`}
       style={{
         background: s.bg,
         border: `1px solid ${s.border}`,
         color: s.color,
       }}
     >
-      {rank === "owner" && <CrownIcon size={10} />}
-      {rank === "admin" && <ShieldIcon size={10} />}
+      {rank === "owner" && <CrownIcon size={lg ? 12 : 10} />}
+      {rank === "admin" && <ShieldIcon size={lg ? 12 : 10} />}
       {RANK_LABEL[rank]}
     </span>
   );
@@ -235,21 +262,16 @@ function ActionMenu({
     };
   }, [open]);
 
-  const vIdx = RANK_VALUE[viewerRank];
-  const tIdx = RANK_VALUE[member.rank];
-  const outranks = tIdx < vIdx && member.rank !== "owner";
+  const { showChangeRank, showKick, showBan, showActions, assignable } =
+    derivePermissions(viewerRank, member.rank, canChangeRank, canKick, canBan);
 
-  const showChangeRank = canChangeRank && outranks;
-  const showKick = canKick && outranks;
-  const showBan = canBan && outranks;
-
-  if (!showChangeRank && !showKick && !showBan)
-    return <span className="w-8 shrink-0" />;
-
-  const assignable = RANKS.filter((r) => RANK_VALUE[r] < vIdx);
+  if (!showActions) return <span className="w-8 shrink-0" />;
 
   function handleOpen() {
-    if (open) { setOpen(false); return; }
+    if (open) {
+      setOpen(false);
+      return;
+    }
     if (btnRef.current) {
       const r = btnRef.current.getBoundingClientRect();
       setPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
@@ -267,60 +289,74 @@ function ActionMenu({
       >
         <DotsVerticalIcon size={18} />
       </button>
-      {open && pos && createPortal(
-        <div
-          ref={menuRef}
-          className="fixed w-48 bg-(--paper-raised) border border-(--line-strong) rounded-[11px] shadow-[0_14px_34px_-12px_rgba(40,30,15,0.4)] p-1.5 z-200"
-          style={{ top: pos.top, right: pos.right, animation: "pop 0.13s ease" }}
-        >
-          {showChangeRank && (
-            <>
-              <div className="font-mono text-[9.5px] tracking-[0.12em] uppercase text-(--ink-fainter) px-2.5 pt-1.5 pb-1">
-                Change rank
-              </div>
-              {assignable.map((r) => (
-                <button
-                  key={r}
-                  className="w-full flex items-center justify-between gap-2 bg-transparent border-none text-left text-sm text-(--ink-body) px-2.5 py-2 rounded-[7px] hover:bg-[rgba(60,45,25,0.05)] cursor-pointer transition-colors"
-                  onClick={() => { setOpen(false); onChangeRank(r); }}
-                >
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ background: RANK_DOT[r] }}
-                    />
-                    {RANK_LABEL[r]}
-                  </span>
-                  {r === member.rank && <CheckIcon size={13} />}
-                </button>
-              ))}
-            </>
-          )}
-          {showChangeRank && (showKick || showBan) && (
-            <div className="h-px bg-(--line-soft) mx-1 my-1.5" />
-          )}
-          {showKick && (
-            <button
-              className="w-full flex items-center gap-2 bg-transparent border-none text-left text-sm text-(--ink-body) px-2.5 py-2 rounded-[7px] hover:bg-[rgba(60,45,25,0.05)] cursor-pointer transition-colors"
-              onClick={() => { setOpen(false); onKick(); }}
-            >
-              <LockIcon />
-              Remove from class
-            </button>
-          )}
-          {showBan && (
-            <button
-              className="w-full flex items-center gap-2 bg-transparent border-none text-left text-sm px-2.5 py-2 rounded-[7px] hover:bg-(--danger-bg) cursor-pointer transition-colors"
-              style={{ color: "var(--danger)" }}
-              onClick={() => { setOpen(false); onBan(); }}
-            >
-              <BanIcon size={15} />
-              Ban member
-            </button>
-          )}
-        </div>,
-        document.body,
-      )}
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="fixed w-48 bg-(--paper-raised) border border-(--line-strong) rounded-[11px] shadow-[0_14px_34px_-12px_rgba(40,30,15,0.4)] p-1.5 z-200"
+            style={{
+              top: pos.top,
+              right: pos.right,
+              animation: "pop 0.13s ease",
+            }}
+          >
+            {showChangeRank && (
+              <>
+                <div className="font-mono text-[9.5px] tracking-[0.12em] uppercase text-(--ink-fainter) px-2.5 pt-1.5 pb-1">
+                  Change rank
+                </div>
+                {assignable.map((r) => (
+                  <button
+                    key={r}
+                    className="w-full flex items-center justify-between gap-2 bg-transparent border-none text-left text-sm text-(--ink-body) px-2.5 py-2 rounded-[7px] hover:bg-(--bg-hover) cursor-pointer transition-colors"
+                    onClick={() => {
+                      setOpen(false);
+                      onChangeRank(r);
+                    }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ background: RANK_DOT[r] }}
+                      />
+                      {RANK_LABEL[r]}
+                    </span>
+                    {r === member.rank && <CheckIcon size={13} />}
+                  </button>
+                ))}
+              </>
+            )}
+            {showChangeRank && (showKick || showBan) && (
+              <div className="h-px bg-(--line-soft) mx-1 my-1.5" />
+            )}
+            {showKick && (
+              <button
+                className="w-full flex items-center gap-2 bg-transparent border-none text-left text-sm text-(--ink-body) px-2.5 py-2 rounded-[7px] hover:bg-(--bg-hover) cursor-pointer transition-colors"
+                onClick={() => {
+                  setOpen(false);
+                  onKick();
+                }}
+              >
+                <LockIcon />
+                Remove from class
+              </button>
+            )}
+            {showBan && (
+              <button
+                className="w-full flex items-center gap-2 bg-transparent border-none text-left text-sm text-(--danger) px-2.5 py-2 rounded-[7px] hover:bg-(--danger-bg) cursor-pointer transition-colors"
+                onClick={() => {
+                  setOpen(false);
+                  onBan();
+                }}
+              >
+                <BanIcon size={15} />
+                Ban member
+              </button>
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -329,7 +365,7 @@ function ActionMenu({
 
 function MemberItem({
   member,
-  topicId,
+  isTopicView,
   isSelf,
   viewerRank,
   canKick,
@@ -338,9 +374,10 @@ function MemberItem({
   onChangeRank,
   onKick,
   onBan,
+  onOpenProfile,
 }: {
   member: MemberRow;
-  topicId?: string;
+  isTopicView: boolean;
   isSelf: boolean;
   viewerRank: Rank;
   canKick: boolean;
@@ -349,25 +386,27 @@ function MemberItem({
   onChangeRank: (rank: Rank) => void;
   onKick: () => void;
   onBan: () => void;
+  onOpenProfile: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3.5 px-4.5 py-3.25 hover:bg-[rgba(60,45,25,0.025)] transition-[background-color] border-b border-(--line-soft) last:border-b-0">
-      <Avatar name={member.name} image={member.image} size={40} />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 text-[14.5px] font-semibold text-(--ink-heading)">
-          <span>{member.name}</span>
-          {isSelf && (
-            <span className="text-[10px] font-semibold text-(--ink-nav) bg-(--paper-deep) border border-(--line) px-1.5 py-px rounded-full">
-              You
-            </span>
-          )}
+    <div className="flex items-center gap-3.5 px-4.5 py-3.25 hover:bg-(--bg-hover-soft) transition-[background-color] border-b border-(--line-soft) last:border-b-0">
+      <button
+        className="flex items-center gap-3.5 flex-1 min-w-0 bg-transparent border-none text-left p-0 cursor-pointer"
+        onClick={onOpenProfile}
+      >
+        <Avatar name={member.name} image={member.image} size={40} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 text-[14.5px] font-semibold text-(--ink-heading)">
+            <span>{member.name}</span>
+            {isSelf && <YouPill />}
+          </div>
+          <div className="text-xs text-(--ink-faint) mt-0.5">
+            Joined {timeAgo(member.joinedAt)} · {member.contributions}{" "}
+            {isTopicView ? "topic" : "class"} contribution
+            {member.contributions !== 1 ? "s" : ""}
+          </div>
         </div>
-        <div className="text-xs text-(--ink-faint) mt-0.5">
-          Joined {timeAgo(member.joinedAt)} · {member.contributions}{" "}
-          {topicId ? "topic" : "class"} contribution
-          {member.contributions !== 1 ? "s" : ""}
-        </div>
-      </div>
+      </button>
       <RankBadge rank={member.rank} />
       <ActionMenu
         member={member}
@@ -652,6 +691,180 @@ function BanInfoModal({
   );
 }
 
+// ─── Profile modal ────────────────────────────────────────────────────────────
+
+function ProfileModal({
+  member,
+  isSelf,
+  isTopicView,
+  viewerRank,
+  canKick,
+  canBan,
+  canChangeRank,
+  onClose,
+  onKick,
+  onBan,
+  onChangeRank,
+}: {
+  member: MemberRow;
+  isSelf: boolean;
+  isTopicView: boolean;
+  viewerRank: Rank;
+  canKick: boolean;
+  canBan: boolean;
+  canChangeRank: boolean;
+  onClose: () => void;
+  onKick: () => void;
+  onBan: () => void;
+  onChangeRank: (rank: Rank) => void;
+}) {
+  useEscapeKey(onClose);
+
+  const { showChangeRank, showKick, showBan, showActions, assignable } =
+    derivePermissions(viewerRank, member.rank, canChangeRank, canKick, canBan);
+
+  return (
+    <>
+      <div className="modal-backdrop" onClick={onClose} />
+      <div
+        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-250 w-[calc(100vw-48px)] max-w-100 bg-(--paper-raised) border border-(--line-strong) rounded-[20px] shadow-[0_34px_90px_-22px_rgba(0,0,0,0.55)] overflow-hidden"
+        style={{ animation: "pop 0.18s ease" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="relative px-6.5 pt-7.5 pb-5 text-center bg-(--paper-deep) border-b border-(--line)">
+          <button
+            className="absolute top-3.5 right-3.5 w-8 h-8 rounded-[9px] flex items-center justify-center text-(--ink-fainter) hover:bg-(--line) hover:text-(--ink-nav) transition-all cursor-pointer"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <XIcon size={17} />
+          </button>
+          <div className="flex justify-center mb-3.5">
+            <Avatar name={member.name} image={member.image} size={68} />
+          </div>
+          <div className="flex items-center justify-center gap-2.5 font-semibold text-xl text-(--ink-heading) mb-2.5">
+            <span>{member.name}</span>
+            {isSelf && <YouPill bg="var(--paper-raised)" />}
+          </div>
+          <div className="flex justify-center mb-3">
+            <RankBadge rank={member.rank} lg />
+          </div>
+          {(canKick || canBan) && member.email && (
+            <div className="flex items-center justify-center gap-1.5 text-[12.5px] text-(--ink-faint)">
+              <MailIcon size={13} />
+              {member.email}
+            </div>
+          )}
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2">
+          <div className="bg-(--paper-raised) px-5 py-4 text-center border-r border-(--line-soft)">
+            <div className="font-semibold text-[26px] text-(--ink-heading) leading-none mb-1.5">
+              {member.contributions}
+            </div>
+            <div className="font-mono text-[10px] tracking-widest uppercase text-(--ink-fainter)">
+              {isTopicView ? "Topic contributions" : "Class contributions"}
+            </div>
+          </div>
+          <div className="bg-(--paper-raised) px-5 py-4 text-center">
+            <div className="font-semibold text-[26px] text-(--ink-heading) leading-none mb-1.5">
+              {member.sharedClasses}
+            </div>
+            <div className="font-mono text-[10px] tracking-widest uppercase text-(--ink-fainter)">
+              {isSelf ? "Classes" : "Shared classes"}
+            </div>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-6.5 py-5 flex flex-col gap-4">
+          <div className="flex justify-between items-center text-[13px] pb-4 border-b border-(--line-soft)">
+            <span className="text-(--ink-faint)">Joined</span>
+            <span className="font-medium text-(--ink-heading)">
+              {new Date(member.joinedAt).toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </span>
+          </div>
+          <div className="flex justify-between items-center text-[13px]">
+            <span
+              className="text-(--ink-faint)"
+              title="Based on contribution uploads, topic creations, and compilations triggered"
+            >
+              Last active
+            </span>
+            <span className="font-medium text-(--ink-heading)">
+              {member.lastActive ? timeAgo(member.lastActive) : "—"}
+            </span>
+          </div>
+          {(showActions || isSelf) && (
+            <>
+              <div className="border-t border-(--line-soft)" />
+              {showChangeRank && (
+                <div>
+                  <div className="text-[11.5px] text-(--ink-faint) mb-2">
+                    Change rank
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {assignable.map((r) => (
+                      <button
+                        key={r}
+                        className={`inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.75 py-1.5 rounded-full border transition-all cursor-pointer ${
+                          r === member.rank
+                            ? "bg-(--accent-soft) text-(--accent-text)"
+                            : "bg-(--paper-deep) border-(--line) text-(--ink-nav) hover:border-(--line-strong)"
+                        }`}
+                        onClick={() => onChangeRank(r)}
+                      >
+                        <span
+                          className="w-1.75 h-1.75 rounded-full shrink-0"
+                          style={{ background: RANK_DOT[r] }}
+                        />
+                        {RANK_LABEL[r]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {(showKick || showBan) && (
+                <div className="flex gap-2">
+                  {showKick && (
+                    <button
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 bg-(--paper-raised) border border-(--line) text-(--ink-nav) rounded-[9px] text-sm font-semibold py-2.25 hover:border-(--line-strong) transition-all cursor-pointer"
+                      onClick={onKick}
+                    >
+                      <LockIcon />
+                      Remove
+                    </button>
+                  )}
+                  {showBan && (
+                    <button
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 bg-(--danger-bg) border border-(--danger-soft) text-(--danger) rounded-[9px] text-sm font-semibold py-2.25 cursor-pointer transition-all"
+                      onClick={onBan}
+                    >
+                      <BanIcon size={14} />
+                      Ban
+                    </button>
+                  )}
+                </div>
+              )}
+              {isSelf && (
+                <p className="text-[12px] text-(--ink-fainter) text-center m-0">
+                  This is you — manage your account from Settings.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function MembersView({
@@ -691,6 +904,7 @@ export default function MembersView({
   const [banPending, setBanPending] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [profileMember, setProfileMember] = useState<MemberRow | null>(null);
 
   const canViewBanned = initialBanned !== null;
   const canRegen = viewerRank === "owner";
@@ -804,7 +1018,9 @@ export default function MembersView({
       .filter(Boolean);
     if (raw.length === 0) return;
     if (raw.length > MAX_INVITE_BATCH) {
-      toast.error(`You can invite at most ${MAX_INVITE_BATCH} people at a time.`);
+      toast.error(
+        `You can invite at most ${MAX_INVITE_BATCH} people at a time.`,
+      );
       return;
     }
     setSending(true);
@@ -815,7 +1031,10 @@ export default function MembersView({
       return;
     }
     setEmailInput("");
-    if (res.banned > 0) toast.error(`${res.banned} recipient${res.banned !== 1 ? "s are" : " is"} banned from this class.`);
+    if (res.banned > 0)
+      toast.error(
+        `${res.banned} recipient${res.banned !== 1 ? "s are" : " is"} banned from this class.`,
+      );
     if (res.sent === 0) {
       if (res.banned === 0) {
         toast.info(
@@ -1025,7 +1244,7 @@ export default function MembersView({
           count={highlightMembers.length}
           total={members.length}
           filterReason={filterReason ?? ""}
-          exists={members.filter((m) => highlightSet!.has(m.userId)).length}
+          exists={filteredMembers.length}
           onClear={() => {
             const p = new URLSearchParams(searchParams);
             p.delete("members");
@@ -1057,7 +1276,7 @@ export default function MembersView({
               <MemberItem
                 key={m.userId}
                 member={m}
-                topicId={topicId}
+                isTopicView={!!topicId}
                 isSelf={m.userId === viewerId}
                 viewerRank={viewerRank}
                 canKick={canKick}
@@ -1068,6 +1287,7 @@ export default function MembersView({
                 }
                 onKick={() => setKickTarget(m)}
                 onBan={() => setBanTarget(m)}
+                onOpenProfile={() => setProfileMember(m)}
               />
             ))}
           </div>
@@ -1170,6 +1390,32 @@ export default function MembersView({
           code={code}
           className={className}
           onClose={() => setShowCodeModal(false)}
+        />
+      )}
+
+      {/* Profile modal */}
+      {profileMember && (
+        <ProfileModal
+          member={profileMember}
+          isSelf={profileMember.userId === viewerId}
+          isTopicView={!!topicId}
+          viewerRank={viewerRank}
+          canKick={canKick}
+          canBan={canBan}
+          canChangeRank={canChangeRank}
+          onClose={() => setProfileMember(null)}
+          onKick={() => {
+            setKickTarget(profileMember);
+            setProfileMember(null);
+          }}
+          onBan={() => {
+            setBanTarget(profileMember);
+            setProfileMember(null);
+          }}
+          onChangeRank={(rank) => {
+            setRankChangeTarget({ member: profileMember, rank });
+            setProfileMember(null);
+          }}
         />
       )}
     </div>

@@ -26,6 +26,8 @@
   --line: rgba(60, 45, 25, 0.1);
   --line-soft: rgba(60, 45, 25, 0.08);
   --line-strong: rgba(60, 45, 25, 0.16);
+  --bg-hover-soft: rgba(60, 45, 25, 0.025);
+  --bg-hover: rgba(60, 45, 25, 0.05);
   --success: #3f7d52;
   --success-bg: rgba(63, 125, 82, 0.08);
   --success-soft: rgba(63, 125, 82, 0.22);
@@ -66,6 +68,8 @@ html.dark {
   --line: rgba(255, 244, 228, 0.1);
   --line-soft: rgba(255, 244, 228, 0.06);
   --line-strong: rgba(255, 244, 228, 0.17);
+  --bg-hover-soft: rgba(255, 244, 228, 0.04);
+  --bg-hover: rgba(255, 244, 228, 0.07);
   --success: #63b079;
   --success-bg: rgba(99, 176, 121, 0.13);
   --success-soft: rgba(99, 176, 121, 0.24);
@@ -104,6 +108,8 @@ html.dark {
     --line: rgba(255, 244, 228, 0.1);
     --line-soft: rgba(255, 244, 228, 0.06);
     --line-strong: rgba(255, 244, 228, 0.17);
+    --bg-hover-soft: rgba(255, 244, 228, 0.04);
+    --bg-hover: rgba(255, 244, 228, 0.07);
     --success: #63b079;
     --success-bg: rgba(99, 176, 121, 0.13);
     --success-soft: rgba(99, 176, 121, 0.24);
