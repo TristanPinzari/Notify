@@ -222,10 +222,13 @@ export async function leaveClass(classId: string, transfer = true) {
             await tx.update(userClasses).set({ rank: "owner" }).where(
               and(eq(userClasses.classId, classId), eq(userClasses.userId, oldest.userId)),
             );
+            await tx.delete(userClasses).where(
+              and(eq(userClasses.classId, classId), eq(userClasses.userId, session.user.id)),
+            );
+          } else {
+            // No other members — delete the class entirely
+            await tx.delete(classes).where(eq(classes.id, classId));
           }
-          await tx.delete(userClasses).where(
-            and(eq(userClasses.classId, classId), eq(userClasses.userId, session.user.id)),
-          );
         });
 
         if (oldest) {
@@ -237,10 +240,17 @@ export async function leaveClass(classId: string, transfer = true) {
           });
         }
       } else {
-        // Orphan — just leave
-        await db.delete(userClasses).where(
-          and(eq(userClasses.classId, classId), eq(userClasses.userId, session.user.id)),
-        );
+        // Orphan — leave, and delete the class if no members remain
+        await db.transaction(async (tx) => {
+          await tx.delete(userClasses).where(
+            and(eq(userClasses.classId, classId), eq(userClasses.userId, session.user.id)),
+          );
+          const [{ remaining }] = await tx
+            .select({ remaining: count() })
+            .from(userClasses)
+            .where(eq(userClasses.classId, classId));
+          if (remaining === 0) await tx.delete(classes).where(eq(classes.id, classId));
+        });
       }
 
       logActivity(classId, session.user.id, { action: "member_left" });
@@ -263,6 +273,11 @@ export async function leaveClass(classId: string, transfer = true) {
           .update(classes)
           .set({ nextOwnerId: null })
           .where(eq(classes.id, classId));
+      const [{ remaining }] = await tx
+        .select({ remaining: count() })
+        .from(userClasses)
+        .where(eq(userClasses.classId, classId));
+      if (remaining === 0) await tx.delete(classes).where(eq(classes.id, classId));
     });
 
     if (isSuccessor) {
