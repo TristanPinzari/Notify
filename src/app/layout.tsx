@@ -48,14 +48,12 @@ export default function RootLayout({
         <Toaster
           position="bottom-right"
           duration={2500}
-          richColors
           toastOptions={{
             style: {
               fontFamily: "var(--font-sans)",
               fontSize: "13.5px",
               fontWeight: "500",
               borderRadius: "11px",
-              boxShadow: "0 8px 28px -10px rgba(60,45,25,0.32)",
               padding: "13px 16px",
               gap: "10px",
             },

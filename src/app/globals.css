@@ -2340,16 +2340,51 @@ textarea.inwrap::placeholder {
 }
 
 /* ===== toasts ===== */
-[data-sonner-toaster] {
-  --normal-bg: var(--paper-raised);
-  --normal-border: var(--line-strong);
-  --normal-text: var(--ink);
-  --success-bg: rgba(63, 125, 82, 0.09);
-  --success-border: rgba(63, 125, 82, 0.22);
-  --success-text: var(--success);
-  --error-bg: rgba(180, 69, 47, 0.08);
-  --error-border: rgba(180, 69, 47, 0.22);
-  --error-text: var(--danger);
+[data-sonner-toast] {
+  background: var(--paper-raised) !important;
+  border: 1px solid var(--line-strong) !important;
+  border-left: 3px solid var(--line-strong) !important;
+  color: var(--ink-heading) !important;
+  box-shadow: 0 8px 28px -10px rgba(40, 30, 15, 0.28) !important;
+}
+[data-sonner-toast] [data-description] {
+  color: var(--ink-faint) !important;
+  font-size: 12.5px !important;
+}
+[data-sonner-toast][data-type="success"] {
+  border-left-color: var(--success) !important;
+}
+[data-sonner-toast][data-type="success"] [data-icon] {
+  color: var(--success) !important;
+}
+[data-sonner-toast][data-type="error"] {
+  border-left-color: var(--danger) !important;
+}
+[data-sonner-toast][data-type="error"] [data-icon] {
+  color: var(--danger) !important;
+}
+[data-sonner-toast][data-type="info"] {
+  border-left-color: var(--info) !important;
+}
+[data-sonner-toast][data-type="info"] [data-icon] {
+  color: var(--info) !important;
+}
+[data-sonner-toast][data-type="warning"] {
+  border-left-color: var(--accent-text) !important;
+}
+[data-sonner-toast][data-type="warning"] [data-icon] {
+  color: var(--accent-text) !important;
+}
+[data-sonner-toast][data-type="loading"] [data-icon] {
+  color: var(--ink-faint) !important;
+}
+html.dark [data-sonner-toast] {
+  box-shadow: 0 8px 28px -10px rgba(0, 0, 0, 0.55) !important;
+}
+@media (prefers-color-scheme: dark) {
+  html:not(.light) [data-sonner-toast] {
+    box-shadow: 0 8px 28px -10px rgba(0, 0, 0, 0.55) !important;
+  }
 }
 
 /* ===== icon button ===== */
@@ -2423,39 +2458,7 @@ textarea.inwrap::placeholder {
   width: 100%;
   box-sizing: border-box;
 }
-.pane.ruled {
-  position: relative;
-}
-.pane.ruled::before {
-  content: "";
-  position: absolute;
-  left: -30px;
-  top: 30px;
-  bottom: 40px;
-  width: 1px;
-  mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
-  background: repeating-linear-gradient(
-    to bottom,
-    rgba(180, 69, 47, 0.26) 0 7px,
-    transparent 7px 14px
-  );
-}
-.pane.ruled::after {
-  content: "";
-  position: absolute;
-  right: -30px;
-  top: 30px;
-  bottom: 40px;
-  width: 1px;
-  mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
-  background: repeating-linear-gradient(
-    to bottom,
-    rgba(180, 69, 47, 0.26) 0 7px,
-    transparent 7px 14px
-  );
-}
+
 .kicker {
   font-size: 11px;
   font-weight: 600;
@@ -2497,11 +2500,7 @@ textarea.inwrap::placeholder {
   color: var(--ink-heading);
   font-weight: 600;
 }
-.chip.ok {
-  color: var(--success);
-  background: var(--success-bg);
-  border-color: var(--success-soft);
-}
+
 .chip svg {
   width: 13px;
   height: 13px;
@@ -2658,20 +2657,6 @@ textarea.inwrap::placeholder {
   color: var(--accent-text);
   font-weight: 600;
 }
-.doc .callout {
-  display: flex;
-  gap: 11px;
-  background: var(--paper-deep);
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--accent);
-  border-radius: 10px;
-  padding: 13px 15px;
-  margin: 6px 0 16px;
-  font-size: 14px;
-  line-height: 1.55;
-  color: var(--ink-body);
-}
-
 /* doc heading styles */
 .doc h1 {
   font-family: var(--serif);
@@ -4123,10 +4108,7 @@ textarea.inwrap::placeholder {
   color: var(--accent-text);
   background: var(--accent-soft);
 }
-.status.pend {
-  color: var(--ink-faint);
-  background: var(--paper-deep);
-}
+
 .status.fail {
   color: var(--danger);
   background: var(--danger-bg);
@@ -4852,11 +4834,7 @@ textarea.inwrap::placeholder {
   .pane {
     padding: 24px 18px 60px;
   }
-  .pane.ruled::before,
-  .pane.ruled::after {
-    display: none;
-  }
-  .topics-grid {
+.topics-grid {
     grid-template-columns: 1fr;
   }
   .hb {
