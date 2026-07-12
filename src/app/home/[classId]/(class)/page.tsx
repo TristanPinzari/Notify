@@ -9,7 +9,7 @@ import {
   userClasses,
   RANK_VALUE,
 } from "@/server/db/schema";
-import { count, desc, eq, and, inArray, sql } from "drizzle-orm";
+import { count, desc, eq, and, inArray, sql, max } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
@@ -63,6 +63,7 @@ export default async function ClassTopicsPage({
             total: count(),
             contributors: sql<number>`cast(count(distinct ${contributions.uploadedBy}) as int)`,
             yours: sql<number>`cast(sum(case when ${contributions.uploadedBy} = ${userId} then 1 else 0 end) as int)`,
+            lastUpload: max(contributions.createdAt),
           })
           .from(contributions)
           .where(inArray(contributions.topicId, topicIds))
@@ -81,10 +82,10 @@ export default async function ClassTopicsPage({
       ]);
 
   // Pick the most recent master doc per topic (rows already sorted desc)
-  const latestDocMap = new Map<string, { id: string; status: string }>();
+  const latestDocMap = new Map<string, { id: string; status: string; createdAt: Date }>();
   for (const doc of allDocRows) {
     if (!latestDocMap.has(doc.topicId)) {
-      latestDocMap.set(doc.topicId, { id: doc.id, status: doc.status });
+      latestDocMap.set(doc.topicId, { id: doc.id, status: doc.status, createdAt: doc.createdAt });
     }
   }
 
@@ -119,6 +120,12 @@ export default async function ClassTopicsPage({
       yourContributions: s?.yours ?? 0,
       status: (latestDoc?.status ?? "draft") as "compiling" | "ready" | "failed" | "draft",
       uncompiled: Math.max(0, total - compiledCount),
+      lastActivity: (() => {
+        const u = s?.lastUpload ?? null;
+        const c = latestDoc?.createdAt ?? null;
+        const d = u && c ? (u > c ? u : c) : (u ?? c);
+        return d?.toISOString() ?? null;
+      })(),
     };
   });
 

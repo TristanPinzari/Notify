@@ -5,12 +5,14 @@ import Link from "next/link";
 import { TopicModal } from "@/components/topic-modal";
 import {
   CheckIcon,
+  ClockIcon,
   CollectionIcon,
   LayersIcon,
   LockIcon,
   MembersIcon,
   PlusIcon,
 } from "@/components/icons";
+import { timeAgo } from "@/lib/utils";
 
 type Topic = {
   id: string;
@@ -21,6 +23,7 @@ type Topic = {
   yourContributions: number;
   status: "compiling" | "ready" | "failed" | "draft";
   uncompiled: number;
+  lastActivity: string | null;
 };
 
 type Sort = "recent" | "activity" | "az";
@@ -73,18 +76,24 @@ function TopicCard({ t, classId }: { t: Topic; classId: string }) {
           {t.uncompiled > 0 && t.status !== "compiling" && (
             <span className="t-newpill">{t.uncompiled} uncompiled</span>
           )}
+          {t.lastActivity && (
+            <span className="t-stat" title="Time since last upload or compilation">
+              <ClockIcon />
+              {timeAgo(t.lastActivity)}
+            </span>
+          )}
         </div>
       </div>
       {t.yourContributions > 0 ? (
         <div className="t-younote you">
           <CheckIcon size={12} />
-          You added <b>{t.yourContributions}</b>{" "}
-          {t.yourContributions !== 1 ? "sources" : "source"}
+          You made <b>{t.yourContributions}</b>{" "}
+          {t.yourContributions !== 1 ? "contributions" : "contribution"}
         </div>
       ) : (
         <div className="t-younote">
           <PlusIcon />
-          You haven&apos;t added anything yet
+          You haven&apos;t made any contributions yet
         </div>
       )}
     </Link>

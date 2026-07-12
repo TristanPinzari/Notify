@@ -3333,6 +3333,26 @@ textarea.inwrap::placeholder {
   font-size: 14px;
   font-weight: 600;
 }
+.c-rank {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 3px 9px;
+  border-radius: 99px;
+  text-transform: capitalize;
+  white-space: nowrap;
+  flex-shrink: 0;
+  color: var(--accent-text);
+  background: var(--accent-soft);
+  border: 1px solid rgba(196, 121, 24, 0.22);
+}
+.c-rank.viewer {
+  color: var(--ink-nav);
+  background: rgba(60, 45, 25, 0.06);
+  border-color: var(--line);
+}
 .toolbar {
   display: flex;
   align-items: center;
