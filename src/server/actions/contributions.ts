@@ -146,10 +146,15 @@ export async function createContribution(
       ),
     );
 
-    logActivity(classId, session.user.id, {
-      action: "contribution_uploaded",
-      contribution: { id, name: data.name },
-    }, topicId);
+    logActivity(
+      classId,
+      session.user.id,
+      {
+        action: "contribution_uploaded",
+        contribution: { id, name: data.name },
+      },
+      topicId,
+    );
     return { id, createdAt: row.createdAt.toISOString() };
   } catch (e) {
     if (s3Key) {
@@ -236,10 +241,15 @@ export async function createCustomContribution(
       })
       .returning({ createdAt: contributions.createdAt });
 
-    logActivity(classId, session.user.id, {
-      action: "contribution_uploaded",
-      contribution: { id, name: data.name },
-    }, topicId);
+    logActivity(
+      classId,
+      session.user.id,
+      {
+        action: "contribution_uploaded",
+        contribution: { id, name: data.name },
+      },
+      topicId,
+    );
     return { id, createdAt: row.createdAt.toISOString() };
   } catch (e) {
     console.error("ERROR: ", e);
@@ -418,10 +428,15 @@ export async function deleteContribution(
 
     await db.delete(contributions).where(eq(contributions.id, contributionId));
 
-    logActivity(classId, session.user.id, {
-      action: "contribution_deleted",
-      contributionName: contribution.name,
-    }, contribution.topicId);
+    logActivity(
+      classId,
+      session.user.id,
+      {
+        action: "contribution_deleted",
+        contributionName: contribution.name,
+      },
+      contribution.topicId,
+    );
 
     if (contribution.s3Key) {
       try {
@@ -514,10 +529,15 @@ export async function restartExtraction(
       contribution[0].url || undefined,
     );
 
-    logActivity(classId, session.user.id, {
-      action: "contribution_reprocessed",
-      contribution: { id: contributionId, name: contribution[0].name },
-    }, topicId);
+    logActivity(
+      classId,
+      session.user.id,
+      {
+        action: "contribution_reprocessed",
+        contribution: { id: contributionId, name: contribution[0].name },
+      },
+      topicId,
+    );
     return { success: true };
   } catch (e) {
     console.error("ERROR: ", e);
@@ -646,10 +666,18 @@ export async function editContribution(
       })
       .where(eq(contributions.id, contributionId));
 
-    logActivity(classId, session.user.id, {
-      action: "contribution_edited",
-      contribution: { id: contributionId, name: data.name ?? contribution.name },
-    }, contribution.topicId);
+    logActivity(
+      classId,
+      session.user.id,
+      {
+        action: "contribution_edited",
+        contribution: {
+          id: contributionId,
+          name: data.name ?? contribution.name,
+        },
+      },
+      contribution.topicId,
+    );
     return { success: true };
   } catch (e) {
     console.error("ERROR: ", e);
@@ -709,10 +737,15 @@ export async function setContributionPin(
       .set({ pinned })
       .where(eq(contributions.id, contributionId));
 
-    logActivity(classId, session.user.id, {
-      action: pinned ? "contribution_pinned" : "contribution_unpinned",
-      contribution: { id: contributionId, name: contribution.name },
-    }, contribution.topicId);
+    logActivity(
+      classId,
+      session.user.id,
+      {
+        action: pinned ? "contribution_pinned" : "contribution_unpinned",
+        contribution: { id: contributionId, name: contribution.name },
+      },
+      contribution.topicId,
+    );
     return { success: true };
   } catch (e) {
     console.error("ERROR: ", e);

@@ -9,7 +9,9 @@ export type SidebarClass = {
   topics: { id: string; name: string }[];
 };
 
-export async function getSidebarClasses(userId: string): Promise<SidebarClass[]> {
+export async function getSidebarClasses(
+  userId: string,
+): Promise<SidebarClass[]> {
   const rows = await db
     .select({
       classId: classes.id,
@@ -35,7 +37,9 @@ export async function getSidebarClasses(userId: string): Promise<SidebarClass[]>
       });
     }
     if (row.topicId && row.topicName) {
-      classMap.get(row.classId)!.topics.push({ id: row.topicId, name: row.topicName });
+      classMap
+        .get(row.classId)!
+        .topics.push({ id: row.topicId, name: row.topicName });
     }
   }
 

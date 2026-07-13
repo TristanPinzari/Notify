@@ -31,7 +31,10 @@ export default async function ClassTopicsPage({
 
   const [[cls], [member], topicRows] = await Promise.all([
     db
-      .select({ name: classes.name, minRankCreateTopic: classes.minRankCreateTopic })
+      .select({
+        name: classes.name,
+        minRankCreateTopic: classes.minRankCreateTopic,
+      })
       .from(classes)
       .where(eq(classes.id, classId))
       .limit(1),
@@ -39,7 +42,9 @@ export default async function ClassTopicsPage({
     db
       .select({ rank: userClasses.rank })
       .from(userClasses)
-      .where(and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)))
+      .where(
+        and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
+      )
       .limit(1),
 
     db
@@ -54,38 +59,46 @@ export default async function ClassTopicsPage({
 
   const topicIds = topicRows.map((t) => t.id);
 
-  const [statsRows, allDocRows] = topicIds.length === 0
-    ? [[], []]
-    : await Promise.all([
-        db
-          .select({
-            topicId: contributions.topicId,
-            total: count(),
-            contributors: sql<number>`cast(count(distinct ${contributions.uploadedBy}) as int)`,
-            yours: sql<number>`cast(sum(case when ${contributions.uploadedBy} = ${userId} then 1 else 0 end) as int)`,
-            lastUpload: max(contributions.createdAt),
-          })
-          .from(contributions)
-          .where(inArray(contributions.topicId, topicIds))
-          .groupBy(contributions.topicId),
+  const [statsRows, allDocRows] =
+    topicIds.length === 0
+      ? [[], []]
+      : await Promise.all([
+          db
+            .select({
+              topicId: contributions.topicId,
+              total: count(),
+              contributors: sql<number>`cast(count(distinct ${contributions.uploadedBy}) as int)`,
+              yours: sql<number>`cast(sum(case when ${contributions.uploadedBy} = ${userId} then 1 else 0 end) as int)`,
+              lastUpload: max(contributions.createdAt),
+            })
+            .from(contributions)
+            .where(inArray(contributions.topicId, topicIds))
+            .groupBy(contributions.topicId),
 
-        db
-          .select({
-            topicId: masterDocuments.topicId,
-            id: masterDocuments.id,
-            status: masterDocuments.status,
-            createdAt: masterDocuments.createdAt,
-          })
-          .from(masterDocuments)
-          .where(inArray(masterDocuments.topicId, topicIds))
-          .orderBy(masterDocuments.topicId, desc(masterDocuments.createdAt)),
-      ]);
+          db
+            .select({
+              topicId: masterDocuments.topicId,
+              id: masterDocuments.id,
+              status: masterDocuments.status,
+              createdAt: masterDocuments.createdAt,
+            })
+            .from(masterDocuments)
+            .where(inArray(masterDocuments.topicId, topicIds))
+            .orderBy(masterDocuments.topicId, desc(masterDocuments.createdAt)),
+        ]);
 
   // Pick the most recent master doc per topic (rows already sorted desc)
-  const latestDocMap = new Map<string, { id: string; status: string; createdAt: Date }>();
+  const latestDocMap = new Map<
+    string,
+    { id: string; status: string; createdAt: Date }
+  >();
   for (const doc of allDocRows) {
     if (!latestDocMap.has(doc.topicId)) {
-      latestDocMap.set(doc.topicId, { id: doc.id, status: doc.status, createdAt: doc.createdAt });
+      latestDocMap.set(doc.topicId, {
+        id: doc.id,
+        status: doc.status,
+        createdAt: doc.createdAt,
+      });
     }
   }
 
@@ -103,7 +116,9 @@ export default async function ClassTopicsPage({
           .where(inArray(compilationSources.masterDocumentId, latestDocIds))
           .groupBy(compilationSources.masterDocumentId);
 
-  const compiledMap = new Map(compiledCountRows.map((r) => [r.masterDocumentId, r.compiled]));
+  const compiledMap = new Map(
+    compiledCountRows.map((r) => [r.masterDocumentId, r.compiled]),
+  );
   const statsMap = new Map(statsRows.map((r) => [r.topicId, r]));
 
   const enrichedTopics = topicRows.map((t) => {
@@ -118,7 +133,8 @@ export default async function ClassTopicsPage({
       sources: total,
       contributors: s?.contributors ?? 0,
       yourContributions: s?.yours ?? 0,
-      status: (latestDoc?.status ?? "draft") as "compiling" | "ready" | "failed" | "draft",
+      status: (latestDoc?.status ?? "draft") as
+        "compiling" | "ready" | "failed" | "draft",
       uncompiled: Math.max(0, total - compiledCount),
       lastActivity: (() => {
         const u = s?.lastUpload ?? null;

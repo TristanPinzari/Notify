@@ -21,7 +21,11 @@ export function CookieIcon() {
       strokeLinejoin="round"
     >
       <path d="M12 2a9.5 9.5 0 1 0 9.5 9.7 3 3 0 0 1-4-3.2 3 3 0 0 1-4-4A3 3 0 0 1 12 2z" />
-      <path d="M8 14.5a1 1 0 1 0 2 0 1 1 0 0 0-2 0zM10.5 11a1 1 0 1 0 2 0 1 1 0 0 0-2 0zM14.5 15a1 1 0 1 0 2 0 1 1 0 0 0-2 0z" fill="currentColor" stroke="none" />
+      <path
+        d="M8 14.5a1 1 0 1 0 2 0 1 1 0 0 0-2 0zM10.5 11a1 1 0 1 0 2 0 1 1 0 0 0-2 0zM14.5 15a1 1 0 1 0 2 0 1 1 0 0 0-2 0z"
+        fill="currentColor"
+        stroke="none"
+      />
     </svg>
   );
 }

@@ -185,7 +185,9 @@ export const topics = pgTable("topics", {
     .notNull()
     .references(() => classes.id, { onDelete: "cascade" }),
   name: text("name").notNull().default("Untitled topic"),
-  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdBy: text("created_by").references(() => user.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -199,7 +201,9 @@ export const masterDocuments = pgTable("master_documents", {
   topicId: text("topic_id")
     .notNull()
     .references(() => topics.id, { onDelete: "cascade" }),
-  triggeredBy: text("triggered_by").references(() => user.id, { onDelete: "set null" }),
+  triggeredBy: text("triggered_by").references(() => user.id, {
+    onDelete: "set null",
+  }),
   content: text("content"),
   status: docStatus("status").notNull().default("compiling"),
   outputType: docOutputType("output_type").notNull().default("both"),
@@ -232,7 +236,9 @@ export const contributions = pgTable(
     topicId: text("topic_id")
       .notNull()
       .references(() => topics.id, { onDelete: "cascade" }),
-    uploadedBy: text("uploaded_by").references(() => user.id, { onDelete: "set null" }),
+    uploadedBy: text("uploaded_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     type: contributionType("type").notNull(),
     extractionMethod: extractionMethod("extraction_method").notNull(),
     status: contributionStatus("status").notNull().default("processing"),
@@ -370,7 +376,13 @@ export const emailInvites = pgTable(
       .references(() => classes.id, { onDelete: "cascade" }),
     sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("email_invites_dedup_idx").on(t.senderId, t.recipientEmail, t.classId)],
+  (t) => [
+    index("email_invites_dedup_idx").on(
+      t.senderId,
+      t.recipientEmail,
+      t.classId,
+    ),
+  ],
 );
 
 export const rateLimits = pgTable(

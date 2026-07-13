@@ -16,11 +16,15 @@ const { runCompilation, generatePDF } = proxyActivities<Activities>({
   retry: { maximumAttempts: 1 },
 });
 
-const { cleanOrphanedFiles, cleanStuckContributions, cleanStuckMasterDocuments, cleanOldLogs } =
-  proxyActivities<Activities>({
-    startToCloseTimeout: "5 minutes",
-    retry: { maximumAttempts: 1 },
-  });
+const {
+  cleanOrphanedFiles,
+  cleanStuckContributions,
+  cleanStuckMasterDocuments,
+  cleanOldLogs,
+} = proxyActivities<Activities>({
+  startToCloseTimeout: "5 minutes",
+  retry: { maximumAttempts: 1 },
+});
 
 export interface ExtractionInput {
   contributionId: string;

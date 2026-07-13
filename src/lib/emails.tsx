@@ -236,7 +236,12 @@ function buildRankDesc(rank: string, perms: ClassPerms): string {
   if (can.length === 0) {
     return `As a ${label} you can read content in the class.`;
   }
-  const items = can.map(({ label: l }) => `<li style="font-family:${sans};font-size:13.5px;color:${C.body};margin:3px 0;">${l}</li>`).join("");
+  const items = can
+    .map(
+      ({ label: l }) =>
+        `<li style="font-family:${sans};font-size:13.5px;color:${C.body};margin:3px 0;">${l}</li>`,
+    )
+    .join("");
   return `As a ${label} you can:<ul style="margin:6px 0 0;padding-left:20px;">${items}</ul>`;
 }
 
@@ -268,7 +273,10 @@ export function renderRankChanged({
       p(
         `Your role in <strong style="color:${C.ink};">${className}</strong> was updated. Here's what changed:`,
       ) +
-      rankSwap(RANK_LABELS[oldRank] ?? oldRank, RANK_LABELS[newRank] ?? newRank) +
+      rankSwap(
+        RANK_LABELS[oldRank] ?? oldRank,
+        RANK_LABELS[newRank] ?? newRank,
+      ) +
       p(buildRankDesc(newRank, perms)) +
       button("View the class", url),
   );
@@ -276,7 +284,11 @@ export function renderRankChanged({
 
 // ─── 6 · Master doc ready ────────────────────────────────────────────────────
 
-function docCard(topicName: string, sourceCount: number, contributorCount: number) {
+function docCard(
+  topicName: string,
+  sourceCount: number,
+  contributorCount: number,
+) {
   const src = `${sourceCount} source${sourceCount !== 1 ? "s" : ""}`;
   const ctr = `${contributorCount} classmate${contributorCount !== 1 ? "s" : ""}`;
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
@@ -389,12 +401,16 @@ export type ClassDigest = {
 
 function digestClassCard(c: ClassDigest) {
   const parts = [
-    c.contributions > 0 && `${c.contributions} contribution${c.contributions !== 1 ? "s" : ""}`,
-    c.compilations > 0 && `${c.compilations} compilation${c.compilations !== 1 ? "s" : ""}`,
+    c.contributions > 0 &&
+      `${c.contributions} contribution${c.contributions !== 1 ? "s" : ""}`,
+    c.compilations > 0 &&
+      `${c.compilations} compilation${c.compilations !== 1 ? "s" : ""}`,
     c.topics > 0 && `${c.topics} new topic${c.topics !== 1 ? "s" : ""}`,
     c.membersJoined > 0 && `${c.membersJoined} joined`,
     c.membersLost > 0 && `${c.membersLost} left`,
-  ].filter(Boolean).join(" &middot; ");
+  ]
+    .filter(Boolean)
+    .join(" &middot; ");
 
   const initial = c.name.trim()[0]?.toUpperCase() ?? "C";
 

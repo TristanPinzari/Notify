@@ -53,10 +53,26 @@ const RANK_BADGE_STYLES: Record<
   Rank,
   { bg: string; border: string; color: string }
 > = {
-  viewer: { bg: "var(--line-soft)", border: "var(--line)", color: "var(--ink-nav)" },
-  contributor: { bg: "rgba(58,95,168,0.1)", border: "rgba(58,95,168,0.2)", color: "#3a5fa8" },
-  admin: { bg: "rgba(196,121,24,0.12)", border: "rgba(196,121,24,0.25)", color: "var(--accent-text)" },
-  owner: { bg: "rgba(158,59,50,0.1)", border: "rgba(158,59,50,0.22)", color: "var(--danger)" },
+  viewer: {
+    bg: "var(--line-soft)",
+    border: "var(--line)",
+    color: "var(--ink-nav)",
+  },
+  contributor: {
+    bg: "rgba(58,95,168,0.1)",
+    border: "rgba(58,95,168,0.2)",
+    color: "#3a5fa8",
+  },
+  admin: {
+    bg: "rgba(196,121,24,0.12)",
+    border: "rgba(196,121,24,0.25)",
+    color: "var(--accent-text)",
+  },
+  owner: {
+    bg: "rgba(158,59,50,0.1)",
+    border: "rgba(158,59,50,0.22)",
+    color: "var(--danger)",
+  },
 };
 
 // ─── Shared permission derivation ─────────────────────────────────────────────

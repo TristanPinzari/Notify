@@ -111,11 +111,19 @@ export default async function MasterDocPage({
 
   const sourcesByDoc: Record<
     string,
-    { sources: { id: string; name: string }[]; contributorIds: string[]; deletedSourceNames: string[] }
+    {
+      sources: { id: string; name: string }[];
+      contributorIds: string[];
+      deletedSourceNames: string[];
+    }
   > = {};
   for (const r of allSourceRows) {
     if (!sourcesByDoc[r.masterDocumentId])
-      sourcesByDoc[r.masterDocumentId] = { sources: [], contributorIds: [], deletedSourceNames: [] };
+      sourcesByDoc[r.masterDocumentId] = {
+        sources: [],
+        contributorIds: [],
+        deletedSourceNames: [],
+      };
     if (r.contributionId && r.contributionName)
       sourcesByDoc[r.masterDocumentId].sources.push({
         id: r.contributionId,

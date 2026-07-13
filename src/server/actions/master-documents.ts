@@ -17,7 +17,12 @@ import {
 import { and, eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
-import { getUserRank, rateLimit, requireRank, topicBelongsToClass } from "./shared";
+import {
+  getUserRank,
+  rateLimit,
+  requireRank,
+  topicBelongsToClass,
+} from "./shared";
 import { logActivity } from "@/lib/activity-log";
 import { getTemporalClient } from "@/temporal/client";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -126,7 +131,12 @@ export async function createMasterDocument(
       workflowId: `compile-${masterDocumentId}`,
     });
 
-    logActivity(classId, session.user.id, { action: "compilation_triggered" }, topicId);
+    logActivity(
+      classId,
+      session.user.id,
+      { action: "compilation_triggered" },
+      topicId,
+    );
     return { success: true, masterDocumentId };
   } catch (e) {
     console.error("ERROR: ", e);
@@ -252,7 +262,11 @@ export async function createPDF(
 
     await db
       .update(masterDocuments)
-      .set({ pdfStatus: "generating", pdfS3Key: null, pdfGenerationStartedAt: new Date() })
+      .set({
+        pdfStatus: "generating",
+        pdfS3Key: null,
+        pdfGenerationStartedAt: new Date(),
+      })
       .where(eq(masterDocuments.id, masterDocumentId));
 
     if (row[0].pdfS3Key) {
@@ -334,7 +348,12 @@ export async function updateMasterDocumentContent(
 
     await db
       .update(masterDocuments)
-      .set({ content, pdfStatus: "pending", pdfS3Key: null, manuallyEdited: true })
+      .set({
+        content,
+        pdfStatus: "pending",
+        pdfS3Key: null,
+        manuallyEdited: true,
+      })
       .where(eq(masterDocuments.id, masterDocumentId));
 
     return { success: true };

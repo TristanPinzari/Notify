@@ -17,7 +17,11 @@ export function TopicTabs({ base }: Props) {
   const pathname = usePathname();
   const tabs = [
     { label: "Master Doc", href: base, icon: <DocIcon /> },
-    { label: "Collection", href: base + "/collection", icon: <CollectionIcon /> },
+    {
+      label: "Collection",
+      href: base + "/collection",
+      icon: <CollectionIcon />,
+    },
     { label: "Members", href: base + "/members", icon: <MembersIcon /> },
     { label: "Settings", href: base + "/settings", icon: <SettingsIcon /> },
   ];
@@ -27,7 +31,11 @@ export function TopicTabs({ base }: Props) {
       {tabs.map((tab) => {
         const on = pathname === tab.href;
         return (
-          <Link key={tab.label} href={tab.href} className={`tab${on ? " on" : ""}`}>
+          <Link
+            key={tab.label}
+            href={tab.href}
+            className={`tab${on ? " on" : ""}`}
+          >
             {tab.icon}
             {tab.label}
           </Link>

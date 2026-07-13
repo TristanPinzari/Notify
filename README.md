@@ -39,16 +39,16 @@ The original version was built during my first year of university as a side proj
 
 ## External APIs
 
-| Service | Purpose |
-|---|---|
-| **Google Gemini** (`gemini-2.5-flash`) | Compiles source text into master documents |
-| **Mistral** | OCR for images/handwriting; speech-to-text for audio |
-| **AWS S3** | File storage for uploaded sources and compiled PDFs |
-| **Cloudflare R2** | Avatar image storage |
-| **Resend** | Transactional email (auth, invites, notifications) |
-| **Sentry** | Error tracking and performance monitoring |
-| **PostHog** | Product analytics |
-| **YouTube Transcript API** | Extracts transcripts from YouTube video URLs |
+| Service                                | Purpose                                              |
+| -------------------------------------- | ---------------------------------------------------- |
+| **Google Gemini** (`gemini-2.5-flash`) | Compiles source text into master documents           |
+| **Mistral**                            | OCR for images/handwriting; speech-to-text for audio |
+| **AWS S3**                             | File storage for uploaded sources and compiled PDFs  |
+| **Cloudflare R2**                      | Avatar image storage                                 |
+| **Resend**                             | Transactional email (auth, invites, notifications)   |
+| **Sentry**                             | Error tracking and performance monitoring            |
+| **PostHog**                            | Product analytics                                    |
+| **YouTube Transcript API**             | Extracts transcripts from YouTube video URLs         |
 
 ## Tech stack
 
@@ -70,14 +70,14 @@ Requires a PostgreSQL database, AWS S3 bucket, Cloudflare R2 bucket, and a runni
 
 ### Scripts
 
-| Command | Description |
-|---|---|
-| `npm run dev` | Start the Next.js dev server |
-| `npm run lint` | Run ESLint |
-| `npm run db:push` | Push schema changes to the database (Drizzle) |
-| `npm run db:studio` | Open Drizzle Studio |
-| `npm run temporal` | Start a local Temporal dev server |
-| `npm run worker` | Start the Temporal worker |
+| Command             | Description                                   |
+| ------------------- | --------------------------------------------- |
+| `npm run dev`       | Start the Next.js dev server                  |
+| `npm run lint`      | Run ESLint                                    |
+| `npm run db:push`   | Push schema changes to the database (Drizzle) |
+| `npm run db:studio` | Open Drizzle Studio                           |
+| `npm run temporal`  | Start a local Temporal dev server             |
+| `npm run worker`    | Start the Temporal worker                     |
 
 ### Running locally
 

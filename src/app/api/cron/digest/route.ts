@@ -16,8 +16,7 @@ const activityTotal = (c: ClassDigest) =>
 
 export async function GET(req: NextRequest) {
   if (
-    req.headers.get("authorization") !==
-    `Bearer ${process.env.CRON_SECRET}`
+    req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`
   ) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -48,7 +47,12 @@ export async function GET(req: NextRequest) {
         topics: sql<number>`COUNT(CASE WHEN ${activityLogs.action} = 'topic_created' THEN 1 END)::int`,
       })
       .from(activityLogs)
-      .where(and(inArray(activityLogs.classId, classIds), gte(activityLogs.createdAt, since)))
+      .where(
+        and(
+          inArray(activityLogs.classId, classIds),
+          gte(activityLogs.createdAt, since),
+        ),
+      )
       .groupBy(activityLogs.classId),
 
     db
@@ -63,23 +67,36 @@ export async function GET(req: NextRequest) {
         and(
           inArray(activityLogs.classId, classIds),
           gte(activityLogs.createdAt, since),
-          inArray(activityLogs.action, ["member_joined", ...MEMBER_LOSS_ACTIONS]),
+          inArray(activityLogs.action, [
+            "member_joined",
+            ...MEMBER_LOSS_ACTIONS,
+          ]),
         ),
       ),
   ]);
 
   // For each (classId, userId), keep only the last action chronologically
-  const lastAction = new Map<string, { classId: string; action: string; createdAt: Date }>();
+  const lastAction = new Map<
+    string,
+    { classId: string; action: string; createdAt: Date }
+  >();
   for (const e of memberEvents) {
     if (!e.userId) continue;
     const key = `${e.classId}:${e.userId}`;
     const existing = lastAction.get(key);
     if (!existing || e.createdAt > existing.createdAt) {
-      lastAction.set(key, { classId: e.classId, action: e.action, createdAt: e.createdAt });
+      lastAction.set(key, {
+        classId: e.classId,
+        action: e.action,
+        createdAt: e.createdAt,
+      });
     }
   }
 
-  const memberStats = new Map<string, { membersJoined: number; membersLost: number }>();
+  const memberStats = new Map<
+    string,
+    { membersJoined: number; membersLost: number }
+  >();
   for (const { classId, action } of lastAction.values()) {
     const s = memberStats.get(classId) ?? { membersJoined: 0, membersLost: 0 };
     if (action === "member_joined") s.membersJoined++;
@@ -89,11 +106,17 @@ export async function GET(req: NextRequest) {
 
   const statsMap = new Map(statsRows.map((s) => [s.classId, s]));
 
-  const byUser = new Map<string, { email: string; activeClasses: ClassDigest[] }>();
+  const byUser = new Map<
+    string,
+    { email: string; activeClasses: ClassDigest[] }
+  >();
 
   for (const sub of subscriptions) {
     const stat = statsMap.get(sub.classId);
-    const members = memberStats.get(sub.classId) ?? { membersJoined: 0, membersLost: 0 };
+    const members = memberStats.get(sub.classId) ?? {
+      membersJoined: 0,
+      membersLost: 0,
+    };
     const digest: ClassDigest = {
       name: sub.className,
       classId: sub.classId,
@@ -113,7 +136,8 @@ export async function GET(req: NextRequest) {
 
   if (byUser.size === 0) return Response.json({ sent: 0 });
 
-  const emails: { from: string; to: string; subject: string; html: string }[] = [];
+  const emails: { from: string; to: string; subject: string; html: string }[] =
+    [];
 
   for (const { email, activeClasses } of byUser.values()) {
     activeClasses.sort((a, b) => activityTotal(b) - activityTotal(a));

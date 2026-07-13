@@ -15,7 +15,6 @@ import {
 import { StepDots } from "@/components/auth-form";
 
 export function ResetPasswordForm({ token }: { token: string | null }) {
-
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPw, setShowPw] = useState(false);

@@ -1,6 +1,14 @@
 import { Worker, NativeConnection } from "@temporalio/worker";
 import { Client, Connection } from "@temporalio/client";
-import { extractText, cleanOrphanedFiles, cleanStuckContributions, cleanStuckMasterDocuments, cleanOldLogs, runCompilation, generatePDF } from "./activities";
+import {
+  extractText,
+  cleanOrphanedFiles,
+  cleanStuckContributions,
+  cleanStuckMasterDocuments,
+  cleanOldLogs,
+  runCompilation,
+  generatePDF,
+} from "./activities";
 
 async function main() {
   const connection = await NativeConnection.connect({
@@ -9,7 +17,15 @@ async function main() {
 
   const worker = await Worker.create({
     workflowsPath: require.resolve("./workflows"),
-    activities: { extractText, cleanOrphanedFiles, cleanStuckContributions, cleanStuckMasterDocuments, cleanOldLogs, runCompilation, generatePDF },
+    activities: {
+      extractText,
+      cleanOrphanedFiles,
+      cleanStuckContributions,
+      cleanStuckMasterDocuments,
+      cleanOldLogs,
+      runCompilation,
+      generatePDF,
+    },
     taskQueue: "main",
     namespace: process.env.TEMPORAL_NAMESPACE ?? "default",
     connection,
@@ -73,7 +89,10 @@ async function main() {
     if (e instanceof Error && e.message.includes("already exists")) {
       // schedule persists across restarts, this is expected
     } else {
-      console.error("ERROR: Failed to create reconcileMasterDocuments schedule: ", e);
+      console.error(
+        "ERROR: Failed to create reconcileMasterDocuments schedule: ",
+        e,
+      );
     }
   }
 

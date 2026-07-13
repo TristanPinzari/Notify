@@ -4708,12 +4708,22 @@ html.dark [data-sonner-toast] {
 
 /* ===== recording ===== */
 @keyframes wv {
-  0%, 100% { height: 6px; }
-  50% { height: var(--h, 28px); }
+  0%,
+  100% {
+    height: 6px;
+  }
+  50% {
+    height: var(--h, 28px);
+  }
 }
 @keyframes rec-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.2; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
 }
 .rec-wave {
   display: flex;
@@ -4748,8 +4758,13 @@ html.dark [data-sonner-toast] {
   animation: none;
   opacity: 0.35;
 }
-.rec-wave.live span { animation: none; transition: height 55ms ease; }
-.rec-wave.live.paused span { transition: none; }
+.rec-wave.live span {
+  animation: none;
+  transition: height 55ms ease;
+}
+.rec-wave.live.paused span {
+  transition: none;
+}
 
 /* ===== mobile app shell ===== */
 .side-backdrop {
@@ -4882,7 +4897,7 @@ html.dark [data-sonner-toast] {
   .pane {
     padding: 24px 18px 60px;
   }
-.topics-grid {
+  .topics-grid {
     grid-template-columns: 1fr;
   }
   .hb {

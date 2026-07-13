@@ -84,7 +84,12 @@ export async function createClass(name: string) {
     const notifDefaults = userPrefsRows[0] ?? DEFAULT_NOTIF_PREFS;
     await db
       .insert(userClasses)
-      .values({ userId: session.user.id, classId, rank: "owner", ...notifDefaults });
+      .values({
+        userId: session.user.id,
+        classId,
+        rank: "owner",
+        ...notifDefaults,
+      });
 
     return { success: true, id: classId };
   } catch (e) {
@@ -149,7 +154,12 @@ export async function joinClass(code: string) {
     const notifDefaults = userPrefsRows[0] ?? DEFAULT_NOTIF_PREFS;
     await db
       .insert(userClasses)
-      .values({ userId: session.user.id, classId, rank: defaultRank, ...notifDefaults });
+      .values({
+        userId: session.user.id,
+        classId,
+        rank: defaultRank,
+        ...notifDefaults,
+      });
 
     logActivity(classId, session.user.id, { action: "member_joined" });
     return { success: true, id: classId };
@@ -186,17 +196,36 @@ export async function leaveClass(classId: string, transfer = true) {
           .select({ name: user.name, rank: userClasses.rank })
           .from(userClasses)
           .innerJoin(user, eq(userClasses.userId, user.id))
-          .where(and(eq(userClasses.classId, classId), eq(userClasses.userId, nextOwnerId)))
+          .where(
+            and(
+              eq(userClasses.classId, classId),
+              eq(userClasses.userId, nextOwnerId),
+            ),
+          )
           .limit(1);
 
         await db.transaction(async (tx) => {
-          await tx.update(userClasses).set({ rank: "owner" }).where(
-            and(eq(userClasses.classId, classId), eq(userClasses.userId, nextOwnerId)),
-          );
-          await tx.delete(userClasses).where(
-            and(eq(userClasses.classId, classId), eq(userClasses.userId, session.user.id)),
-          );
-          await tx.update(classes).set({ nextOwnerId: null }).where(eq(classes.id, classId));
+          await tx
+            .update(userClasses)
+            .set({ rank: "owner" })
+            .where(
+              and(
+                eq(userClasses.classId, classId),
+                eq(userClasses.userId, nextOwnerId),
+              ),
+            );
+          await tx
+            .delete(userClasses)
+            .where(
+              and(
+                eq(userClasses.classId, classId),
+                eq(userClasses.userId, session.user.id),
+              ),
+            );
+          await tx
+            .update(classes)
+            .set({ nextOwnerId: null })
+            .where(eq(classes.id, classId));
         });
 
         if (nextOwnerRow) {
@@ -210,21 +239,41 @@ export async function leaveClass(classId: string, transfer = true) {
       } else if (transfer) {
         // Auto-transfer to oldest remaining member
         const [oldest] = await db
-          .select({ userId: userClasses.userId, name: user.name, rank: userClasses.rank })
+          .select({
+            userId: userClasses.userId,
+            name: user.name,
+            rank: userClasses.rank,
+          })
           .from(userClasses)
           .innerJoin(user, eq(userClasses.userId, user.id))
-          .where(and(eq(userClasses.classId, classId), ne(userClasses.userId, session.user.id)))
+          .where(
+            and(
+              eq(userClasses.classId, classId),
+              ne(userClasses.userId, session.user.id),
+            ),
+          )
           .orderBy(asc(userClasses.joinedAt))
           .limit(1);
 
         await db.transaction(async (tx) => {
           if (oldest) {
-            await tx.update(userClasses).set({ rank: "owner" }).where(
-              and(eq(userClasses.classId, classId), eq(userClasses.userId, oldest.userId)),
-            );
-            await tx.delete(userClasses).where(
-              and(eq(userClasses.classId, classId), eq(userClasses.userId, session.user.id)),
-            );
+            await tx
+              .update(userClasses)
+              .set({ rank: "owner" })
+              .where(
+                and(
+                  eq(userClasses.classId, classId),
+                  eq(userClasses.userId, oldest.userId),
+                ),
+              );
+            await tx
+              .delete(userClasses)
+              .where(
+                and(
+                  eq(userClasses.classId, classId),
+                  eq(userClasses.userId, session.user.id),
+                ),
+              );
           } else {
             // No other members — delete the class entirely
             await tx.delete(classes).where(eq(classes.id, classId));
@@ -242,14 +291,20 @@ export async function leaveClass(classId: string, transfer = true) {
       } else {
         // Orphan — leave, and delete the class if no members remain
         await db.transaction(async (tx) => {
-          await tx.delete(userClasses).where(
-            and(eq(userClasses.classId, classId), eq(userClasses.userId, session.user.id)),
-          );
+          await tx
+            .delete(userClasses)
+            .where(
+              and(
+                eq(userClasses.classId, classId),
+                eq(userClasses.userId, session.user.id),
+              ),
+            );
           const [{ remaining }] = await tx
             .select({ remaining: count() })
             .from(userClasses)
             .where(eq(userClasses.classId, classId));
-          if (remaining === 0) await tx.delete(classes).where(eq(classes.id, classId));
+          if (remaining === 0)
+            await tx.delete(classes).where(eq(classes.id, classId));
         });
       }
 
@@ -277,7 +332,8 @@ export async function leaveClass(classId: string, transfer = true) {
         .select({ remaining: count() })
         .from(userClasses)
         .where(eq(userClasses.classId, classId));
-      if (remaining === 0) await tx.delete(classes).where(eq(classes.id, classId));
+      if (remaining === 0)
+        await tx.delete(classes).where(eq(classes.id, classId));
     });
 
     if (isSuccessor) {
@@ -285,10 +341,7 @@ export async function leaveClass(classId: string, transfer = true) {
         .select({ userId: userClasses.userId })
         .from(userClasses)
         .where(
-          and(
-            eq(userClasses.classId, classId),
-            eq(userClasses.rank, "owner"),
-          ),
+          and(eq(userClasses.classId, classId), eq(userClasses.rank, "owner")),
         )
         .limit(1);
       if (ownerRow) {
@@ -334,8 +387,7 @@ export async function setNextOwner(classId: string, userId: string | null) {
       if (userId === session.user.id)
         return { error: "You cannot designate yourself as successor." };
       const rank = await getUserRank(classId, userId);
-      if (!rank)
-        return { error: "That user is not a member of this class." };
+      if (!rank) return { error: "That user is not a member of this class." };
     }
 
     await db
@@ -355,15 +407,20 @@ export async function transferOwnership(classId: string) {
 
   try {
     const rank = await getUserRank(classId, session.user.id);
-    if (rank !== "owner") return { error: "Only the owner can transfer ownership." };
+    if (rank !== "owner")
+      return { error: "Only the owner can transfer ownership." };
 
     const [cls] = await db
-      .select({ nextOwnerId: classes.nextOwnerId, defaultRank: classes.defaultRank })
+      .select({
+        nextOwnerId: classes.nextOwnerId,
+        defaultRank: classes.defaultRank,
+      })
       .from(classes)
       .where(eq(classes.id, classId))
       .limit(1);
     if (!cls) return { error: "Class does not exist." };
-    if (!cls.nextOwnerId) return { error: "Designate a successor before transferring." };
+    if (!cls.nextOwnerId)
+      return { error: "Designate a successor before transferring." };
 
     const nextOwnerId = cls.nextOwnerId;
     const [nextOwnerRow] = await db
@@ -520,7 +577,10 @@ export async function kickFromClass(classId: string, userId: string) {
           and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
         ),
       cls[0].nextOwnerId === userId
-        ? db.update(classes).set({ nextOwnerId: null }).where(eq(classes.id, classId))
+        ? db
+            .update(classes)
+            .set({ nextOwnerId: null })
+            .where(eq(classes.id, classId))
         : Promise.resolve(),
     ]);
 
@@ -740,7 +800,10 @@ export async function updateClassNotification(
     .update(userClasses)
     .set({ [key]: value })
     .where(
-      and(eq(userClasses.classId, classId), eq(userClasses.userId, session.user.id)),
+      and(
+        eq(userClasses.classId, classId),
+        eq(userClasses.userId, session.user.id),
+      ),
     );
   return { success: true };
 }
@@ -903,46 +966,58 @@ export async function sendClassInvites(classId: string, rawEmails: string[]) {
     ),
   ];
   if (emails.length === 0) return { error: "No valid email addresses." };
-  if (emails.length > MAX_INVITE_BATCH) return { error: `You can invite at most ${MAX_INVITE_BATCH} people at a time.` };
+  if (emails.length > MAX_INVITE_BATCH)
+    return {
+      error: `You can invite at most ${MAX_INVITE_BATCH} people at a time.`,
+    };
 
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const [[{ memberCount }], [{ topicCount }], existingMembers, recentInvites, bannedUsers] =
-    await Promise.all([
-      db
-        .select({ memberCount: count() })
-        .from(userClasses)
-        .where(eq(userClasses.classId, classId)),
-      db
-        .select({ topicCount: count() })
-        .from(topics)
-        .where(eq(topics.classId, classId)),
-      db
-        .select({ email: user.email })
-        .from(user)
-        .innerJoin(userClasses, eq(user.id, userClasses.userId))
-        .where(eq(userClasses.classId, classId)),
-      db
-        .select({ recipientEmail: emailInvites.recipientEmail })
-        .from(emailInvites)
-        .where(
-          and(
-            eq(emailInvites.senderId, session.user.id),
-            eq(emailInvites.classId, classId),
-            gt(emailInvites.sentAt, oneDayAgo),
-          ),
+  const [
+    [{ memberCount }],
+    [{ topicCount }],
+    existingMembers,
+    recentInvites,
+    bannedUsers,
+  ] = await Promise.all([
+    db
+      .select({ memberCount: count() })
+      .from(userClasses)
+      .where(eq(userClasses.classId, classId)),
+    db
+      .select({ topicCount: count() })
+      .from(topics)
+      .where(eq(topics.classId, classId)),
+    db
+      .select({ email: user.email })
+      .from(user)
+      .innerJoin(userClasses, eq(user.id, userClasses.userId))
+      .where(eq(userClasses.classId, classId)),
+    db
+      .select({ recipientEmail: emailInvites.recipientEmail })
+      .from(emailInvites)
+      .where(
+        and(
+          eq(emailInvites.senderId, session.user.id),
+          eq(emailInvites.classId, classId),
+          gt(emailInvites.sentAt, oneDayAgo),
         ),
-      db
-        .select({ email: user.email })
-        .from(classBans)
-        .innerJoin(user, eq(classBans.bannedUserId, user.id))
-        .where(eq(classBans.classId, classId)),
-    ]);
+      ),
+    db
+      .select({ email: user.email })
+      .from(classBans)
+      .innerJoin(user, eq(classBans.bannedUserId, user.id))
+      .where(eq(classBans.classId, classId)),
+  ]);
 
-  const memberEmails = new Set(existingMembers.map((m) => m.email.toLowerCase()));
+  const memberEmails = new Set(
+    existingMembers.map((m) => m.email.toLowerCase()),
+  );
   const recentSet = new Set(recentInvites.map((r) => r.recipientEmail));
   const bannedEmails = new Set(bannedUsers.map((b) => b.email.toLowerCase()));
 
-  const toSend = emails.filter((e) => !memberEmails.has(e) && !recentSet.has(e) && !bannedEmails.has(e));
+  const toSend = emails.filter(
+    (e) => !memberEmails.has(e) && !recentSet.has(e) && !bannedEmails.has(e),
+  );
   const banned = emails.filter((e) => bannedEmails.has(e)).length;
   const skipped = emails.length - toSend.length - banned;
 

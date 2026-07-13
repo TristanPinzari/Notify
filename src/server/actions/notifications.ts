@@ -53,7 +53,12 @@ export async function getClassNotifPrefs(
     })
     .from(userClasses)
     .innerJoin(classes, eq(classes.id, classId))
-    .where(and(eq(userClasses.classId, classId), eq(userClasses.userId, session.user.id)))
+    .where(
+      and(
+        eq(userClasses.classId, classId),
+        eq(userClasses.userId, session.user.id),
+      ),
+    )
     .limit(1);
   return rows[0] ?? null;
 }

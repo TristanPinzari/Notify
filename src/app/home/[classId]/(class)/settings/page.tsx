@@ -58,20 +58,26 @@ export default async function ClassSettingsPage({
       .select({ name: user.name, id: user.id })
       .from(userClasses)
       .innerJoin(user, eq(userClasses.userId, user.id))
-      .where(and(eq(userClasses.classId, classId), eq(userClasses.rank, "owner")))
+      .where(
+        and(eq(userClasses.classId, classId), eq(userClasses.rank, "owner")),
+      )
       .limit(1),
 
     db
       .select({ userId: userClasses.userId })
       .from(userClasses)
-      .where(and(eq(userClasses.classId, classId), ne(userClasses.userId, userId)))
+      .where(
+        and(eq(userClasses.classId, classId), ne(userClasses.userId, userId)),
+      )
       .limit(1),
   ]);
 
   if (!cls) notFound();
   if (!member) redirect("/home");
 
-  const nextOwnerName = cls.nextOwnerId ? await getUserName(cls.nextOwnerId) : null;
+  const nextOwnerName = cls.nextOwnerId
+    ? await getUserName(cls.nextOwnerId)
+    : null;
 
   return (
     <SettingsView

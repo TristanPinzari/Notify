@@ -91,7 +91,9 @@ export function EmailVerifiedContent({
         {email && (
           <span className="inline-block px-4 py-2.5 bg-(--paper-raised) border border-(--line) rounded-xl mx-auto mb-8 text-[14px]">
             <span className="text-(--ink-faint) text-[13px]">Sign in with</span>{" "}
-            <strong className="font-medium text-(--ink-heading)">{email}</strong>
+            <strong className="font-medium text-(--ink-heading)">
+              {email}
+            </strong>
           </span>
         )}
         <AccentButton href="/home">

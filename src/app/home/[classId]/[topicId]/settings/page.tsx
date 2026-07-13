@@ -27,71 +27,78 @@ export default async function TopicSettingsPage({
 
   const userId = session.user.id;
 
-  const [[cls], [member], [topicRow], [ownerRow], [otherMember]] = await Promise.all([
-    db
-      .select({
-        id: classes.id,
-        name: classes.name,
-        code: classes.code,
-        createdAt: classes.createdAt,
-        defaultRank: classes.defaultRank,
-        minRankCreateTopic: classes.minRankCreateTopic,
-        minRankDeleteTopic: classes.minRankDeleteTopic,
-        minRankUploadContribution: classes.minRankUploadContribution,
-        minRankDeleteContribution: classes.minRankDeleteContribution,
-        minRankTriggerCompilation: classes.minRankTriggerCompilation,
-        minRankEditCompilation: classes.minRankEditCompilation,
-        minRankInvite: classes.minRankInvite,
-        minRankBanUsers: classes.minRankBanUsers,
-        minRankKickUsers: classes.minRankKickUsers,
-        minRankChangeRanks: classes.minRankChangeRanks,
-        minRankPinContribution: classes.minRankPinContribution,
-        nextOwnerId: classes.nextOwnerId,
-      })
-      .from(classes)
-      .where(eq(classes.id, classId))
-      .limit(1),
+  const [[cls], [member], [topicRow], [ownerRow], [otherMember]] =
+    await Promise.all([
+      db
+        .select({
+          id: classes.id,
+          name: classes.name,
+          code: classes.code,
+          createdAt: classes.createdAt,
+          defaultRank: classes.defaultRank,
+          minRankCreateTopic: classes.minRankCreateTopic,
+          minRankDeleteTopic: classes.minRankDeleteTopic,
+          minRankUploadContribution: classes.minRankUploadContribution,
+          minRankDeleteContribution: classes.minRankDeleteContribution,
+          minRankTriggerCompilation: classes.minRankTriggerCompilation,
+          minRankEditCompilation: classes.minRankEditCompilation,
+          minRankInvite: classes.minRankInvite,
+          minRankBanUsers: classes.minRankBanUsers,
+          minRankKickUsers: classes.minRankKickUsers,
+          minRankChangeRanks: classes.minRankChangeRanks,
+          minRankPinContribution: classes.minRankPinContribution,
+          nextOwnerId: classes.nextOwnerId,
+        })
+        .from(classes)
+        .where(eq(classes.id, classId))
+        .limit(1),
 
-    db
-      .select({ rank: userClasses.rank })
-      .from(userClasses)
-      .where(
-        and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
-      )
-      .limit(1),
+      db
+        .select({ rank: userClasses.rank })
+        .from(userClasses)
+        .where(
+          and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
+        )
+        .limit(1),
 
-    db
-      .select({
-        id: topics.id,
-        name: topics.name,
-        createdAt: topics.createdAt,
-        createdBy: topics.createdBy,
-        creatorName: user.name,
-      })
-      .from(topics)
-      .leftJoin(user, eq(topics.createdBy, user.id))
-      .where(and(eq(topics.id, topicId), eq(topics.classId, classId)))
-      .limit(1),
+      db
+        .select({
+          id: topics.id,
+          name: topics.name,
+          createdAt: topics.createdAt,
+          createdBy: topics.createdBy,
+          creatorName: user.name,
+        })
+        .from(topics)
+        .leftJoin(user, eq(topics.createdBy, user.id))
+        .where(and(eq(topics.id, topicId), eq(topics.classId, classId)))
+        .limit(1),
 
-    db
-      .select({ name: user.name, id: user.id })
-      .from(userClasses)
-      .innerJoin(user, eq(userClasses.userId, user.id))
-      .where(and(eq(userClasses.classId, classId), eq(userClasses.rank, "owner")))
-      .limit(1),
+      db
+        .select({ name: user.name, id: user.id })
+        .from(userClasses)
+        .innerJoin(user, eq(userClasses.userId, user.id))
+        .where(
+          and(eq(userClasses.classId, classId), eq(userClasses.rank, "owner")),
+        )
+        .limit(1),
 
-    db
-      .select({ userId: userClasses.userId })
-      .from(userClasses)
-      .where(and(eq(userClasses.classId, classId), ne(userClasses.userId, userId)))
-      .limit(1),
-  ]);
+      db
+        .select({ userId: userClasses.userId })
+        .from(userClasses)
+        .where(
+          and(eq(userClasses.classId, classId), ne(userClasses.userId, userId)),
+        )
+        .limit(1),
+    ]);
 
   if (!cls) notFound();
   if (!member) redirect("/home");
   if (!topicRow) notFound();
 
-  const nextOwnerName = cls.nextOwnerId ? await getUserName(cls.nextOwnerId) : null;
+  const nextOwnerName = cls.nextOwnerId
+    ? await getUserName(cls.nextOwnerId)
+    : null;
 
   const canDelete =
     RANK_VALUE[member.rank] >= RANK_VALUE[cls.minRankDeleteTopic];

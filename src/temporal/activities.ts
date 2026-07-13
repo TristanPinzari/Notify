@@ -239,7 +239,11 @@ export async function runCompilation(
 
     const forPrompt = rows
       .filter((r) => r.text !== null)
-      .map((r) => ({ ...r, text: r.text!, uploaderName: r.uploaderName ?? "Deleted user" }));
+      .map((r) => ({
+        ...r,
+        text: r.text!,
+        uploaderName: r.uploaderName ?? "Deleted user",
+      }));
 
     if (forPrompt.length === 0) {
       console.error(

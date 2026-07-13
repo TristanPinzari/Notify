@@ -41,7 +41,10 @@ export async function getUserNotifications(): Promise<NotifPrefs | null> {
 export async function updateUserNotification(key: NotifKey, value: boolean) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
-  await db.update(user).set({ [key]: value }).where(eq(user.id, session.user.id));
+  await db
+    .update(user)
+    .set({ [key]: value })
+    .where(eq(user.id, session.user.id));
   return { success: true };
 }
 
@@ -124,7 +127,9 @@ export async function deleteAccount(
         .select({ classId: classes.id, nextOwnerId: classes.nextOwnerId })
         .from(userClasses)
         .innerJoin(classes, eq(userClasses.classId, classes.id))
-        .where(and(eq(userClasses.userId, userId), eq(userClasses.rank, "owner")));
+        .where(
+          and(eq(userClasses.userId, userId), eq(userClasses.rank, "owner")),
+        );
 
       // Build the exact set of classes that require a decision (all owned, no designated successor)
       const needsDecision = new Set(
@@ -140,38 +145,92 @@ export async function deleteAccount(
         // Designated successor — verify they are still a member
         if (nextOwnerId) {
           const [still] = await tx
-            .select({ userId: userClasses.userId, rank: userClasses.rank, name: user.name })
+            .select({
+              userId: userClasses.userId,
+              rank: userClasses.rank,
+              name: user.name,
+            })
             .from(userClasses)
             .innerJoin(user, eq(userClasses.userId, user.id))
-            .where(and(eq(userClasses.classId, classId), eq(userClasses.userId, nextOwnerId)))
+            .where(
+              and(
+                eq(userClasses.classId, classId),
+                eq(userClasses.userId, nextOwnerId),
+              ),
+            )
             .limit(1);
           if (!still) throw new Error("OUT_OF_SYNC");
           await tx
             .update(userClasses)
             .set({ rank: "owner" })
-            .where(and(eq(userClasses.classId, classId), eq(userClasses.userId, nextOwnerId)));
-          await tx.update(classes).set({ nextOwnerId: null }).where(eq(classes.id, classId));
-          await logOwnershipTransfer(tx, classId, userId, still.userId, still.name, still.rank);
+            .where(
+              and(
+                eq(userClasses.classId, classId),
+                eq(userClasses.userId, nextOwnerId),
+              ),
+            );
+          await tx
+            .update(classes)
+            .set({ nextOwnerId: null })
+            .where(eq(classes.id, classId));
+          await logOwnershipTransfer(
+            tx,
+            classId,
+            userId,
+            still.userId,
+            still.name,
+            still.rank,
+          );
           continue;
         }
         // No designated successor — check user's decision
         if (decisionMap.get(classId) === false) {
-          await tx.insert(activityLogs).values({ id: crypto.randomUUID(), classId, topicId: null, userId, action: "member_left", metadata: null });
+          await tx
+            .insert(activityLogs)
+            .values({
+              id: crypto.randomUUID(),
+              classId,
+              topicId: null,
+              userId,
+              action: "member_left",
+              metadata: null,
+            });
           continue;
         }
         const [oldest] = await tx
-          .select({ userId: userClasses.userId, rank: userClasses.rank, name: user.name })
+          .select({
+            userId: userClasses.userId,
+            rank: userClasses.rank,
+            name: user.name,
+          })
           .from(userClasses)
           .innerJoin(user, eq(userClasses.userId, user.id))
-          .where(and(eq(userClasses.classId, classId), ne(userClasses.userId, userId)))
+          .where(
+            and(
+              eq(userClasses.classId, classId),
+              ne(userClasses.userId, userId),
+            ),
+          )
           .orderBy(asc(userClasses.joinedAt))
           .limit(1);
         if (oldest) {
           await tx
             .update(userClasses)
             .set({ rank: "owner" })
-            .where(and(eq(userClasses.classId, classId), eq(userClasses.userId, oldest.userId)));
-          await logOwnershipTransfer(tx, classId, userId, oldest.userId, oldest.name, oldest.rank);
+            .where(
+              and(
+                eq(userClasses.classId, classId),
+                eq(userClasses.userId, oldest.userId),
+              ),
+            );
+          await logOwnershipTransfer(
+            tx,
+            classId,
+            userId,
+            oldest.userId,
+            oldest.name,
+            oldest.rank,
+          );
         } else {
           await tx.delete(classes).where(eq(classes.id, classId));
         }
@@ -181,7 +240,10 @@ export async function deleteAccount(
     return { success: true };
   } catch (e) {
     if (e instanceof Error && e.message === "OUT_OF_SYNC") {
-      return { error: "Your class list is out of date.", code: "OUT_OF_SYNC" as const };
+      return {
+        error: "Your class list is out of date.",
+        code: "OUT_OF_SYNC" as const,
+      };
     }
     console.error("deleteAccount error:", e);
     return { error: "Something went wrong." };

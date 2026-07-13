@@ -5,7 +5,12 @@ import { classes, topics } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
-import { getUserRank, rateLimit, requireRank, topicBelongsToClass } from "./shared";
+import {
+  getUserRank,
+  rateLimit,
+  requireRank,
+  topicBelongsToClass,
+} from "./shared";
 import { logActivity } from "@/lib/activity-log";
 
 export async function createTopic(
@@ -135,11 +140,16 @@ export async function changeTopicName(
 
     await db.update(topics).set({ name }).where(eq(topics.id, topicId));
 
-    logActivity(classId, session.user.id, {
-      action: "topic_renamed",
-      oldName: topicRow?.name ?? "",
-      newName: name,
-    }, topicId);
+    logActivity(
+      classId,
+      session.user.id,
+      {
+        action: "topic_renamed",
+        oldName: topicRow?.name ?? "",
+        newName: name,
+      },
+      topicId,
+    );
     return { success: true };
   } catch (e) {
     console.error("ERROR: ", e);

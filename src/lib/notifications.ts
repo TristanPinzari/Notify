@@ -33,7 +33,11 @@ async function notifyRemoval(
 ) {
   const [targetUser, classRow] = await Promise.all([
     db
-      .select({ email: user.email, notifyKick: user.notifyKick, notifyBanned: user.notifyBanned })
+      .select({
+        email: user.email,
+        notifyKick: user.notifyKick,
+        notifyBanned: user.notifyBanned,
+      })
       .from(user)
       .where(eq(user.id, targetId))
       .limit(1),
@@ -52,7 +56,10 @@ async function notifyRemoval(
     type,
     payload: JSON.stringify({ className, actorName }),
   });
-  const pref = type === "member_kicked" ? targetUser[0].notifyKick : targetUser[0].notifyBanned;
+  const pref =
+    type === "member_kicked"
+      ? targetUser[0].notifyKick
+      : targetUser[0].notifyBanned;
   if (pref) {
     const render = type === "member_kicked" ? renderKicked : renderBanned;
     const subject =
@@ -132,9 +139,10 @@ export async function triggerNotifications(
         await resend.emails.send({
           from: FROM,
           to: targetUser[0].email,
-          subject: payload.rank === "owner"
-            ? `You're now the owner of ${classRow[0].name}`
-            : `You're now a ${RANK_LABELS[payload.rank] ?? payload.rank} in ${classRow[0].name}`,
+          subject:
+            payload.rank === "owner"
+              ? `You're now the owner of ${classRow[0].name}`
+              : `You're now a ${RANK_LABELS[payload.rank] ?? payload.rank} in ${classRow[0].name}`,
           html: renderRankChanged({
             className: classRow[0].name,
             oldRank: payload.oldRank,
@@ -150,38 +158,40 @@ export async function triggerNotifications(
     case "compilation_completed": {
       if (!topicId) return;
 
-      const [topicRow, classRow, allMembers, latestDocRows] = await Promise.all([
-        db
-          .select({ name: topics.name })
-          .from(topics)
-          .where(eq(topics.id, topicId))
-          .limit(1),
-        db
-          .select({ name: classes.name })
-          .from(classes)
-          .where(eq(classes.id, classId))
-          .limit(1),
-        db
-          .select({
-            userId: userClasses.userId,
-            email: user.email,
-            notifyMasterDoc: userClasses.notifyMasterDoc,
-          })
-          .from(userClasses)
-          .innerJoin(user, eq(userClasses.userId, user.id))
-          .where(eq(userClasses.classId, classId)),
-        db
-          .select({ id: masterDocuments.id })
-          .from(masterDocuments)
-          .where(
-            and(
-              eq(masterDocuments.topicId, topicId),
-              eq(masterDocuments.status, "ready"),
-            ),
-          )
-          .orderBy(desc(masterDocuments.createdAt))
-          .limit(1),
-      ]);
+      const [topicRow, classRow, allMembers, latestDocRows] = await Promise.all(
+        [
+          db
+            .select({ name: topics.name })
+            .from(topics)
+            .where(eq(topics.id, topicId))
+            .limit(1),
+          db
+            .select({ name: classes.name })
+            .from(classes)
+            .where(eq(classes.id, classId))
+            .limit(1),
+          db
+            .select({
+              userId: userClasses.userId,
+              email: user.email,
+              notifyMasterDoc: userClasses.notifyMasterDoc,
+            })
+            .from(userClasses)
+            .innerJoin(user, eq(userClasses.userId, user.id))
+            .where(eq(userClasses.classId, classId)),
+          db
+            .select({ id: masterDocuments.id })
+            .from(masterDocuments)
+            .where(
+              and(
+                eq(masterDocuments.topicId, topicId),
+                eq(masterDocuments.status, "ready"),
+              ),
+            )
+            .orderBy(desc(masterDocuments.createdAt))
+            .limit(1),
+        ],
+      );
 
       if (!topicRow[0] || !classRow[0] || allMembers.length === 0) return;
 
@@ -248,11 +258,21 @@ export async function triggerNotifications(
     }
 
     case "member_kicked":
-      await notifyRemoval(classId, "member_kicked", payload.target.id, payload.actor.name);
+      await notifyRemoval(
+        classId,
+        "member_kicked",
+        payload.target.id,
+        payload.actor.name,
+      );
       break;
 
     case "member_banned":
-      await notifyRemoval(classId, "member_banned", payload.target.id, payload.actor.name);
+      await notifyRemoval(
+        classId,
+        "member_banned",
+        payload.target.id,
+        payload.actor.name,
+      );
       break;
 
     case "member_unbanned": {
@@ -278,7 +298,11 @@ export async function triggerNotifications(
         userId: payload.target.id,
         classId,
         type: "member_unbanned",
-        payload: JSON.stringify({ className: classRow[0].name, actorName: payload.actor.name, url }),
+        payload: JSON.stringify({
+          className: classRow[0].name,
+          actorName: payload.actor.name,
+          url,
+        }),
       });
 
       if (targetUser[0].notifyUnbanned) {
@@ -286,7 +310,11 @@ export async function triggerNotifications(
           from: FROM,
           to: targetUser[0].email,
           subject: `Your ban in ${classRow[0].name} has been lifted`,
-          html: renderUnbanned({ className: classRow[0].name, actorName: payload.actor.name, url }),
+          html: renderUnbanned({
+            className: classRow[0].name,
+            actorName: payload.actor.name,
+            url,
+          }),
         });
       }
       break;

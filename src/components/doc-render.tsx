@@ -1,7 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
-import { FlagDocIcon, ConflictSplitIcon, MultiSourceIcon } from "@/components/icons";
+import {
+  FlagDocIcon,
+  ConflictSplitIcon,
+  MultiSourceIcon,
+} from "@/components/icons";
 
 /* ─── types ─────────────────────────────────────────────────────────── */
 
@@ -174,7 +178,12 @@ function assignCitations(blocks: Block[]): void {
   const flat: Slot[] = [];
 
   function flattenItem(item: LiItem) {
-    flat.push({ srcs: item.srcs, set: (c) => { item.cite = c; } });
+    flat.push({
+      srcs: item.srcs,
+      set: (c) => {
+        item.cite = c;
+      },
+    });
     for (const child of item.children) flattenItem(child);
   }
 
@@ -183,7 +192,12 @@ function assignCitations(blocks: Block[]): void {
       for (const item of b.items) flattenItem(item);
     } else if (b.kind !== "blank" && b.kind !== "conflict") {
       const tb = b as { srcs: SrcRef[]; cite: SrcRef[] };
-      flat.push({ srcs: tb.srcs, set: (c) => { tb.cite = c; } });
+      flat.push({
+        srcs: tb.srcs,
+        set: (c) => {
+          tb.cite = c;
+        },
+      });
     }
   }
 
@@ -194,7 +208,11 @@ function assignCitations(blocks: Block[]): void {
     const { srcs, set } = flat[i];
     if (srcs.length === 0) continue;
     if (srcs.length > 1) {
-      if (runEnd >= 0 && runSrc) { flat[runEnd].set([runSrc]); runSrc = null; runEnd = -1; }
+      if (runEnd >= 0 && runSrc) {
+        flat[runEnd].set([runSrc]);
+        runSrc = null;
+        runEnd = -1;
+      }
       set(srcs);
       continue;
     }
@@ -272,7 +290,9 @@ function Flagged({
       ? "AI suggestion"
       : "Flagged · verify";
   const tipBody =
-    original ?? correction ?? "This claim could not be confirmed against a cited source.";
+    original ??
+    correction ??
+    "This claim could not be confirmed against a cited source.";
   return (
     <span className="flagged">
       <span className="flag-text">{children}</span>
@@ -378,7 +398,9 @@ function renderBlocks(
     const resolved = srcs.map((src) => ({
       n: reg.getNum(src),
       name: src.name,
-      href: src.id ? `/home/${classId}/${topicId}/collection?sources=${src.id}` : undefined,
+      href: src.id
+        ? `/home/${classId}/${topicId}/collection?sources=${src.id}`
+        : undefined,
     }));
     if (resolved.length === 1) {
       const { n, name, href } = resolved[0];
@@ -389,7 +411,12 @@ function renderBlocks(
 
   function renderWithCite(text: string, srcs: SrcRef[]): React.ReactNode {
     if (srcs.length === 0) return renderInline(text);
-    return <>{renderInline(text)}{cite(srcs)}</>;
+    return (
+      <>
+        {renderInline(text)}
+        {cite(srcs)}
+      </>
+    );
   }
 
   for (const b of blocks) {
@@ -457,7 +484,9 @@ export function CompiledDoc({
                 <li key={s.n}>
                   <span className="num">{s.n}</span>
                   {href ? (
-                    <a href={href} className="sf-link">{s.name}</a>
+                    <a href={href} className="sf-link">
+                      {s.name}
+                    </a>
                   ) : (
                     <span>{s.name}</span>
                   )}

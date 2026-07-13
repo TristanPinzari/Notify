@@ -33,9 +33,9 @@ const CONFLICT_RESOLUTION = {
 
 const FACT_CHECK = {
   none: "Do not fact-check or alter any claims — reproduce what the sources say.",
-  flag: "If a claim seems factually dubious, wrap it in <flagged correction=\"your suggested correction\">paraphrased original claim</flagged> — paraphrase what the source said inside the tags and put the correct version in the correction attribute.",
+  flag: 'If a claim seems factually dubious, wrap it in <flagged correction="your suggested correction">paraphrased original claim</flagged> — paraphrase what the source said inside the tags and put the correct version in the correction attribute.',
   replace:
-    "If a claim is clearly factually incorrect, write the correction inside <flagged original=\"paraphrased original claim\">correction</flagged> — put your correction inside the tags and a clean paraphrase of what the source said in the original attribute. Never quote verbatim, especially transcribed speech.",
+    'If a claim is clearly factually incorrect, write the correction inside <flagged original="paraphrased original claim">correction</flagged> — put your correction inside the tags and a clean paraphrase of what the source said in the original attribute. Never quote verbatim, especially transcribed speech.',
 };
 
 const XML_TAG_REFERENCE = `

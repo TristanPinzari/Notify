@@ -36,7 +36,16 @@ export async function MembersPageContent({
   const uc2 = alias(userClasses, "uc2");
   const uc3 = alias(userClasses, "uc3");
 
-  const [[cls], [member], memberRows, bannedRows, lastContribRows, lastTopicRows, lastCompileRows, sharedClassRows] = await Promise.all([
+  const [
+    [cls],
+    [member],
+    memberRows,
+    bannedRows,
+    lastContribRows,
+    lastTopicRows,
+    lastCompileRows,
+    sharedClassRows,
+  ] = await Promise.all([
     db
       .select({
         name: classes.name,
@@ -116,33 +125,60 @@ export async function MembersPageContent({
       .orderBy(classBans.createdAt),
 
     db
-      .select({ userId: contributions.uploadedBy, lastAt: max(contributions.createdAt) })
+      .select({
+        userId: contributions.uploadedBy,
+        lastAt: max(contributions.createdAt),
+      })
       .from(contributions)
       .innerJoin(topics, eq(contributions.topicId, topics.id))
-      .innerJoin(uc3, and(eq(contributions.uploadedBy, uc3.userId), eq(uc3.classId, classId)))
+      .innerJoin(
+        uc3,
+        and(eq(contributions.uploadedBy, uc3.userId), eq(uc3.classId, classId)),
+      )
       .where(eq(topics.classId, classId))
       .groupBy(contributions.uploadedBy),
 
     db
       .select({ userId: topics.createdBy, lastAt: max(topics.createdAt) })
       .from(topics)
-      .innerJoin(uc3, and(eq(topics.createdBy, uc3.userId), eq(uc3.classId, classId)))
+      .innerJoin(
+        uc3,
+        and(eq(topics.createdBy, uc3.userId), eq(uc3.classId, classId)),
+      )
       .where(eq(topics.classId, classId))
       .groupBy(topics.createdBy),
 
     db
-      .select({ userId: masterDocuments.triggeredBy, lastAt: max(masterDocuments.createdAt) })
+      .select({
+        userId: masterDocuments.triggeredBy,
+        lastAt: max(masterDocuments.createdAt),
+      })
       .from(masterDocuments)
       .innerJoin(topics, eq(masterDocuments.topicId, topics.id))
-      .innerJoin(uc3, and(eq(masterDocuments.triggeredBy, uc3.userId), eq(uc3.classId, classId)))
+      .innerJoin(
+        uc3,
+        and(
+          eq(masterDocuments.triggeredBy, uc3.userId),
+          eq(uc3.classId, classId),
+        ),
+      )
       .where(eq(topics.classId, classId))
       .groupBy(masterDocuments.triggeredBy),
 
     db
       .select({ userId: userClasses.userId, sharedCount: count() })
       .from(userClasses)
-      .innerJoin(uc2, and(eq(userClasses.classId, uc2.classId), eq(uc2.userId, session.user.id)))
-      .innerJoin(uc3, and(eq(userClasses.userId, uc3.userId), eq(uc3.classId, classId)))
+      .innerJoin(
+        uc2,
+        and(
+          eq(userClasses.classId, uc2.classId),
+          eq(uc2.userId, session.user.id),
+        ),
+      )
+      .innerJoin(
+        uc3,
+        and(eq(userClasses.userId, uc3.userId), eq(uc3.classId, classId)),
+      )
       .groupBy(userClasses.userId),
   ]);
 
@@ -159,7 +195,9 @@ export async function MembersPageContent({
     const prev = lastActiveMap.get(r.userId);
     if (!prev || r.lastAt > prev) lastActiveMap.set(r.userId, r.lastAt);
   }
-  const sharedClassMap = new Map(sharedClassRows.map((r) => [r.userId, r.sharedCount]));
+  const sharedClassMap = new Map(
+    sharedClassRows.map((r) => [r.userId, r.sharedCount]),
+  );
 
   const members: MemberRow[] = memberRows.map((m) => ({
     userId: m.userId,

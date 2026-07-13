@@ -77,7 +77,10 @@ function TopicCard({ t, classId }: { t: Topic; classId: string }) {
             <span className="t-newpill">{t.uncompiled} uncompiled</span>
           )}
           {t.lastActivity && (
-            <span className="t-stat" title="Time since last upload or compilation">
+            <span
+              className="t-stat"
+              title="Time since last upload or compilation"
+            >
               <ClockIcon />
               {timeAgo(t.lastActivity)}
             </span>

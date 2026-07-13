@@ -251,7 +251,10 @@ function MicSelect({
         </span>
         <span className="truncate">{label}</span>
         <span
-          className={cn("transition-transform duration-180", open ? "-rotate-90" : "rotate-90")}
+          className={cn(
+            "transition-transform duration-180",
+            open ? "-rotate-90" : "rotate-90",
+          )}
         >
           <ChevIcon size={12} />
         </span>

@@ -63,7 +63,10 @@ export default async function HomePage({
             .where(inArray(topics.classId, classIds))
             .groupBy(topics.classId),
           db
-            .select({ classId: topics.classId, lastCompilation: max(masterDocuments.createdAt) })
+            .select({
+              classId: topics.classId,
+              lastCompilation: max(masterDocuments.createdAt),
+            })
             .from(masterDocuments)
             .innerJoin(topics, eq(masterDocuments.topicId, topics.id))
             .where(inArray(topics.classId, classIds))
@@ -74,13 +77,21 @@ export default async function HomePage({
   const topicMap = new Map(topicCounts.map((r) => [r.classId, r.count]));
   const memberMap = new Map(memberCounts.map((r) => [r.classId, r.count]));
   const contribMap = new Map(contribRows.map((r) => [r.classId, r]));
-  const lastCompilationMap = new Map(lastCompilationRows.map((r) => [r.classId, r.lastCompilation]));
+  const lastCompilationMap = new Map(
+    lastCompilationRows.map((r) => [r.classId, r.lastCompilation]),
+  );
 
   const enriched = classRows.map((r) => {
     const contrib = contribMap.get(r.id);
     const upload = contrib?.lastUpload ?? null;
     const compilation = lastCompilationMap.get(r.id) ?? null;
-    const lastActivity = (upload && compilation ? (upload > compilation ? upload : compilation) : upload ?? compilation)?.toISOString() ?? null;
+    const lastActivity =
+      (upload && compilation
+        ? upload > compilation
+          ? upload
+          : compilation
+        : (upload ?? compilation)
+      )?.toISOString() ?? null;
     return {
       ...r,
       topicCount: topicMap.get(r.id) ?? 0,

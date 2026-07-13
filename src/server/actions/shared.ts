@@ -74,16 +74,16 @@ export function isUniqueViolation(e: unknown): boolean {
 const WINDOW_MS = 60 * 60 * 1000;
 
 const RATE_LIMITS = {
-  createClass:                 5,
-  joinClass:                  20,
-  createTopic:                20,
-  createContribution:         30,
-  sendClassInvites:           10,
-  createMasterDocument:       10,
-  sendFeedback:                5,
-  getAvatarUploadUrl:         20,
-  createPDF:                  20,
-  updateMasterDocumentContent:60,
+  createClass: 5,
+  joinClass: 20,
+  createTopic: 20,
+  createContribution: 30,
+  sendClassInvites: 10,
+  createMasterDocument: 10,
+  sendFeedback: 5,
+  getAvatarUploadUrl: 20,
+  createPDF: 20,
+  updateMasterDocumentContent: 60,
 } as const;
 
 export async function rateLimit(

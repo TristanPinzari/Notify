@@ -3,7 +3,6 @@ import Link from "next/link";
 
 export const metadata: Metadata = { title: "Privacy Policy" };
 
-
 function Section({
   title,
   children,
@@ -90,10 +89,7 @@ export default function PrivacyPage() {
           <p>
             This policy explains what personal data we collect, how we use it,
             and what your rights are. If you have questions, email{" "}
-            <a
-              href="mailto:tristanpinzari@gmail.com"
-              className="lk-accent"
-            >
+            <a href="mailto:tristanpinzari@gmail.com" className="lk-accent">
               tristanpinzari@gmail.com
             </a>
             .
@@ -251,10 +247,7 @@ export default function PrivacyPage() {
           </ul>
           <p>
             To exercise any of these rights, email{" "}
-            <a
-              href="mailto:tristanpinzari@gmail.com"
-              className="lk-accent"
-            >
+            <a href="mailto:tristanpinzari@gmail.com" className="lk-accent">
               tristanpinzari@gmail.com
             </a>
             .
@@ -294,10 +287,7 @@ export default function PrivacyPage() {
 
         <div className="pt-6 border-t border-(--line) text-[12.5px] text-(--ink-fainter)">
           Questions? Email{" "}
-          <a
-            href="mailto:tristanpinzari@gmail.com"
-            className="lk-accent"
-          >
+          <a href="mailto:tristanpinzari@gmail.com" className="lk-accent">
             tristanpinzari@gmail.com
           </a>
         </div>

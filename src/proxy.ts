@@ -9,7 +9,9 @@ export async function proxy(request: NextRequest) {
     const callbackUrl = pathname.startsWith("/home")
       ? `?callbackUrl=${encodeURIComponent(pathname + search)}`
       : "";
-    return NextResponse.redirect(new URL(`/sign-in${callbackUrl}`, request.url));
+    return NextResponse.redirect(
+      new URL(`/sign-in${callbackUrl}`, request.url),
+    );
   }
 
   const response = NextResponse.next();

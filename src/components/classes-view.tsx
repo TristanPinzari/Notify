@@ -54,7 +54,10 @@ function ClassCard({ c }: { c: ClassRow }) {
             <b>{c.memberCount}</b> {c.memberCount !== 1 ? "members" : "member"}
           </span>
           {c.lastActivity && (
-            <span className="t-stat" title="Time since last upload or compilation">
+            <span
+              className="t-stat"
+              title="Time since last upload or compilation"
+            >
               <ClockIcon />
               {timeAgo(c.lastActivity)}
             </span>
@@ -124,7 +127,10 @@ export default function ClassesView({ classes }: { classes: ClassRow[] }) {
             Join a class with an invite link or code, or create one to get
             started.
           </p>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+          <button
+            className="btn btn-primary"
+            onClick={() => setShowModal(true)}
+          >
             <PlusIcon />
             Add a class
           </button>

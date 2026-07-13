@@ -18,7 +18,13 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function AccentButton({ href, children }: { href: string; children: React.ReactNode }) {
+function AccentButton({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
   return (
     <Link
       href={href}
@@ -81,13 +87,17 @@ export function EmailChangeConfirmedContent({
         One more step — check your new inbox.
       </h1>
       <p className="text-[15.5px] leading-[1.62] text-(--ink-body) mx-auto mb-7 max-w-90">
-        You approved this change from your current address. We&apos;ve sent
-        a verification link to your new email to finish the process.
+        You approved this change from your current address. We&apos;ve sent a
+        verification link to your new email to finish the process.
       </p>
       {newEmail && (
         <span className="inline-block px-4 py-2.5 bg-(--paper-raised) border border-(--line) rounded-xl mx-auto mb-8 text-[14px]">
-          <span className="text-(--ink-faint) text-[13px]">Verification sent to</span>{" "}
-          <strong className="font-medium text-(--ink-heading)">{newEmail}</strong>
+          <span className="text-(--ink-faint) text-[13px]">
+            Verification sent to
+          </span>{" "}
+          <strong className="font-medium text-(--ink-heading)">
+            {newEmail}
+          </strong>
         </span>
       )}
       <AccentButton href="/home">Back to Notify</AccentButton>
