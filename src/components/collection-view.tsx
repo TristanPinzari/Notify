@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ContextFilterBar } from "@/components/context-filter-bar";
@@ -46,7 +47,7 @@ import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { timeAgo } from "@/lib/utils";
+import { timeAgo, cn } from "@/lib/utils";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -157,6 +158,158 @@ function defaultRecordingName() {
   return `Recording · ${new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
 }
 
+function MicSelect({
+  value,
+  onChange,
+  refreshSignal,
+  className,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  refreshSignal?: number;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const valueRef = useRef(value);
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+
+  const enumerate = useCallback(() => {
+    navigator.mediaDevices
+      .enumerateDevices()
+      .then((all) => {
+        const mics = all.filter((d) => d.kind === "audioinput");
+        setDevices(mics);
+        if (
+          valueRef.current &&
+          !mics.some((d) => d.deviceId === valueRef.current)
+        ) {
+          onChange(mics.find((d) => d.deviceId)?.deviceId ?? "");
+        }
+      })
+      .catch(() => {});
+  }, [onChange]);
+
+  useEffect(() => {
+    enumerate();
+    navigator.mediaDevices.addEventListener("devicechange", enumerate);
+    return () =>
+      navigator.mediaDevices.removeEventListener("devicechange", enumerate);
+  }, [enumerate]);
+
+  useEffect(() => {
+    if (!refreshSignal) return;
+    enumerate();
+  }, [refreshSignal, enumerate]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      const t = e.target as Node;
+      if (
+        !triggerRef.current?.contains(t) &&
+        !dropdownRef.current?.contains(t)
+      ) {
+        setOpen(false);
+      }
+    }
+    const onScroll = () => setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("scroll", onScroll, true);
+    };
+  }, [open]);
+
+  if (devices.length <= 1) return null;
+
+  const label =
+    devices.find((d) => d.deviceId === value)?.label || "Microphone";
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => {
+          setRect(triggerRef.current?.getBoundingClientRect() ?? null);
+          setOpen((o) => !o);
+        }}
+        className={cn(
+          "inline-flex items-center justify-between gap-2 border border-(--line-strong) rounded-[11px] bg-transparent text-(--ink) font-semibold text-[15px] pl-3.5 pr-3 py-3.25 cursor-pointer hover:bg-(--paper-raised) hover:border-(--ink-fainter) transition-[background,border-color] duration-180",
+          className,
+        )}
+      >
+        <span className="shrink-0">
+          <MicIcon size={16} />
+        </span>
+        <span className="truncate">{label}</span>
+        <span
+          className={cn("transition-transform duration-180", open ? "-rotate-90" : "rotate-90")}
+        >
+          <ChevIcon size={12} />
+        </span>
+      </button>
+      {open &&
+        rect &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            style={{
+              position: "fixed",
+              top: rect.bottom + 6,
+              left: rect.left,
+              minWidth: rect.width,
+              zIndex: 9999,
+            }}
+            className="bg-(--paper-raised) border border-(--line) rounded-[11px] shadow-lg py-1 overflow-hidden"
+          >
+            {devices.map((d) => {
+              const selected = d.deviceId === value;
+              return (
+                <button
+                  key={d.deviceId}
+                  type="button"
+                  onClick={async () => {
+                    const all = await navigator.mediaDevices.enumerateDevices();
+                    const mics = all.filter((m) => m.kind === "audioinput");
+                    if (!mics.some((m) => m.deviceId === d.deviceId)) {
+                      toast.error("That microphone is no longer available.");
+                      setDevices(mics);
+                      setOpen(false);
+                      return;
+                    }
+                    onChange(d.deviceId);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "w-full text-left px-3.5 py-2.5 text-[13px] flex items-center gap-2 cursor-pointer transition-colors duration-100",
+                    selected
+                      ? "text-(--accent-text) bg-(--accent-soft)"
+                      : "text-(--ink-nav) hover:bg-(--paper) hover:text-(--ink)",
+                  )}
+                >
+                  <MicIcon size={13} />
+                  <span className="truncate flex-1">
+                    {d.label || "Microphone"}
+                  </span>
+                  {selected && <CheckIcon size={11} />}
+                </button>
+              );
+            })}
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+
 function RecordPanel({
   name,
   setName,
@@ -175,6 +328,8 @@ function RecordPanel({
   const [waveBars, setWaveBars] = useState<number[]>(
     Array(WAVE_BAR_COUNT).fill(6),
   );
+  const [selectedDeviceId, setSelectedDeviceId] = useState("");
+  const [permissionSignal, setPermissionSignal] = useState(0);
 
   const mrRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -253,7 +408,12 @@ function RecordPanel({
 
   async function start() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: selectedDeviceId
+          ? { deviceId: { ideal: selectedDeviceId } }
+          : true,
+      });
+      setPermissionSignal((n) => n + 1);
       streamRef.current = stream;
       const audioCtx = new AudioContext();
       audioCtxRef.current = audioCtx;
@@ -344,6 +504,14 @@ function RecordPanel({
         <p className="text-[13px] text-(--ink-faint) text-center max-w-70 leading-normal m-0">
           Record a lecture, voice memo, or yourself reading notes aloud.
         </p>
+        <div className="w-full px-5 flex justify-center">
+          <MicSelect
+            value={selectedDeviceId}
+            onChange={setSelectedDeviceId}
+            refreshSignal={permissionSignal}
+            className="w-full max-w-80"
+          />
+        </div>
       </div>
     );
   }
@@ -466,12 +634,24 @@ function RecordPanel({
             }}
           />
         )}
-        <div className="flex items-center gap-2.5">
-          <button className="btn btn-ghost" onClick={redo}>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <MicSelect
+            value={selectedDeviceId}
+            onChange={setSelectedDeviceId}
+            refreshSignal={permissionSignal}
+            className="flex-1 max-w-full"
+          />
+          <button
+            className="btn btn-ghost flex-1 justify-center"
+            onClick={redo}
+          >
             <RetryIcon />
             Re-record
           </button>
-          <button className="btn btn-primary ml-auto" onClick={add}>
+          <button
+            className="btn btn-primary flex-1 justify-center"
+            onClick={add}
+          >
             <PlusIcon />
             Add to selection
           </button>
