@@ -185,10 +185,7 @@ function MicSelect({
       .then((all) => {
         const mics = all.filter((d) => d.kind === "audioinput");
         setDevices(mics);
-        if (
-          valueRef.current &&
-          !mics.some((d) => d.deviceId === valueRef.current)
-        ) {
+        if (!mics.some((d) => d.deviceId === valueRef.current)) {
           onChange(mics.find((d) => d.deviceId)?.deviceId ?? "");
         }
       })
