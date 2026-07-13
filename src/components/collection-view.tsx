@@ -36,6 +36,11 @@ import {
   PinIcon,
   MembersIcon,
   ChevronExtIcon,
+  MicIcon,
+  PauseIcon,
+  StopSquareIcon,
+  PlaySolidIcon,
+  WaveformIcon,
 } from "@/components/icons";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
@@ -138,6 +143,354 @@ type StagedPlaylist = {
 type StagedItem = StagedFile | StagedLink | StagedPlaylist;
 
 let stageSeq = 1000;
+
+function fmtRecTime(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+type RecordStage = "idle" | "recording" | "paused" | "review" | "added";
+
+function defaultRecordingName() {
+  return `Recording · ${new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+}
+
+function RecordPanel({
+  name,
+  setName,
+  onAdd,
+}: {
+  name: string;
+  setName: (n: string) => void;
+  onAdd: (file: File) => void;
+}) {
+  const [stage, setStage] = useState<RecordStage>("idle");
+  const [elapsed, setElapsed] = useState(0);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [audioDur, setAudioDur] = useState(0);
+  const [waveBars, setWaveBars] = useState<number[]>(Array(16).fill(6));
+
+  const mrRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const animFrameRef = useRef<number>(0);
+  const scrubbingRef = useRef(false);
+  const audioBlobRef = useRef<Blob | null>(null);
+  const [addedDuration, setAddedDuration] = useState(0);
+
+  useEffect(() => {
+    const url = blobUrl;
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [blobUrl]);
+
+  useEffect(() => {
+    if (stage !== "recording") return;
+    const id = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(id);
+  }, [stage]);
+
+  useEffect(() => {
+    return () => {
+      cancelAnimationFrame(animFrameRef.current);
+      void audioCtxRef.current?.close();
+      mrRef.current?.stop();
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
+  function handleTrackSeek(e: React.PointerEvent<HTMLDivElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const t = pct * effectiveDur;
+    if (audioRef.current) audioRef.current.currentTime = t;
+    setCurrentTime(t);
+  }
+
+  function startVisualizer() {
+    const analyser = analyserRef.current;
+    if (!analyser) return;
+    const binCount = analyser.frequencyBinCount;
+    const nyquist = analyser.context.sampleRate / 2;
+    const dataArr = new Uint8Array(binCount);
+    const bars = new Array<number>(16);
+    const MIN_HZ = 80;
+    const MAX_HZ = 8000;
+    const bin0s = new Int32Array(16);
+    const bin1s = new Int32Array(16);
+    for (let i = 0; i < 16; i++) {
+      const hz0 = MIN_HZ * Math.pow(MAX_HZ / MIN_HZ, i / 16);
+      const hz1 = MIN_HZ * Math.pow(MAX_HZ / MIN_HZ, (i + 1) / 16);
+      bin0s[i] = Math.max(0, Math.floor((hz0 / nyquist) * binCount));
+      bin1s[i] = Math.min(binCount - 1, Math.ceil((hz1 / nyquist) * binCount));
+    }
+    function tick() {
+      if (!analyser) return;
+      analyser.getByteFrequencyData(dataArr);
+      for (let i = 0; i < 16; i++) {
+        let peak = 0;
+        for (let j = bin0s[i]!; j <= bin1s[i]!; j++) {
+          if (dataArr[j]! > peak) peak = dataArr[j]!;
+        }
+        bars[i] = 4 + (peak / 255) * 44;
+      }
+      setWaveBars([...bars]);
+      animFrameRef.current = requestAnimationFrame(tick);
+    }
+    tick();
+  }
+
+  async function start() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const audioCtx = new AudioContext();
+      audioCtxRef.current = audioCtx;
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.8;
+      audioCtx.createMediaStreamSource(stream).connect(analyser);
+      analyserRef.current = analyser;
+      const mr = new MediaRecorder(stream);
+      mrRef.current = mr;
+      chunksRef.current = [];
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      mr.onstop = () => {
+        cancelAnimationFrame(animFrameRef.current);
+        const mime = mr.mimeType || "audio/webm";
+        const blob = new Blob(chunksRef.current, { type: mime });
+        audioBlobRef.current = blob;
+        setBlobUrl(URL.createObjectURL(blob));
+        stream.getTracks().forEach((t) => t.stop());
+        setStage("review");
+      };
+      mr.start(100);
+      setElapsed(0);
+      if (!name.trim()) setName(defaultRecordingName());
+      setStage("recording");
+      startVisualizer();
+    } catch {
+      toast.error("Microphone access denied.");
+    }
+  }
+
+  function togglePlay() {
+    const a = audioRef.current;
+    if (!a) return;
+    if (a.paused) void a.play();
+    else a.pause();
+  }
+
+  function redo() {
+    cancelAnimationFrame(animFrameRef.current);
+    void audioCtxRef.current?.close();
+    audioCtxRef.current = null;
+    analyserRef.current = null;
+    audioBlobRef.current = null;
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
+    setBlobUrl(null);
+    setElapsed(0);
+    setPlaying(false);
+    setCurrentTime(0);
+    setAudioDur(0);
+    setWaveBars(Array(16).fill(6));
+    setStage("idle");
+  }
+
+  function add() {
+    const blob = audioBlobRef.current;
+    if (!blob) return;
+    const displayName = name.trim() || defaultRecordingName();
+    const file = new File([blob], displayName, { type: blob.type });
+    setAddedDuration(elapsed);
+    onAdd(file);
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
+    audioBlobRef.current = null;
+    setBlobUrl(null);
+    setElapsed(0);
+    setPlaying(false);
+    setCurrentTime(0);
+    setAudioDur(0);
+    setName("");
+    setStage("added");
+  }
+
+  const effectiveDur = audioDur > 0 && isFinite(audioDur) ? audioDur : elapsed;
+  const scrubPct =
+    effectiveDur > 0 ? Math.min((currentTime / effectiveDur) * 100, 100) : 0;
+
+  if (stage === "idle") {
+    return (
+      <div className="flex flex-col items-center gap-4 py-7 bg-(--paper) border border-(--line) rounded-xl">
+        <button
+          onClick={start}
+          className="w-18 h-18 rounded-full border-none bg-(--accent) text-(--on-accent) flex items-center justify-center shadow-[0_8px_22px_-8px_rgba(196,121,24,0.55)] hover:bg-(--accent-hi) hover:scale-[1.04] transform-gpu transition-[transform,background-color] duration-150 cursor-pointer"
+        >
+          <MicIcon size={28} />
+        </button>
+        <p className="text-[13px] text-(--ink-faint) text-center max-w-70 leading-normal m-0">
+          Record a lecture, voice memo, or yourself reading notes aloud.
+        </p>
+      </div>
+    );
+  }
+
+  if (stage === "recording" || stage === "paused") {
+    const paused = stage === "paused";
+    return (
+      <div className="flex flex-col items-center gap-4 py-5 bg-(--paper) border border-(--line) rounded-xl">
+        <div className="flex items-center gap-2.5 font-mono text-[26px] font-medium text-(--ink-heading) tracking-[0.02em]">
+          <span className={`rec-dot${paused ? " paused" : ""}`} />
+          {fmtRecTime(elapsed)}
+        </div>
+        <div className={`rec-wave live${paused ? " paused" : ""}`}>
+          {waveBars.map((h, i) => (
+            <span key={i} style={{ height: `${h}px` }} />
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          {paused ? (
+            <button
+              onClick={() => {
+                mrRef.current?.resume();
+                startVisualizer();
+                setStage("recording");
+              }}
+              className="w-12 h-12 rounded-full border border-(--line-strong) bg-(--paper-raised) text-(--ink-nav) flex items-center justify-center hover:border-(--ink-fainter) hover:text-(--ink-heading) transition-all cursor-pointer"
+              title="Resume"
+            >
+              <PlaySolidIcon size={20} />
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                cancelAnimationFrame(animFrameRef.current);
+                mrRef.current?.pause();
+                setStage("paused");
+              }}
+              className="w-12 h-12 rounded-full border border-(--line-strong) bg-(--paper-raised) text-(--ink-nav) flex items-center justify-center hover:border-(--ink-fainter) hover:text-(--ink-heading) transition-all cursor-pointer"
+              title="Pause"
+            >
+              <PauseIcon size={20} />
+            </button>
+          )}
+          <button
+            onClick={() => mrRef.current?.stop()}
+            className="w-14 h-14 rounded-full border-none bg-(--danger) text-white flex items-center justify-center hover:bg-[#8f3527] transition-colors cursor-pointer"
+            title="Stop"
+          >
+            <StopSquareIcon size={18} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (stage === "review") {
+    return (
+      <div className="flex flex-col gap-3.5 bg-(--paper) border border-(--line) rounded-xl p-5">
+        <div className="flex items-center gap-3 bg-(--paper-raised) border border-(--line) rounded-[11px] py-2.5 px-3">
+          <button
+            onClick={togglePlay}
+            className="w-9 h-9 rounded-full bg-(--accent) text-(--on-accent) border-none flex items-center justify-center cursor-pointer shrink-0"
+          >
+            {playing ? <PauseIcon size={14} /> : <PlaySolidIcon size={14} />}
+          </button>
+          <div
+            className="flex-1 h-1.5 rounded-full bg-(--line-strong) relative cursor-pointer group/track"
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId);
+              scrubbingRef.current = true;
+              handleTrackSeek(e);
+            }}
+            onPointerMove={(e) => {
+              if (!scrubbingRef.current) return;
+              handleTrackSeek(e);
+            }}
+            onPointerUp={() => {
+              scrubbingRef.current = false;
+            }}
+          >
+            <div
+              className="absolute inset-y-0 left-0 bg-(--accent) rounded-full pointer-events-none"
+              style={{ width: `${scrubPct}%` }}
+            />
+            <div
+              className="absolute top-1/2 w-3 h-3 rounded-full bg-(--accent) -translate-x-1/2 -translate-y-1/2 scale-0 group-hover/track:scale-100 transition-transform pointer-events-none"
+              style={{ left: `${scrubPct}%` }}
+            />
+          </div>
+          <span className="font-mono text-[11.5px] text-(--ink-faint) shrink-0">
+            {fmtRecTime(Math.floor(currentTime))} /{" "}
+            {fmtRecTime(Math.floor(effectiveDur))}
+          </span>
+        </div>
+        {blobUrl && (
+          <audio
+            ref={audioRef}
+            src={blobUrl}
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
+            onEnded={() => {
+              setPlaying(false);
+              setCurrentTime(0);
+            }}
+            onTimeUpdate={() =>
+              setCurrentTime(audioRef.current?.currentTime ?? 0)
+            }
+            onLoadedMetadata={() => {
+              const a = audioRef.current;
+              if (!a) return;
+              if (isFinite(a.duration)) setAudioDur(a.duration);
+              else a.currentTime = 1e101;
+            }}
+            onDurationChange={() => {
+              const d = audioRef.current?.duration;
+              if (d && isFinite(d)) setAudioDur(d);
+            }}
+          />
+        )}
+        <div className="flex items-center gap-2.5">
+          <button className="btn btn-ghost" onClick={redo}>
+            <RetryIcon />
+            Re-record
+          </button>
+          <button className="btn btn-primary ml-auto" onClick={add}>
+            <PlusIcon />
+            Add to selection
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // added
+  return (
+    <div className="flex flex-col items-center gap-4 py-7 bg-(--paper) border border-(--line) rounded-xl text-center">
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-(--accent-text) bg-(--accent-soft) border border-[rgba(196,121,24,0.22)] px-2.5 py-1 rounded-full">
+        <WaveformIcon size={11} />
+        Recording · {fmtRecTime(addedDuration)} · added to selection
+      </span>
+      <p className="text-[13px] text-(--ink-faint) m-0 leading-normal max-w-75">
+        It&apos;ll sit in the staging area with your other sources —
+        transcription runs when you upload.
+      </p>
+      <button className="btn btn-ghost" onClick={redo}>
+        <MicIcon size={14} />
+        Record another
+      </button>
+    </div>
+  );
+}
 
 function StatusPill({
   status,
@@ -624,6 +977,7 @@ export default function CollectionView({
   const [uploading, setUploading] = useState(false);
   const [resolvingLink, setResolvingLink] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
+  const [customMode, setCustomMode] = useState<"text" | "record">("text");
   const [customName, setCustomName] = useState("");
   const [customText, setCustomText] = useState("");
   const [stagingState, setStagingState] = useState<
@@ -1155,60 +1509,109 @@ export default function CollectionView({
             <div className="max-w-none bg-(--paper-raised) border border-(--line) rounded-[15px] overflow-hidden my-3">
               <div className="flex items-center gap-2.5 px-4 py-3 border-b border-(--line-soft)">
                 <span className="text-[13px] font-semibold text-(--ink-heading)">
-                  Add custom text
+                  Custom
                 </span>
-                <span className="ml-auto text-[12px] text-(--ink-faint)">
-                  Typed in directly — no extraction needed
-                </span>
-              </div>
-              <div className="flex flex-col gap-3.5 p-3.5">
-                <div>
-                  <label className="block text-[12px] font-semibold text-(--ink-nav) mb-1.5">
-                    Name
-                  </label>
-                  <input
-                    className="tin w-full"
-                    placeholder="e.g. My summary notes"
-                    value={customName}
-                    onChange={(e) => setCustomName(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[12px] font-semibold text-(--ink-nav) mb-1.5">
+                <div className="fmt-seg ml-auto">
+                  <button
+                    className={customMode === "text" ? "on" : ""}
+                    onClick={() => setCustomMode("text")}
+                  >
+                    <span
+                      style={{
+                        fontFamily: "var(--font-serif), Georgia, serif",
+                        fontSize: 14,
+                        lineHeight: 1,
+                      }}
+                    >
+                      T
+                    </span>
                     Text
-                  </label>
-                  <textarea
-                    className="extracted-edit border border-(--line) rounded-[9px] min-h-35"
-                    placeholder="Write or paste your notes here…"
-                    value={customText}
-                    onChange={(e) => setCustomText(e.target.value)}
-                    autoFocus
-                  />
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <span className="text-[12px] text-(--ink-faint) mr-auto">
-                    {customText.trim().length.toLocaleString()} characters
-                  </span>
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => {
-                      setCustomOpen(false);
-                      setCustomName("");
-                      setCustomText("");
-                    }}
-                  >
-                    Cancel
                   </button>
                   <button
-                    className="btn btn-primary"
-                    onClick={stageCustom}
-                    disabled={!customText.trim()}
+                    className={customMode === "record" ? "on" : ""}
+                    onClick={() => setCustomMode("record")}
                   >
-                    <PlusIcon />
-                    Add to selection
+                    <MicIcon size={14} />
+                    Record
                   </button>
                 </div>
               </div>
+
+              {customMode === "text" ? (
+                <div className="flex flex-col gap-4 p-4">
+                  <div>
+                    <label className="block text-[12px] font-semibold text-(--ink-nav) mb-1.5">
+                      Name
+                    </label>
+                    <input
+                      className="tin w-full"
+                      placeholder="e.g. My summary notes"
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-semibold text-(--ink-nav) mb-1.5">
+                      Text
+                    </label>
+                    <textarea
+                      className="extracted-edit border border-(--line) rounded-[9px] min-h-35"
+                      placeholder="Write or paste your notes here…"
+                      value={customText}
+                      onChange={(e) => setCustomText(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-[12px] text-(--ink-faint) mr-auto">
+                      {customText.trim().length.toLocaleString()} characters
+                    </span>
+                    <button
+                      className="btn btn-ghost"
+                      onClick={() => {
+                        setCustomOpen(false);
+                        setCustomMode("text");
+                        setCustomName("");
+                        setCustomText("");
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="btn btn-primary"
+                      onClick={stageCustom}
+                      disabled={!customText.trim()}
+                    >
+                      <PlusIcon />
+                      Add to selection
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3.5 p-4">
+                  <div>
+                    <label className="block text-[12px] font-semibold text-(--ink-nav) mb-1.5">
+                      Name
+                    </label>
+                    <input
+                      className="tin w-full"
+                      placeholder="Auto-named from date — edit anytime"
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                    />
+                  </div>
+                  <RecordPanel
+                    name={customName}
+                    setName={setCustomName}
+                    onAdd={(file) => {
+                      stageFiles([file]);
+                      setCustomName("");
+                      setCustomOpen(false);
+                      setCustomMode("text");
+                    }}
+                  />
+                </div>
+              )}
             </div>
           )}
         </>

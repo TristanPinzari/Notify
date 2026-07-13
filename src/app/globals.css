@@ -2592,10 +2592,13 @@ html.dark [data-sonner-toast] {
 .fmt-seg button {
   border: none;
   background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12.5px;
   font-weight: 600;
   color: var(--ink-nav);
-  padding: 7px 15px;
+  padding: 7px 12px;
   border-radius: 7px;
   cursor: pointer;
   font-family: var(--sans);
@@ -4702,6 +4705,51 @@ html.dark [data-sonner-toast] {
   background: var(--line);
   min-width: 16px;
 }
+
+/* ===== recording ===== */
+@keyframes wv {
+  0%, 100% { height: 6px; }
+  50% { height: var(--h, 28px); }
+}
+@keyframes rec-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+.rec-wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 48px;
+  width: 100%;
+  max-width: 320px;
+}
+.rec-wave span {
+  display: block;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--accent);
+  opacity: 0.85;
+  animation: wv 1s ease-in-out infinite;
+}
+.rec-wave.paused span {
+  animation-play-state: paused;
+  opacity: 0.3;
+}
+.rec-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--danger);
+  flex-shrink: 0;
+  animation: rec-pulse 1.1s ease-in-out infinite;
+}
+.rec-dot.paused {
+  animation: none;
+  opacity: 0.35;
+}
+.rec-wave.live span { animation: none; transition: height 55ms ease; }
+.rec-wave.live.paused span { transition: none; }
 
 /* ===== mobile app shell ===== */
 .side-backdrop {
