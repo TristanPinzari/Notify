@@ -36,15 +36,6 @@ on its native platform, Temporal without self-hosting its server, managed
 Postgres) without taking on infra ops the project doesn't need to own yet.
 Doesn't block moving to option 3 later if it's outgrown.
 
-## Rank-change notification emails list hardcoded permissions
-
-When a member's rank is changed, the notification email lists what they can
-now do in the class. That list is hardcoded to the default permission set and
-does not reflect the class's actual `minRank*` settings. A viewer promoted to
-contributor in a class where contributors cannot trigger compilations will
-still see "trigger compilations" in their email. Fixing this requires passing
-the class's current permission settings into the email template.
-
 ## Conflict tags are binary-only
 
 The `<conflict a="..." b="...">` tag only supports two-source disagreements.

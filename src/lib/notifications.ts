@@ -92,7 +92,20 @@ export async function triggerNotifications(
           .where(eq(user.id, payload.target.id))
           .limit(1),
         db
-          .select({ name: classes.name })
+          .select({
+            name: classes.name,
+            minRankUploadContribution: classes.minRankUploadContribution,
+            minRankTriggerCompilation: classes.minRankTriggerCompilation,
+            minRankEditCompilation: classes.minRankEditCompilation,
+            minRankCreateTopic: classes.minRankCreateTopic,
+            minRankDeleteTopic: classes.minRankDeleteTopic,
+            minRankDeleteContribution: classes.minRankDeleteContribution,
+            minRankInvite: classes.minRankInvite,
+            minRankKickUsers: classes.minRankKickUsers,
+            minRankBanUsers: classes.minRankBanUsers,
+            minRankChangeRanks: classes.minRankChangeRanks,
+            minRankPinContribution: classes.minRankPinContribution,
+          })
           .from(classes)
           .where(eq(classes.id, classId))
           .limit(1),
@@ -126,6 +139,7 @@ export async function triggerNotifications(
             className: classRow[0].name,
             oldRank: payload.oldRank,
             newRank: payload.rank,
+            perms: classRow[0],
             url,
           }),
         });

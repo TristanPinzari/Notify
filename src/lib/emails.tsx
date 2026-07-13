@@ -187,6 +187,8 @@ export function renderVerifyNewEmail({
 
 // ─── 5 · Rank changed ────────────────────────────────────────────────────────
 
+import { RANK_VALUE } from "@/server/db/schema";
+
 export const RANK_LABELS: Record<string, string> = {
   owner: "Owner",
   admin: "Admin",
@@ -194,12 +196,49 @@ export const RANK_LABELS: Record<string, string> = {
   viewer: "Viewer",
 };
 
-const RANK_DESC: Record<string, string> = {
-  owner: `As the <strong style="color:${C.ink};">Owner</strong> you have full control over the class.`,
-  admin: `As an <strong style="color:${C.ink};">Admin</strong> you can invite and manage members, delete contributions, and pin a source of truth for the compiler.`,
-  contributor: `As a <strong style="color:${C.ink};">Contributor</strong> you can upload notes, trigger compilations, and edit master documents.`,
-  viewer: `As a <strong style="color:${C.ink};">Viewer</strong> you can read notes and compiled documents.`,
+export type ClassPerms = {
+  minRankUploadContribution: string;
+  minRankTriggerCompilation: string;
+  minRankEditCompilation: string;
+  minRankCreateTopic: string;
+  minRankDeleteTopic: string;
+  minRankDeleteContribution: string;
+  minRankInvite: string;
+  minRankKickUsers: string;
+  minRankBanUsers: string;
+  minRankChangeRanks: string;
+  minRankPinContribution: string;
 };
+
+const CAPABILITIES: { label: string; key: keyof ClassPerms }[] = [
+  { label: "Upload contributions", key: "minRankUploadContribution" },
+  { label: "Trigger compilations", key: "minRankTriggerCompilation" },
+  { label: "Edit master documents", key: "minRankEditCompilation" },
+  { label: "Create topics", key: "minRankCreateTopic" },
+  { label: "Pin contributions", key: "minRankPinContribution" },
+  { label: "Delete contributions", key: "minRankDeleteContribution" },
+  { label: "Delete topics", key: "minRankDeleteTopic" },
+  { label: "Invite members", key: "minRankInvite" },
+  { label: "Remove members", key: "minRankKickUsers" },
+  { label: "Ban members", key: "minRankBanUsers" },
+  { label: "Change member ranks", key: "minRankChangeRanks" },
+];
+
+function buildRankDesc(rank: string, perms: ClassPerms): string {
+  if (rank === "owner") {
+    return `As the <strong style="color:${C.ink};">Owner</strong> you have full control over the class.`;
+  }
+  const rv = RANK_VALUE[rank as keyof typeof RANK_VALUE] ?? 0;
+  const can = CAPABILITIES.filter(
+    ({ key }) => rv >= (RANK_VALUE[perms[key] as keyof typeof RANK_VALUE] ?? 0),
+  );
+  const label = `<strong style="color:${C.ink};">${RANK_LABELS[rank] ?? rank}</strong>`;
+  if (can.length === 0) {
+    return `As a ${label} you can read content in the class.`;
+  }
+  const items = can.map(({ label: l }) => `<li style="font-family:${sans};font-size:13.5px;color:${C.body};margin:3px 0;">${l}</li>`).join("");
+  return `As a ${label} you can:<ul style="margin:6px 0 0;padding-left:20px;">${items}</ul>`;
+}
 
 function rankSwap(oldLabel: string, newLabel: string) {
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px;">
@@ -215,22 +254,22 @@ export function renderRankChanged({
   className,
   oldRank,
   newRank,
+  perms,
   url,
 }: {
   className: string;
   oldRank: string;
   newRank: string;
+  perms: ClassPerms;
   url: string;
 }) {
-  const desc = RANK_DESC[newRank];
-
   return wrap(
     h(`Your role changed in ${className}`) +
       p(
         `Your role in <strong style="color:${C.ink};">${className}</strong> was updated. Here's what changed:`,
       ) +
       rankSwap(RANK_LABELS[oldRank] ?? oldRank, RANK_LABELS[newRank] ?? newRank) +
-      (desc ? p(desc) : "") +
+      p(buildRankDesc(newRank, perms)) +
       button("View the class", url),
   );
 }
