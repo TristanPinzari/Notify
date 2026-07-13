@@ -151,6 +151,7 @@ function fmtRecTime(secs: number): string {
 }
 
 type RecordStage = "idle" | "recording" | "paused" | "review" | "added";
+const WAVE_BAR_COUNT = 32;
 
 function defaultRecordingName() {
   return `Recording · ${new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
@@ -171,7 +172,9 @@ function RecordPanel({
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDur, setAudioDur] = useState(0);
-  const [waveBars, setWaveBars] = useState<number[]>(Array(16).fill(6));
+  const [waveBars, setWaveBars] = useState<number[]>(
+    Array(WAVE_BAR_COUNT).fill(6),
+  );
 
   const mrRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -181,6 +184,7 @@ function RecordPanel({
   const audioCtxRef = useRef<AudioContext | null>(null);
   const animFrameRef = useRef<number>(0);
   const scrubbingRef = useRef(false);
+  const wasPlayingRef = useRef(false);
   const audioBlobRef = useRef<Blob | null>(null);
   const [addedDuration, setAddedDuration] = useState(0);
 
@@ -220,21 +224,21 @@ function RecordPanel({
     const binCount = analyser.frequencyBinCount;
     const nyquist = analyser.context.sampleRate / 2;
     const dataArr = new Uint8Array(binCount);
-    const bars = new Array<number>(16);
+    const bars = new Array<number>(WAVE_BAR_COUNT);
     const MIN_HZ = 80;
     const MAX_HZ = 8000;
-    const bin0s = new Int32Array(16);
-    const bin1s = new Int32Array(16);
-    for (let i = 0; i < 16; i++) {
-      const hz0 = MIN_HZ * Math.pow(MAX_HZ / MIN_HZ, i / 16);
-      const hz1 = MIN_HZ * Math.pow(MAX_HZ / MIN_HZ, (i + 1) / 16);
+    const bin0s = new Int32Array(WAVE_BAR_COUNT);
+    const bin1s = new Int32Array(WAVE_BAR_COUNT);
+    for (let i = 0; i < WAVE_BAR_COUNT; i++) {
+      const hz0 = MIN_HZ * Math.pow(MAX_HZ / MIN_HZ, i / WAVE_BAR_COUNT);
+      const hz1 = MIN_HZ * Math.pow(MAX_HZ / MIN_HZ, (i + 1) / WAVE_BAR_COUNT);
       bin0s[i] = Math.max(0, Math.floor((hz0 / nyquist) * binCount));
       bin1s[i] = Math.min(binCount - 1, Math.ceil((hz1 / nyquist) * binCount));
     }
     function tick() {
       if (!analyser) return;
       analyser.getByteFrequencyData(dataArr);
-      for (let i = 0; i < 16; i++) {
+      for (let i = 0; i < WAVE_BAR_COUNT; i++) {
         let peak = 0;
         for (let j = bin0s[i]!; j <= bin1s[i]!; j++) {
           if (dataArr[j]! > peak) peak = dataArr[j]!;
@@ -302,7 +306,7 @@ function RecordPanel({
     setPlaying(false);
     setCurrentTime(0);
     setAudioDur(0);
-    setWaveBars(Array(16).fill(6));
+    setWaveBars(Array(WAVE_BAR_COUNT).fill(6));
     setStage("idle");
   }
 
@@ -410,6 +414,8 @@ function RecordPanel({
             onPointerDown={(e) => {
               e.currentTarget.setPointerCapture(e.pointerId);
               scrubbingRef.current = true;
+              wasPlayingRef.current = !(audioRef.current?.paused ?? true);
+              audioRef.current?.pause();
               handleTrackSeek(e);
             }}
             onPointerMove={(e) => {
@@ -418,6 +424,7 @@ function RecordPanel({
             }}
             onPointerUp={() => {
               scrubbingRef.current = false;
+              if (wasPlayingRef.current) void audioRef.current?.play();
             }}
           >
             <div
