@@ -36,9 +36,3 @@ on its native platform, Temporal without self-hosting its server, managed
 Postgres) without taking on infra ops the project doesn't need to own yet.
 Doesn't block moving to option 3 later if it's outgrown.
 
-## Conflict tags are binary-only
-
-The `<conflict a="..." b="...">` tag only supports two-source disagreements.
-Three-way conflicts have no representation — the model picks two sides and
-silently drops any third. Acceptable for now; revisit if multi-source
-conflicts become a real user pain point.

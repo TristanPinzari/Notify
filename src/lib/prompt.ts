@@ -24,11 +24,13 @@ const DEPTH = {
 
 const CONFLICT_RESOLUTION = {
   trust_pinned:
-    "When two uploaded contributions state different facts about the same thing, trust the pinned contribution's version and write it as fact. Only use <conflict> when pinned contributions themselves disagree with each other on a factual point.",
+    "When contributions state different facts, trust the pinned contribution's version and write it as fact — do not use <conflict>. If no pinned contribution covers the disputed fact, go with the majority; if sources are still split with no majority, use <conflict> with a verdict. Only use <conflict> when pinned contributions themselves disagree with each other — always include a verdict attribute with your judgment of which is most likely correct and briefly why.",
   trust_majority:
-    "When two uploaded contributions state different facts about the same thing, go with the majority version and write it as fact. Only use <conflict> to flag a significant factual discrepancy that cannot be resolved by majority.",
+    "When contributions state different facts, go with the majority version and write it as fact — do not use <conflict>. Only use <conflict> when no single version has majority support — including three-way splits where all sources differ — always include a verdict attribute with your judgment of which is most likely correct and briefly why.",
   flag_all:
-    "When two uploaded contributions state different facts about the same thing, wrap the discrepancy in <conflict>...</conflict>. The a and b attributes should be the names of the two contributions, not names of people being discussed.",
+    "Whenever contributions state different facts about the same thing, use <conflict>. Always include a verdict attribute — state which source is most likely correct and briefly why, or write \"Neither — [your answer]\" if none of the sources are right.",
+  replace_flag:
+    "Whenever contributions state different facts about the same thing, write the correct answer as normal prose — do NOT use <conflict>. Instead, wrap just the resolved fact in <resolved sources=\"Name A, Name B\" conflict=\"A says X, B says Y\" verdict=\"brief reason for your choice\">your answer</resolved>. Choose the most accurate answer regardless of which source said it. If none are right, use your own knowledge and set verdict to \"Neither source was right — [brief explanation]\".",
 };
 
 const FACT_CHECK = {
@@ -38,22 +40,31 @@ const FACT_CHECK = {
     'If a claim is clearly factually incorrect, write the correction inside <flagged original="paraphrased original claim">correction</flagged> — put your correction inside the tags and a clean paraphrase of what the source said in the original attribute. Never quote verbatim, especially transcribed speech.',
 };
 
-const XML_TAG_REFERENCE = `
-## Custom XML Tags
-Use these tags within your markdown output:
+const CONFLICT_TAG = `- <conflict sources="Name A|CONTRIBUTION_ID_A, Name B|CONTRIBUTION_ID_B" verdict="AI judgment">Source A says X. Source B says Y.</conflict>
+  Use when uploaded student contributions state different facts about the same thing — e.g. one says a date is 1776 and another says 1778. The sources attribute is a comma-separated list of "Name|ID" pairs using the contribution name and ID from the header above each contribution (e.g. "Alice's Notes|abc123, Bob's Notes|def456"). Three or more sources may be listed when they all disagree. The verdict attribute is required: state which source is most likely correct and briefly why, or write "Neither — [your answer]" if none are right. Do NOT use <conflict> for differences of opinion, philosophical disagreement, or academic debate — those belong in prose. CRITICAL: sources must list only real uploaded contribution names and IDs — never use placeholders like "Unknown" or any name not matching an actual contribution. If only one source makes a claim, use <flagged> instead. IMPORTANT: <conflict> must appear on its own dedicated line with a blank line before and after it — never appended to a sentence, never on the same line as any other text. The line must contain nothing except the opening tag, its content, and the closing tag.`;
 
-- <conflict a="Name of first source" b="Name of second source">Source A says X. Source B says Y.</conflict>
-  Use ONLY when two uploaded student contributions state different facts about the same thing — e.g. one source says a date is 1776 and another says 1778, or one source attributes a quote to person A and another to person B. The a and b attributes are the names of the conflicting contributions, not the names of historical figures or theorists being discussed. Do NOT use <conflict> for differences of opinion, philosophical disagreement, or academic debate — those are part of the subject matter and should be written as normal prose. CRITICAL: both a and b must be the names of real uploaded contributions — never use placeholders like "No specific conflicting source", "Unknown", or any value that is not an actual contribution name. If only one source makes a claim, use <flagged> instead, not <conflict>. IMPORTANT: <conflict> must appear on its own dedicated line with a blank line before and after it — never appended to a sentence, never on the same line as any other text. The line must contain nothing except the opening tag, its content, and the closing tag.
+const RESOLVED_TAG = `- <resolved sources="Name A|CONTRIBUTION_ID_A, Name B|CONTRIBUTION_ID_B" conflict="brief summary of the disagreement" verdict="brief reason for the chosen answer">AI's chosen answer</resolved>
+  Use ONLY under the Replace & Flag conflict mode. Write your best answer as the tag content — that is what readers see. The sources attribute is a comma-separated list of "Name|ID" pairs using the contribution name and ID from the header above each contribution (e.g. "Alice's Notes|abc123, Bob's Notes|def456"). The conflict attribute briefly summarises what they disagreed on (e.g. "A says 1776, B says 1778"). The verdict attribute explains why you chose this answer (e.g. "Source A is corroborated by standard references") or states "Neither source was right — [reason]" if you used your own knowledge. Include any trailing sentence punctuation (period, comma, etc.) inside the tag before </resolved>. Do NOT use this tag in any other conflict mode.`;
 
-- <flagged correction="AI suggested correction">paraphrased original claim</flagged>
-  Use when a source makes a dubious claim — paraphrase the original claim cleanly inside the tags and put your suggested correction in the correction attribute. The original is shown to the reader; the correction appears on hover.
+const FLAGGED_TAG_FLAG = `- <flagged correction="AI suggested correction">paraphrased original claim</flagged>
+  Use when a source makes a dubious claim — paraphrase the original claim cleanly inside the tags and put your suggested correction in the correction attribute. The original is shown to the reader; the correction appears on hover. Include any trailing sentence punctuation (period, comma, etc.) inside the tag before </flagged>.`;
 
-- <flagged original="paraphrased original claim">correction</flagged>
-  Use when a claim is clearly wrong and you are replacing it — write the correction inside the tags and put a clean paraphrase of what the source said in the original attribute. The correction is shown to the reader; the original appears on hover. Never quote verbatim, especially transcribed speech.
+const FLAGGED_TAG_REPLACE = `- <flagged original="paraphrased original claim">correction</flagged>
+  Use when a claim is clearly wrong — write your correction inside the tags and put a clean paraphrase of what the source said in the original attribute. The correction is shown to the reader; the original appears on hover. Never quote verbatim, especially transcribed speech. Include any trailing sentence punctuation (period, comma, etc.) inside the tag before </flagged>.`;
 
-- <source id="CONTRIBUTION_ID" name="CONTRIBUTION_NAME" />
-  Inline source citation. Place after the sentence it supports. Multiple <source /> tags may follow a single sentence when it draws from more than one contribution.
-`.trim();
+const SOURCE_TAG = `- <source id="CONTRIBUTION_ID" name="CONTRIBUTION_NAME" />
+  Inline source citation. Place after the sentence it supports. Multiple <source /> tags may follow a single sentence when it draws from more than one contribution.`;
+
+function buildXmlTagReference(settings: CompilationSettings): string {
+  const tags = [
+    settings.conflictResolution === "replace_flag" ? RESOLVED_TAG : CONFLICT_TAG,
+    settings.factChecking === "flag" ? FLAGGED_TAG_FLAG : null,
+    settings.factChecking === "replace" ? FLAGGED_TAG_REPLACE : null,
+    settings.sourcesInline ? SOURCE_TAG : null,
+  ].filter(Boolean).join("\n\n");
+  if (!tags.length) return "";
+  return `## Custom XML Tags\nUse these tags within your markdown output:\n\n${tags}`;
+}
 
 function formatContributions(contributions: ContributionForPrompt[]): string {
   return contributions
@@ -79,7 +90,7 @@ export function buildPrompt(
       : "You are compiling student contributions into a single master document for a university course topic.",
   );
 
-  sections.push(XML_TAG_REFERENCE);
+  sections.push(buildXmlTagReference(settings));
 
   sections.push(`## Instructions
 - ${OUTPUT_TYPE[settings.outputType]}

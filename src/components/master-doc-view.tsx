@@ -78,9 +78,10 @@ const LABEL = {
     detailed: "Detailed",
   } as const,
   conflictResolution: {
-    trust_pinned: "Trust Pinned",
+    trust_pinned: "Pinned",
     trust_majority: "Majority",
-    flag_all: "Flag All",
+    flag_all: "Flag",
+    replace_flag: "Replace & Flag",
   } as const,
   factChecking: { none: "None", flag: "Flag", replace: "Replace" } as const,
 };
@@ -598,17 +599,22 @@ export function MasterDocView({
               </div>
             </div>
             <div className="fmt-seg">
-              {(["trust_pinned", "trust_majority", "flag_all"] as const).map(
-                (v) => (
-                  <button
-                    key={v}
-                    className={draft.conflictResolution === v ? "on" : ""}
-                    onClick={() => setSetting("conflictResolution", v)}
-                  >
-                    {LABEL.conflictResolution[v]}
-                  </button>
-                ),
-              )}
+              {(
+                [
+                  "trust_pinned",
+                  "trust_majority",
+                  "flag_all",
+                  "replace_flag",
+                ] as const
+              ).map((v) => (
+                <button
+                  key={v}
+                  className={draft.conflictResolution === v ? "on" : ""}
+                  onClick={() => setSetting("conflictResolution", v)}
+                >
+                  {LABEL.conflictResolution[v]}
+                </button>
+              ))}
             </div>
           </div>
           <div className="set-row">

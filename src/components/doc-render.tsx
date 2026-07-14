@@ -5,6 +5,8 @@ import {
   FlagDocIcon,
   ConflictSplitIcon,
   MultiSourceIcon,
+  SparkleIcon,
+  ResolvedDotIcon,
 } from "@/components/icons";
 
 /* ─── types ─────────────────────────────────────────────────────────── */
@@ -22,13 +24,52 @@ function getAttr(s: string, name: string): string | undefined {
   return s.match(new RegExp(`${name}="([^"]*)"`))?.at(1);
 }
 
+function sourceHref(
+  id: string | undefined,
+  classId: string,
+  topicId: string,
+): string | undefined {
+  return id && classId && topicId
+    ? `/home/${classId}/${topicId}/collection?sources=${id}`
+    : undefined;
+}
+
+function SourceLink({
+  href,
+  className,
+  children,
+}: {
+  href?: string;
+  className: string;
+  children: React.ReactNode;
+}) {
+  return href ? (
+    <a href={href} className={className}>
+      {children}
+    </a>
+  ) : (
+    <span className={className}>{children}</span>
+  );
+}
+
+function parseSources(raw: string): SrcRef[] {
+  return raw.split(",").flatMap((part) => {
+    const [name, id] = part.trim().split("|");
+    return name.trim() ? [{ name: name.trim(), id: id?.trim() || undefined }] : [];
+  });
+}
+
 /** Remove <source .../> from text; capture all distinct sources found */
-function stripSources(text: string): { text: string; srcs: SrcRef[] } {
+function stripSources(
+  text: string,
+  nameById?: Map<string, string>,
+): { text: string; srcs: SrcRef[] } {
   const srcs: SrcRef[] = [];
   const seen = new Set<string>();
   const cleaned = text.replace(/\s*<source(\s[^>]*)?\s*\/>/g, (_, a = "") => {
     const id = getAttr(a, "id");
-    const name = getAttr(a, "name") ?? "?";
+    const name =
+      getAttr(a, "name") || (id ? nameById?.get(id) : undefined) || "?";
     const key = id ?? name;
     if (!seen.has(key)) {
       seen.add(key);
@@ -84,12 +125,12 @@ type Block =
       cite: SrcRef[];
     }
   | { kind: "li-group"; items: LiItem[] }
-  | { kind: "conflict"; a?: string; b?: string; inner: string }
+  | { kind: "conflict"; sources: SrcRef[]; verdict?: string; inner: string }
   | { kind: "blank" };
 
 /* ─── parse markdown → blocks ──────────────────────────────────────── */
 
-function parseBlocks(md: string): Block[] {
+function parseBlocks(md: string, nameById?: Map<string, string>): Block[] {
   const lines = md
     .replace(/\t/g, "  ")
     .replace(/([^\n])(\s*<conflict\b)/g, "$1\n$2")
@@ -107,10 +148,16 @@ function parseBlocks(md: string): Block[] {
         i++;
         buf += "\n" + lines[i];
       }
+      const rawSources = getAttr(buf, "sources") ?? "";
+      const conflictSources = rawSources
+        ? parseSources(rawSources)
+        : [getAttr(buf, "a"), getAttr(buf, "b")]
+            .filter((v): v is string => !!v)
+            .map((name) => ({ name }));
       blocks.push({
         kind: "conflict",
-        a: getAttr(buf, "a"),
-        b: getAttr(buf, "b"),
+        sources: conflictSources,
+        verdict: getAttr(buf, "verdict"),
         inner: buf
           .replace(/^[\s\S]*?<conflict[^>]*>/, "")
           .replace(/<\/conflict>[\s\S]*$/, "")
@@ -123,7 +170,7 @@ function parseBlocks(md: string): Block[] {
     const hm = line.match(/^(#{1,4})\s+(.*)/);
     if (hm) {
       const kind = `h${hm[1].length}` as "h1" | "h2" | "h3" | "h4";
-      const s = stripSources(hm[2]);
+      const s = stripSources(hm[2], nameById);
       blocks.push({ kind, text: s.text, srcs: s.srcs, cite: [] });
       i++;
       continue;
@@ -135,7 +182,7 @@ function parseBlocks(md: string): Block[] {
       while (i < lines.length && /^\s*[*-]\s+/.test(lines[i])) {
         const raw = lines[i];
         const indent = raw.match(/^(\s*)/)?.[1].length ?? 0;
-        const s = stripSources(raw.replace(/^\s*[*-]\s+/, ""));
+        const s = stripSources(raw.replace(/^\s*[*-]\s+/, ""), nameById);
         const item: LiItem = {
           text: s.text,
           srcs: s.srcs,
@@ -159,7 +206,7 @@ function parseBlocks(md: string): Block[] {
       continue;
     }
 
-    const s = stripSources(line);
+    const s = stripSources(line, nameById);
     blocks.push({ kind: "p", text: s.text, srcs: s.srcs, cite: [] });
     i++;
   }
@@ -308,13 +355,17 @@ function Flagged({
 }
 
 function Conflict({
-  a,
-  b,
+  sources,
+  verdict,
   children,
+  classId,
+  topicId,
 }: {
-  a?: string;
-  b?: string;
+  sources: SrcRef[];
+  verdict?: string;
   children: React.ReactNode;
+  classId?: string;
+  topicId?: string;
 }) {
   return (
     <div className="conflict">
@@ -323,25 +374,79 @@ function Conflict({
           <ConflictSplitIcon />
         </span>
         <span className="lbl">Sources disagree</span>
-        {(a ?? b) && (
+        {sources.length > 0 && (
           <span className="versus">
-            {a && <span className="cside">{a}</span>}
-            {a && b && <span className="vs">vs</span>}
-            {b && <span className="cside">{b}</span>}
+            {sources.map((s, i) => (
+              <span key={i} className="vsitem">
+                {i > 0 && <span className="vs">vs</span>}
+                <SourceLink href={sourceHref(s.id, classId ?? "", topicId ?? "")} className="cside">
+                  {s.name}
+                </SourceLink>
+              </span>
+            ))}
           </span>
         )}
       </div>
       <div className="cbody">{children}</div>
+      {verdict && (
+        <div className="cverdict">
+          <span className="vci"><SparkleIcon size={12} /></span>
+          <span className="vtxt">{verdict}</span>
+        </div>
+      )}
     </div>
+  );
+}
+
+function Resolved({
+  sources,
+  conflict,
+  verdict,
+  children,
+  classId,
+  topicId,
+}: {
+  sources: SrcRef[];
+  conflict: string;
+  verdict?: string;
+  children: React.ReactNode;
+  classId?: string;
+  topicId?: string;
+}) {
+  return (
+    <span className="resolved" tabIndex={0}>
+      {children}
+      <span className="rdot" aria-hidden>
+        <ResolvedDotIcon size={6} />
+      </span>
+      <span className="rtip" role="tooltip">
+        <span className="rtip-conflict">{conflict}</span>
+        {sources.length > 0 && (
+          <span className="rtip-sources">
+            {sources.map((s, i) => (
+              <SourceLink key={i} href={sourceHref(s.id, classId ?? "", topicId ?? "")} className="rtip-src">
+                {s.name}
+              </SourceLink>
+            ))}
+          </span>
+        )}
+        {verdict && (
+          <span className="rtip-verdict">
+            <span className="rtip-vci"><SparkleIcon size={10} /></span>
+            {verdict}
+          </span>
+        )}
+      </span>
+    </span>
   );
 }
 
 /* ─── inline renderer ───────────────────────────────────────────────── */
 
 const INLINE_RE =
-  /<flagged(\s[^>]*)?>([\s\S]*?)<\/flagged>|\*\*([^*]+)\*\*|<q>([\s\S]*?)<\/q>/;
+  /<flagged(\s[^>]*)?>([\s\S]*?)<\/flagged>|<resolved(\s[^>]*)?>([\s\S]*?)<\/resolved>|\*\*([^*]+)\*\*|<q>([\s\S]*?)<\/q>/;
 
-function renderInline(text: string, k = 0): React.ReactNode[] {
+function renderInline(text: string, k = 0, classId = "", topicId = ""): React.ReactNode[] {
   const out: React.ReactNode[] = [];
   let rest = text;
   while (rest.length) {
@@ -359,13 +464,27 @@ function renderInline(text: string, k = 0): React.ReactNode[] {
           correction={getAttr(a, "correction")}
           original={getAttr(a, "original")}
         >
-          {renderInline(m[2], k + 1000)}
+          {renderInline(m[2], k + 1000, classId, topicId)}
         </Flagged>,
       );
+    } else if (m[0].startsWith("<resolved")) {
+      const a = m[3] ?? "";
+      out.push(
+        <Resolved
+          key={k++}
+          sources={parseSources(getAttr(a, "sources") ?? "")}
+          conflict={getAttr(a, "conflict") ?? ""}
+          verdict={getAttr(a, "verdict")}
+          classId={classId}
+          topicId={topicId}
+        >
+          {renderInline(m[4], k + 1000, classId, topicId)}
+        </Resolved>,
+      );
     } else if (m[0].startsWith("**")) {
-      out.push(<strong key={k++}>{m[3]}</strong>);
+      out.push(<strong key={k++}>{m[5]}</strong>);
     } else {
-      out.push(<q key={k++}>{m[4]}</q>);
+      out.push(<q key={k++}>{m[6]}</q>);
     }
     rest = rest.slice(m.index + m[0].length);
     k++;
@@ -398,9 +517,7 @@ function renderBlocks(
     const resolved = srcs.map((src) => ({
       n: reg.getNum(src),
       name: src.name,
-      href: src.id
-        ? `/home/${classId}/${topicId}/collection?sources=${src.id}`
-        : undefined,
+      href: sourceHref(src.id, classId, topicId),
     }));
     if (resolved.length === 1) {
       const { n, name, href } = resolved[0];
@@ -410,10 +527,10 @@ function renderBlocks(
   }
 
   function renderWithCite(text: string, srcs: SrcRef[]): React.ReactNode {
-    if (srcs.length === 0) return renderInline(text);
+    if (srcs.length === 0) return renderInline(text, 0, classId, topicId);
     return (
       <>
-        {renderInline(text)}
+        {renderInline(text, 0, classId, topicId)}
         {cite(srcs)}
       </>
     );
@@ -435,8 +552,8 @@ function renderBlocks(
         break;
       case "conflict":
         out.push(
-          <Conflict key={k++} a={b.a} b={b.b}>
-            {renderInline(b.inner)}
+          <Conflict key={k++} sources={b.sources} verdict={b.verdict} classId={classId} topicId={topicId}>
+            {renderInline(b.inner, 0, classId, topicId)}
           </Conflict>,
         );
         break;
@@ -462,8 +579,12 @@ export function CompiledDoc({
 }) {
   const { body, sources } = useMemo(() => {
     const reg = makeRegistry();
-    for (const s of allSources ?? []) reg.getNum(s);
-    const blocks = parseBlocks(markdown);
+    const nameById = new Map<string, string>();
+    for (const s of allSources ?? []) {
+      if (s.id) nameById.set(s.id, s.name);
+      reg.getNum(s);
+    }
+    const blocks = parseBlocks(markdown, nameById);
     assignCitations(blocks);
     const body = renderBlocks(blocks, reg, classId, topicId);
     return { body, sources: reg.list() };

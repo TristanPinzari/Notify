@@ -3043,6 +3043,113 @@ html.dark [data-sonner-toast] {
   font-style: italic;
   color: var(--ink-nav);
 }
+.conflict .versus .vsitem {
+  display: contents;
+}
+.conflict .cverdict {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--conflict-soft);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.conflict .cverdict .vci {
+  flex-shrink: 0;
+  color: var(--conflict-text);
+  margin-top: 2px;
+}
+.conflict .cverdict .vtxt {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-nav);
+  font-style: italic;
+}
+
+/* resolved inline block */
+.resolved {
+  position: relative;
+  display: inline;
+  cursor: default;
+  outline: none;
+}
+.resolved .rdot {
+  display: inline-flex;
+  align-items: center;
+  color: var(--conflict);
+  margin-left: 2px;
+  vertical-align: super;
+  font-size: 0;
+  line-height: 0;
+}
+.resolved::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 6px;
+}
+.resolved .rtip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 100;
+  min-width: 200px;
+  max-width: 320px;
+  background: var(--paper-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  pointer-events: auto;
+}
+.resolved:hover .rtip,
+.resolved:focus .rtip,
+.resolved .rtip:hover {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.resolved .rtip-conflict {
+  font-size: 12.5px;
+  color: var(--ink-body);
+  line-height: 1.5;
+}
+.resolved .rtip-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.resolved .rtip-src {
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--conflict-soft);
+  color: var(--conflict-text);
+  border-radius: 5px;
+  padding: 2px 7px;
+  text-decoration: none;
+}
+a.rtip-src:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+.resolved .rtip-verdict {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--ink-faint);
+  font-style: italic;
+  padding-top: 6px;
+  border-top: 1px solid var(--conflict-soft);
+}
+.resolved .rtip-vci {
+  flex-shrink: 0;
+  color: var(--conflict-text);
+  margin-top: 1px;
+}
 
 /* source footer */
 .srcfoot {

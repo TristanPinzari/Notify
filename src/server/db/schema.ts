@@ -56,6 +56,7 @@ export const docConflictResolution = pgEnum("doc_conflict_resolution", [
   "trust_pinned",
   "trust_majority",
   "flag_all",
+  "replace_flag",
 ]);
 export const docFactCheck = pgEnum("doc_fact_check", [
   "none",
