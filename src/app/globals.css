@@ -3151,6 +3151,19 @@ a.rtip-src:hover {
   margin-top: 1px;
 }
 
+/* math blocks */
+.math-block {
+  margin: 16px 0;
+  overflow-x: auto;
+  text-align: center;
+}
+.math-block .katex-display {
+  margin: 0;
+}
+.math-inline .katex {
+  font-size: 1em;
+}
+
 /* source footer */
 .srcfoot {
   margin-top: 22px;

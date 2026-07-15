@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 import {
   FlagDocIcon,
   ConflictSplitIcon,
@@ -126,6 +128,7 @@ type Block =
     }
   | { kind: "li-group"; items: LiItem[] }
   | { kind: "conflict"; sources: SrcRef[]; verdict?: string; inner: string }
+  | { kind: "math"; tex: string }
   | { kind: "blank" };
 
 /* ─── parse markdown → blocks ──────────────────────────────────────── */
@@ -133,6 +136,7 @@ type Block =
 function parseBlocks(md: string, nameById?: Map<string, string>): Block[] {
   const lines = md
     .replace(/\t/g, "  ")
+    .replace(/<math(\s[^>]*)?>[\s\S]*?<\/math>/g, (m) => m.replace(/\n/g, " "))
     .replace(/([^\n])(\s*<conflict\b)/g, "$1\n$2")
     .replace(/(<\/conflict>)(\s*\S)/g, "$1\n$2")
     .split("\n");
@@ -141,6 +145,16 @@ function parseBlocks(md: string, nameById?: Map<string, string>): Block[] {
 
   while (i < lines.length) {
     const line = lines[i];
+
+    if (/^\s*<math\b[^>]*display="block"/.test(line)) {
+      const tex = line
+        .replace(/^[\s\S]*?<math[^>]*>/, "")
+        .replace(/<\/math>[\s\S]*$/, "")
+        .trim();
+      blocks.push({ kind: "math", tex });
+      i++;
+      continue;
+    }
 
     if (/^\s*<conflict/.test(line)) {
       let buf = line;
@@ -237,7 +251,7 @@ function assignCitations(blocks: Block[]): void {
   for (const b of blocks) {
     if (b.kind === "li-group") {
       for (const item of b.items) flattenItem(item);
-    } else if (b.kind !== "blank" && b.kind !== "conflict") {
+    } else if ("srcs" in b) {
       const tb = b as { srcs: SrcRef[]; cite: SrcRef[] };
       flat.push({
         srcs: tb.srcs,
@@ -354,6 +368,20 @@ function Flagged({
   );
 }
 
+function renderKatex(tex: string, displayMode: boolean): string {
+  return katex.renderToString(tex, { displayMode, throwOnError: false });
+}
+
+function MathNode({ tex, block }: { tex: string; block: boolean }) {
+  const Tag = block ? "div" : "span";
+  return (
+    <Tag
+      className={block ? "math-block" : "math-inline"}
+      dangerouslySetInnerHTML={{ __html: renderKatex(tex, block) }}
+    />
+  );
+}
+
 function Conflict({
   sources,
   verdict,
@@ -444,7 +472,7 @@ function Resolved({
 /* ─── inline renderer ───────────────────────────────────────────────── */
 
 const INLINE_RE =
-  /<flagged(\s[^>]*)?>([\s\S]*?)<\/flagged>|<resolved(\s[^>]*)?>([\s\S]*?)<\/resolved>|\*\*([^*]+)\*\*|<q>([\s\S]*?)<\/q>/;
+  /<flagged(?<flaggedAttrs>\s[^>]*)?>(?<flaggedInner>[\s\S]*?)<\/flagged>|<resolved(?<resolvedAttrs>\s[^>]*)?>(?<resolvedInner>[\s\S]*?)<\/resolved>|<math>(?<mathTex>[\s\S]*?)<\/math>|\*\*(?<boldInner>[^*]+)\*\*|<q>(?<quoteInner>[\s\S]*?)<\/q>/;
 
 function renderInline(text: string, k = 0, classId = "", topicId = ""): React.ReactNode[] {
   const out: React.ReactNode[] = [];
@@ -456,19 +484,20 @@ function renderInline(text: string, k = 0, classId = "", topicId = ""): React.Re
       break;
     }
     if (m.index > 0) out.push(rest.slice(0, m.index));
+    const g = m.groups!;
     if (m[0].startsWith("<flagged")) {
-      const a = m[1] ?? "";
+      const a = g.flaggedAttrs ?? "";
       out.push(
         <Flagged
           key={k++}
           correction={getAttr(a, "correction")}
           original={getAttr(a, "original")}
         >
-          {renderInline(m[2], k + 1000, classId, topicId)}
+          {renderInline(g.flaggedInner, k + 1000, classId, topicId)}
         </Flagged>,
       );
     } else if (m[0].startsWith("<resolved")) {
-      const a = m[3] ?? "";
+      const a = g.resolvedAttrs ?? "";
       out.push(
         <Resolved
           key={k++}
@@ -478,13 +507,15 @@ function renderInline(text: string, k = 0, classId = "", topicId = ""): React.Re
           classId={classId}
           topicId={topicId}
         >
-          {renderInline(m[4], k + 1000, classId, topicId)}
+          {renderInline(g.resolvedInner, k + 1000, classId, topicId)}
         </Resolved>,
       );
+    } else if (m[0].startsWith("<math>")) {
+      out.push(<MathNode key={k++} tex={g.mathTex} block={false} />);
     } else if (m[0].startsWith("**")) {
-      out.push(<strong key={k++}>{m[5]}</strong>);
+      out.push(<strong key={k++}>{g.boldInner}</strong>);
     } else {
-      out.push(<q key={k++}>{m[6]}</q>);
+      out.push(<q key={k++}>{g.quoteInner}</q>);
     }
     rest = rest.slice(m.index + m[0].length);
     k++;
@@ -556,6 +587,9 @@ function renderBlocks(
             {renderInline(b.inner, 0, classId, topicId)}
           </Conflict>,
         );
+        break;
+      case "math":
+        out.push(<MathNode key={k++} tex={b.tex} block />);
         break;
       case "blank":
         break;

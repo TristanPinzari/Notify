@@ -55,12 +55,21 @@ const FLAGGED_TAG_REPLACE = `- <flagged original="paraphrased original claim">co
 const SOURCE_TAG = `- <source id="CONTRIBUTION_ID" name="CONTRIBUTION_NAME" />
   Inline source citation. Place after the sentence it supports. Multiple <source /> tags may follow a single sentence when it draws from more than one contribution.`;
 
+const MATH_TAG = `- <math>inline expression</math>
+  Inline LaTeX math. Use for variables, symbols, and short expressions within a sentence (e.g. <math>E = mc^2</math>).
+
+- <math display="block">
+  multi-line or large expression
+  </math>
+  Block-level LaTeX math. Use for equations, derivations, or any formula that deserves its own line. Must appear on its own line with a blank line before and after it.`;
+
 function buildXmlTagReference(settings: CompilationSettings): string {
   const tags = [
     settings.conflictResolution === "replace_flag" ? RESOLVED_TAG : CONFLICT_TAG,
     settings.factChecking === "flag" ? FLAGGED_TAG_FLAG : null,
     settings.factChecking === "replace" ? FLAGGED_TAG_REPLACE : null,
     settings.sourcesInline ? SOURCE_TAG : null,
+    MATH_TAG,
   ].filter(Boolean).join("\n\n");
   if (!tags.length) return "";
   return `## Custom XML Tags\nUse these tags within your markdown output:\n\n${tags}`;
