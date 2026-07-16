@@ -335,10 +335,6 @@ export async function runCompilation(
     console.log(
       `[runCompilation] generation done (${content.length} chars), saving…`,
     );
-    await db
-      .update(masterDocuments)
-      .set({ content, status: "ready" })
-      .where(eq(masterDocuments.id, masterDocumentId));
 
     const newContribIds = new Set(rows.map((r) => r.id));
     const prevSources = prevDocId
@@ -351,51 +347,62 @@ export async function runCompilation(
       (s) => s.contributionId === null || !newContribIds.has(s.contributionId),
     );
 
-    await db.insert(compilationSources).values([
-      ...rows.map((r) => ({
-        id: crypto.randomUUID(),
-        masterDocumentId,
-        contributionId: r.id,
-        snapshotName: r.name,
-        snapshotType: r.type,
-        snapshotUploadedBy: r.uploadedBy,
-        snapshotUploaderName: r.uploaderName,
-      })),
-      ...inheritedSources.map((s) => ({
-        ...s,
-        id: crypto.randomUUID(),
-        masterDocumentId,
-      })),
-    ]);
+    await db.transaction(async (tx) => {
+      await tx
+        .update(masterDocuments)
+        .set({ content, status: "ready" })
+        .where(eq(masterDocuments.id, masterDocumentId));
 
-    const oldDocs = await db
-      .select({ id: masterDocuments.id })
-      .from(masterDocuments)
-      .where(
-        and(
-          eq(masterDocuments.topicId, topicId),
-          eq(masterDocuments.status, "ready"),
-        ),
-      )
-      .orderBy(desc(masterDocuments.createdAt))
-      .offset(3);
-    if (oldDocs.length > 0)
-      await db.delete(masterDocuments).where(
-        inArray(
-          masterDocuments.id,
-          oldDocs.map((d) => d.id),
-        ),
-      );
+      await tx
+        .delete(compilationSources)
+        .where(eq(compilationSources.masterDocumentId, masterDocumentId));
 
-    await db
-      .update(contributions)
-      .set({ status: "compiled" })
-      .where(
-        and(
-          eq(contributions.topicId, topicId),
-          eq(contributions.status, "ready"),
-        ),
-      );
+      await tx.insert(compilationSources).values([
+        ...rows.map((r) => ({
+          id: crypto.randomUUID(),
+          masterDocumentId,
+          contributionId: r.id,
+          snapshotName: r.name,
+          snapshotType: r.type,
+          snapshotUploadedBy: r.uploadedBy,
+          snapshotUploaderName: r.uploaderName,
+        })),
+        ...inheritedSources.map((s) => ({
+          ...s,
+          id: crypto.randomUUID(),
+          masterDocumentId,
+        })),
+      ]);
+
+      const oldDocs = await tx
+        .select({ id: masterDocuments.id })
+        .from(masterDocuments)
+        .where(
+          and(
+            eq(masterDocuments.topicId, topicId),
+            eq(masterDocuments.status, "ready"),
+          ),
+        )
+        .orderBy(desc(masterDocuments.createdAt))
+        .offset(3);
+      if (oldDocs.length > 0)
+        await tx.delete(masterDocuments).where(
+          inArray(
+            masterDocuments.id,
+            oldDocs.map((d) => d.id),
+          ),
+        );
+
+      await tx
+        .update(contributions)
+        .set({ status: "compiled" })
+        .where(
+          and(
+            eq(contributions.topicId, topicId),
+            eq(contributions.status, "ready"),
+          ),
+        );
+    });
 
     console.log(
       `[runCompilation] complete — masterDocument ${masterDocumentId}`,
@@ -462,10 +469,12 @@ export async function generatePDF(
       name: r.contributionName ?? r.snapshotName ?? "Unknown",
     }));
 
-    const css = fs.readFileSync(
-      path.join(process.cwd(), "src/app/globals.css"),
-      "utf-8",
-    );
+    const css =
+      fs.readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf-8") +
+      fs.readFileSync(
+        path.join(process.cwd(), "node_modules/katex/dist/katex.min.css"),
+        "utf-8",
+      );
     const body = renderToStaticMarkup(
       React.createElement(CompiledDoc, {
         markdown: doc.content,

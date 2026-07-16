@@ -510,7 +510,7 @@ export async function restartExtraction(
         name: contributions.name,
       })
       .from(contributions)
-      .where(eq(contributions.id, contributionId))
+      .where(and(eq(contributions.id, contributionId), eq(contributions.topicId, topicId)))
       .limit(1);
 
     if (!contribution[0]) return { error: "This contribution does not exist." };

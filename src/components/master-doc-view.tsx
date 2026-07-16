@@ -217,6 +217,7 @@ export function MasterDocView({
 
   function selectDoc(id: string) {
     const d = docs.find((x) => x.id === id);
+    if (editMode) cancelEdit();
     setActiveId(id);
     if (d && d.status !== "compiling") {
       setDraft({
@@ -245,30 +246,33 @@ export function MasterDocView({
   async function saveEdit() {
     if (!activeDoc) return;
     setEditSaving(true);
-    const res = await updateMasterDocumentContent(
-      classId,
-      activeDoc.id,
-      editContent,
-    );
-    setEditSaving(false);
-    if ("error" in res) {
-      toast.error(res.error);
-      return;
+    try {
+      const res = await updateMasterDocumentContent(
+        classId,
+        activeDoc.id,
+        editContent,
+      );
+      if ("error" in res) {
+        toast.error(res.error);
+        return;
+      }
+      setDocs((prev) =>
+        prev.map((d) =>
+          d.id === activeDoc.id
+            ? {
+                ...d,
+                content: editContent,
+                pdfStatus: "pending",
+                manuallyEdited: true,
+              }
+            : d,
+        ),
+      );
+      setEditMode(false);
+      setEditContent("");
+    } finally {
+      setEditSaving(false);
     }
-    setDocs((prev) =>
-      prev.map((d) =>
-        d.id === activeDoc.id
-          ? {
-              ...d,
-              content: editContent,
-              pdfStatus: "pending",
-              manuallyEdited: true,
-            }
-          : d,
-      ),
-    );
-    setEditMode(false);
-    setEditContent("");
   }
 
   function setSetting<K extends keyof CompilationSettings>(
@@ -281,40 +285,44 @@ export function MasterDocView({
   async function compile() {
     setCompileStep("fetching");
     setShowConfig(false);
+    try {
+      const res = await createMasterDocument(classId, topicId, draft);
 
-    const res = await createMasterDocument(classId, topicId, draft);
+      if ("error" in res) {
+        toast.error(res.error);
+        setCompileStep(null);
+        return;
+      }
 
-    if ("error" in res) {
-      toast.error(res.error);
+      setCompileStep("generating");
+
+      const docSettings: Omit<CompilationSettings, "fromScratch"> = {
+        outputType: draft.outputType,
+        depth: draft.depth,
+        conflictResolution: draft.conflictResolution,
+        factChecking: draft.factChecking,
+        sourcesInline: draft.sourcesInline,
+      };
+      const newDoc: MasterDoc = {
+        id: res.masterDocumentId,
+        status: "compiling",
+        content: null,
+        failureReason: null,
+        ...docSettings,
+        createdAt: new Date().toISOString(),
+        sources: [],
+        sourceIds: [],
+        contributorIds: [],
+        deletedSourceNames: [],
+        pdfStatus: "pending",
+        manuallyEdited: false,
+      };
+      setDocs((prev) => [newDoc, ...prev].slice(0, 4));
+      setActiveId(res.masterDocumentId);
+    } catch {
+      toast.error("Something went wrong.");
       setCompileStep(null);
-      return;
     }
-
-    setCompileStep("generating");
-
-    const docSettings: Omit<CompilationSettings, "fromScratch"> = {
-      outputType: draft.outputType,
-      depth: draft.depth,
-      conflictResolution: draft.conflictResolution,
-      factChecking: draft.factChecking,
-      sourcesInline: draft.sourcesInline,
-    };
-    const newDoc: MasterDoc = {
-      id: res.masterDocumentId,
-      status: "compiling",
-      content: null,
-      failureReason: null,
-      ...docSettings,
-      createdAt: new Date().toISOString(),
-      sources: [],
-      sourceIds: [],
-      contributorIds: [],
-      deletedSourceNames: [],
-      pdfStatus: "pending",
-      manuallyEdited: false,
-    };
-    setDocs((prev) => [newDoc, ...prev].slice(0, 4));
-    setActiveId(res.masterDocumentId);
   }
 
   const stepIndex = compileStep

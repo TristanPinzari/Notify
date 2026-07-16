@@ -99,7 +99,7 @@ export function buildPrompt(
       : "You are compiling student contributions into a single master document for a university course topic.",
   );
 
-  sections.push(buildXmlTagReference(settings));
+  if (isFinal) sections.push(buildXmlTagReference(settings));
 
   sections.push(`## Instructions
 - ${OUTPUT_TYPE[settings.outputType]}

@@ -227,17 +227,17 @@ export async function triggerNotifications(
         url,
       });
 
-      await Promise.all([
-        db.insert(notifications).values(
-          allMembers.map((m) => ({
-            id: crypto.randomUUID(),
-            userId: m.userId,
-            classId,
-            type: "compilation_completed",
-            payload: notifPayload,
-          })),
-        ),
-        ...allMembers
+      await db.insert(notifications).values(
+        allMembers.map((m) => ({
+          id: crypto.randomUUID(),
+          userId: m.userId,
+          classId,
+          type: "compilation_completed",
+          payload: notifPayload,
+        })),
+      );
+      await Promise.all(
+        allMembers
           .filter((m) => m.notifyMasterDoc)
           .map((m) =>
             resend.emails.send({
@@ -253,7 +253,7 @@ export async function triggerNotifications(
               }),
             }),
           ),
-      ]);
+      );
       break;
     }
 
@@ -319,5 +319,8 @@ export async function triggerNotifications(
       }
       break;
     }
+
+    default:
+      break;
   }
 }

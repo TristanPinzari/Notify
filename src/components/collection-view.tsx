@@ -143,8 +143,6 @@ type StagedPlaylist = {
 };
 type StagedItem = StagedFile | StagedLink | StagedPlaylist;
 
-let stageSeq = 1000;
-
 function fmtRecTime(secs: number): string {
   const m = Math.floor(secs / 60);
   const s = secs % 60;
@@ -758,17 +756,24 @@ function SourceRow({
   async function togglePin() {
     if (pinning) return;
     setPinning(true);
-    const res = await setContributionPin(classId, f.id, !f.pinned);
-    if ("error" in res) toast.error(res.error);
-    else onUpdate(f.id, { pinned: !f.pinned });
-    setPinning(false);
+    try {
+      const res = await setContributionPin(classId, f.id, !f.pinned);
+      if ("error" in res) toast.error(res.error);
+      else onUpdate(f.id, { pinned: !f.pinned });
+    } finally {
+      setPinning(false);
+    }
   }
 
   async function copyText() {
     if (!text) return;
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Failed to copy.");
+    }
   }
 
   const methods = METHODS_FOR_TYPE[f.type];
@@ -788,9 +793,13 @@ function SourceRow({
       text === undefined
     ) {
       setLoadingText(true);
-      const res = await getContributionText(classId, f.id);
-      if ("text" in res) setText(res.text);
-      setLoadingText(false);
+      try {
+        const res = await getContributionText(classId, f.id);
+        if ("error" in res) toast.error(res.error);
+        else setText(res.text);
+      } finally {
+        setLoadingText(false);
+      }
     }
   }
 
@@ -807,64 +816,67 @@ function SourceRow({
   async function save() {
     if (!dName.trim() || saving) return;
     setSaving(true);
-    const methodChanged = dMethod !== f.method;
+    try {
+      const methodChanged = dMethod !== f.method;
 
-    const res = await editContribution(classId, topicId, f.id, {
-      name: dName.trim(),
-      extractionMethod: dMethod,
-      text: methodChanged ? undefined : dText,
-    });
+      const res = await editContribution(classId, topicId, f.id, {
+        name: dName.trim(),
+        extractionMethod: dMethod,
+        text: methodChanged ? undefined : dText,
+      });
 
-    if ("error" in res) {
-      toast.error(res.error);
-      setSaving(false);
-      return;
-    }
-
-    if (methodChanged) {
-      const rr = await restartExtraction(classId, topicId, f.id);
-      if ("error" in rr) {
-        toast.error(rr.error);
-        setSaving(false);
+      if ("error" in res) {
+        toast.error(res.error);
         return;
       }
-      onUpdate(f.id, {
-        name: dName.trim(),
-        method: dMethod,
-        status: "processing",
-        manuallyEdited: true,
-      });
-      setText(undefined);
-      setOpen(false);
-      toast.success("Saved — re-extracting with new method.");
-    } else {
-      const wasFailedWithText =
-        f.status === "failed" && dText.trim().length > 0;
-      onUpdate(f.id, {
-        name: dName.trim(),
-        manuallyEdited: true,
-        ...(wasFailedWithText ? { status: "ready", failureReason: null } : {}),
-      });
-      setText(dText);
-      toast.success("Source updated.");
-      setEditing(false);
-    }
 
-    setSaving(false);
+      if (methodChanged) {
+        const rr = await restartExtraction(classId, topicId, f.id);
+        if ("error" in rr) {
+          toast.error(rr.error);
+          return;
+        }
+        onUpdate(f.id, {
+          name: dName.trim(),
+          method: dMethod,
+          status: "processing",
+          manuallyEdited: true,
+        });
+        setText(undefined);
+        setOpen(false);
+        toast.success("Saved — re-extracting with new method.");
+      } else {
+        const wasFailedWithText =
+          f.status === "failed" && dText.trim().length > 0;
+        onUpdate(f.id, {
+          name: dName.trim(),
+          manuallyEdited: true,
+          ...(wasFailedWithText ? { status: "ready", failureReason: null } : {}),
+        });
+        setText(dText);
+        toast.success("Source updated.");
+        setEditing(false);
+      }
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function retry() {
     setRetrying(true);
-    const res = await restartExtraction(classId, topicId, f.id);
-    if ("error" in res) {
-      toast.error(res.error);
-    } else {
-      onUpdate(f.id, { status: "processing", failureReason: null });
-      setText(undefined);
-      setOpen(false);
-      toast.success("Re-extracting…");
+    try {
+      const res = await restartExtraction(classId, topicId, f.id);
+      if ("error" in res) {
+        toast.error(res.error);
+      } else {
+        onUpdate(f.id, { status: "processing", failureReason: null });
+        setText(undefined);
+        setOpen(false);
+        toast.success("Re-extracting…");
+      }
+    } finally {
+      setRetrying(false);
     }
-    setRetrying(false);
   }
 
   return (
@@ -1136,6 +1148,7 @@ export default function CollectionView({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const stageSeqRef = useRef(1000);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const highlightSet = useMemo(
@@ -1228,7 +1241,7 @@ export default function CollectionView({
     const items: StagedFile[] = rawFiles.map((f) => {
       const type = detectType(f);
       return {
-        id: ++stageSeq,
+        id: ++stageSeqRef.current,
         kind: "file",
         type,
         name: f.name,
@@ -1277,14 +1290,14 @@ export default function CollectionView({
           `${skipped} already-staged video${skipped > 1 ? "s" : ""} skipped.`,
         );
       const videos = fresh.map((v) => ({
-        id: ++stageSeq,
+        id: ++stageSeqRef.current,
         ...v,
         checked: true,
       }));
       setStaged((st) => [
         ...st,
         {
-          id: ++stageSeq,
+          id: ++stageSeqRef.current,
           kind: "playlist",
           name: playlist.name,
           url: normalizedUrl.replace(/^https?:\/\//, ""),
@@ -1306,7 +1319,7 @@ export default function CollectionView({
         setStaged((st) => [
           ...st,
           {
-            id: ++stageSeq,
+            id: ++stageSeqRef.current,
             kind: "link",
             type,
             name: video.title,
@@ -1319,7 +1332,7 @@ export default function CollectionView({
         setStaged((st) => [
           ...st,
           {
-            id: ++stageSeq,
+            id: ++stageSeqRef.current,
             kind: "link",
             type,
             name: normalizedUrl.replace(/^https?:\/\//, ""),
@@ -1338,7 +1351,7 @@ export default function CollectionView({
     setStaged((st) => [
       ...st,
       {
-        id: ++stageSeq,
+        id: ++stageSeqRef.current,
         kind: "file",
         type: "custom",
         name,

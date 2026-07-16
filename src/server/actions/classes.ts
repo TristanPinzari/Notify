@@ -1023,6 +1023,14 @@ export async function sendClassInvites(classId: string, rawEmails: string[]) {
 
   if (toSend.length > 0) {
     const joinUrl = `${getBaseUrl()}/home?code=${cls.code}`;
+    await db.insert(emailInvites).values(
+      toSend.map((email) => ({
+        id: crypto.randomUUID(),
+        senderId: session.user.id,
+        recipientEmail: email,
+        classId,
+      })),
+    );
     await Promise.all(
       toSend.map((email) =>
         resend.emails.send({
@@ -1039,14 +1047,6 @@ export async function sendClassInvites(classId: string, rawEmails: string[]) {
           }),
         }),
       ),
-    );
-    await db.insert(emailInvites).values(
-      toSend.map((email) => ({
-        id: crypto.randomUUID(),
-        senderId: session.user.id,
-        recipientEmail: email,
-        classId,
-      })),
     );
 
     const { name: className } = cls;

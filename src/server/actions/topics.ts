@@ -17,6 +17,8 @@ export async function createTopic(
   classId: string,
   name: string,
 ): Promise<{ error: string } | { success: true; id: string }> {
+  if (!name.trim() || name.trim().length < 3)
+    return { error: "Topic name must be at least 3 characters." };
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
   const limit = await rateLimit(session.user.id, "createTopic");
@@ -108,6 +110,8 @@ export async function changeTopicName(
   topicId: string,
   name: string,
 ) {
+  if (!name.trim() || name.trim().length < 3)
+    return { error: "Topic name must be at least 3 characters." };
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
 

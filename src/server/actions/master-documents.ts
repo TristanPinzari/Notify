@@ -14,7 +14,7 @@ import {
   topics,
   RANK_VALUE,
 } from "@/server/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import {
@@ -125,11 +125,16 @@ export async function createMasterDocument(
         );
 
     const temporalClient = await getTemporalClient();
-    await temporalClient.workflow.start("compileContributions", {
-      args: [masterDocumentId, topicId, settings],
-      taskQueue: "main",
-      workflowId: `compile-${masterDocumentId}`,
-    });
+    try {
+      await temporalClient.workflow.start("compileContributions", {
+        args: [masterDocumentId, topicId, settings],
+        taskQueue: "main",
+        workflowId: `compile-${masterDocumentId}`,
+      });
+    } catch (e) {
+      await db.delete(masterDocuments).where(eq(masterDocuments.id, masterDocumentId));
+      throw e;
+    }
 
     logActivity(
       classId,
@@ -245,10 +250,7 @@ export async function createPDF(
       .limit(1);
     if (!row[0]) return { error: "This master document does not exist." };
 
-    if (row[0].pdfStatus === "generating")
-      return { success: true, generating: true };
-
-    if (row[0].pdfS3Key && !force) {
+    if (row[0].pdfS3Key && !force && row[0].pdfStatus !== "generating") {
       const signedUrl = await getSignedUrl(
         s3,
         new GetObjectCommand({
@@ -260,14 +262,22 @@ export async function createPDF(
       return { success: true, generating: false, url: signedUrl };
     }
 
-    await db
+    const [updated] = await db
       .update(masterDocuments)
       .set({
         pdfStatus: "generating",
         pdfS3Key: null,
         pdfGenerationStartedAt: new Date(),
       })
-      .where(eq(masterDocuments.id, masterDocumentId));
+      .where(
+        and(
+          eq(masterDocuments.id, masterDocumentId),
+          ne(masterDocuments.pdfStatus, "generating"),
+        ),
+      )
+      .returning({ id: masterDocuments.id });
+
+    if (!updated) return { success: true, generating: true };
 
     if (row[0].pdfS3Key) {
       try {

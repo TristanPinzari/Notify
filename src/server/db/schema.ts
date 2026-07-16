@@ -156,7 +156,10 @@ export const userClasses = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.userId, t.classId] })],
+  (t) => [
+    primaryKey({ columns: [t.userId, t.classId] }),
+    index("user_classes_classId_idx").on(t.classId),
+  ],
 );
 
 export const classBans = pgTable(
@@ -195,7 +198,7 @@ export const topics = pgTable("topics", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (t) => [index("topics_classId_idx").on(t.classId)]);
 
 export const masterDocuments = pgTable("master_documents", {
   id: text("id").primaryKey(),
@@ -256,7 +259,10 @@ export const contributions = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [unique().on(t.topicId, t.url)],
+  (t) => [
+    unique().on(t.topicId, t.url),
+    index("contributions_topicId_idx").on(t.topicId),
+  ],
 );
 
 export const compilationSources = pgTable(
@@ -292,7 +298,7 @@ export const activityLogs = pgTable("activity_logs", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (t) => [index("activity_logs_classId_createdAt_idx").on(t.classId, t.createdAt)]);
 
 // BetterAuth
 export const session = pgTable(

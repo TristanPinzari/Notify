@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import katex from "katex";
-import "katex/dist/katex.min.css";
 import {
   FlagDocIcon,
   ConflictSplitIcon,
@@ -97,7 +96,7 @@ function makeRegistry(): SourceReg {
     getNum(src) {
       const k = src.id ?? src.name;
       if (map.has(k)) return map.get(k)!;
-      if (nameMap.has(src.name)) return nameMap.get(src.name)!;
+      if (!src.id && nameMap.has(src.name)) return nameMap.get(src.name)!;
       order.push(src);
       const n = order.length;
       map.set(k, n);
@@ -158,8 +157,10 @@ function parseBlocks(md: string, nameById?: Map<string, string>): Block[] {
 
     if (/^\s*<conflict/.test(line)) {
       let buf = line;
-      while (!/<\/conflict>/.test(buf) && i + 1 < lines.length) {
+      let accumulated = 0;
+      while (!/<\/conflict>/.test(buf) && i + 1 < lines.length && accumulated < 30) {
         i++;
+        accumulated++;
         buf += "\n" + lines[i];
       }
       const rawSources = getAttr(buf, "sources") ?? "";
