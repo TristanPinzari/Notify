@@ -372,3 +372,73 @@ export async function updateMasterDocumentContent(
     return { error: "Something went wrong." };
   }
 }
+
+export async function deleteMasterDocument(
+  classId: string,
+  masterDocumentId: string,
+): Promise<{ error: string } | { success: true }> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return { error: "Not authenticated." };
+  const limit = await rateLimit(session.user.id, "deleteMasterDocument");
+  if (limit) return limit;
+
+  try {
+    const [membership] = await db
+      .select({
+        rank: userClasses.rank,
+        minRankEditCompilation: classes.minRankEditCompilation,
+      })
+      .from(userClasses)
+      .innerJoin(classes, eq(classes.id, userClasses.classId))
+      .where(
+        and(
+          eq(userClasses.userId, session.user.id),
+          eq(userClasses.classId, classId),
+        ),
+      )
+      .limit(1);
+
+    if (!membership) return { error: "You are not a member of this class." };
+    if (
+      RANK_VALUE[membership.rank] <
+      RANK_VALUE[membership.minRankEditCompilation]
+    )
+      return { error: "Your rank is not high enough to delete this document." };
+
+    const [doc] = await db
+      .select({ id: masterDocuments.id, pdfS3Key: masterDocuments.pdfS3Key })
+      .from(masterDocuments)
+      .innerJoin(topics, eq(masterDocuments.topicId, topics.id))
+      .where(
+        and(
+          eq(masterDocuments.id, masterDocumentId),
+          eq(topics.classId, classId),
+        ),
+      )
+      .limit(1);
+
+    if (!doc) return { error: "Document not found." };
+
+    if (doc.pdfS3Key) {
+      try {
+        await s3.send(
+          new DeleteObjectCommand({
+            Bucket: process.env.AWS_S3_BUCKET!,
+            Key: doc.pdfS3Key,
+          }),
+        );
+      } catch (e) {
+        console.error("S3 delete error:", e);
+      }
+    }
+
+    await db
+      .delete(masterDocuments)
+      .where(eq(masterDocuments.id, masterDocumentId));
+
+    return { success: true };
+  } catch (e) {
+    console.error("ERROR: ", e);
+    return { error: "Something went wrong." };
+  }
+}

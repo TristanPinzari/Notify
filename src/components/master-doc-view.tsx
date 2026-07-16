@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { CompiledDoc } from "@/components/doc-render";
 import { toast } from "sonner";
 import {
   createMasterDocument,
   createPDF,
+  deleteMasterDocument,
   getMasterDocumentStatus,
   updateMasterDocumentContent,
 } from "@/server/actions/master-documents";
@@ -27,6 +29,9 @@ import {
   FailIcon,
   DownloadIcon,
   PdfIcon,
+  TrashIcon,
+  EyeIcon,
+  EyeOffIcon,
 } from "@/components/icons";
 import { timeAgo } from "@/lib/utils";
 
@@ -124,11 +129,16 @@ export function MasterDocView({
     initialDocs[0]?.id ?? null,
   );
   const [showConfig, setShowConfig] = useState(false);
+  const [showActions, setShowActions] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [compileStep, setCompileStep] = useState<CompileStep | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editContent, setEditContent] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const [staticMode, setStaticMode] = useState(false);
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const activeDoc = docs.find((d) => d.id === activeId) ?? null;
   const isCompiling = activeDoc?.status === "compiling";
@@ -204,6 +214,23 @@ export function MasterDocView({
     return () => clearInterval(interval);
   }, [activeDoc, classId]);
 
+  useEffect(() => {
+    if (!showActions) return;
+    function onDown(e: MouseEvent) {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        menuBtnRef.current && !menuBtnRef.current.contains(e.target as Node)
+      ) setShowActions(false);
+    }
+    function onScroll() { setShowActions(false); }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("scroll", onScroll, true);
+    };
+  }, [showActions]);
+
   async function handlePdf(force: boolean) {
     if (!activeDoc) return;
     const tab = force ? null : window.open("", "_blank");
@@ -249,11 +276,29 @@ export function MasterDocView({
     }
   }
 
+  function openMenu() {
+    const r = menuBtnRef.current?.getBoundingClientRect();
+    if (!r) return;
+    setMenuPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
+    setShowActions(true);
+  }
+
   function enterEdit() {
     if (!activeDoc?.content) return;
     setEditContent(activeDoc.content);
     setShowConfig(false);
+    setShowActions(false);
     setEditMode(true);
+  }
+
+  async function deleteDoc() {
+    if (!activeDoc) return;
+    const res = await deleteMasterDocument(classId, activeDoc.id);
+    if ("error" in res) { toast.error(res.error); return; }
+    const remaining = docs.filter((d) => d.id !== activeDoc.id);
+    setDocs(remaining);
+    setActiveId(remaining[0]?.id ?? null);
+    setShowActions(false);
   }
 
   function cancelEdit() {
@@ -423,55 +468,14 @@ export function MasterDocView({
           )}
           {activeDoc && activeDoc.status === "ready" && !editMode && (
             <div className="flex gap-2">
-              {canEdit && activeDoc.content && (
-                <div className="flex gap-2">
-                  <button
-                    className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px]"
-                    onClick={enterEdit}
-                    disabled={compileDisabled}
-                  >
-                    <EditIcon />
-                    Edit
-                  </button>
-                </div>
-              )}
               <button
+                ref={menuBtnRef}
                 className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px]"
-                disabled={pdfLoading || activeDoc.pdfStatus === "generating"}
-                onClick={() => handlePdf(false)}
+                onClick={openMenu}
               >
-                {pdfLoading || activeDoc.pdfStatus === "generating" ? (
-                  <>
-                    <span className="mini-spin" />
-                    Generating PDF…
-                  </>
-                ) : activeDoc.pdfStatus === "ready" ? (
-                  <>
-                    <DownloadIcon />
-                    Download PDF
-                  </>
-                ) : activeDoc.pdfStatus === "failed" ? (
-                  <>
-                    <RecompileIcon />
-                    Retry PDF
-                  </>
-                ) : (
-                  <>
-                    <PdfIcon />
-                    Generate PDF
-                  </>
-                )}
+                <SettingsIcon />
+                Actions
               </button>
-              {activeDoc.pdfStatus === "ready" && (
-                <button
-                  className="btn btn-ghost px-2.75 py-2.5 rounded-[10px]"
-                  title="Regenerate PDF"
-                  disabled={pdfLoading}
-                  onClick={() => handlePdf(true)}
-                >
-                  <RecompileIcon />
-                </button>
-              )}
             </div>
           )}
         </div>
@@ -701,6 +705,69 @@ export function MasterDocView({
         </div>
       )}
 
+      {/* Actions dropdown (portal) */}
+      {showActions && menuPos && activeDoc && activeDoc.status === "ready" && !editMode && createPortal(
+        <div
+          ref={menuRef}
+          className="fixed w-56 bg-(--paper-raised) border border-(--line-soft) rounded-[11px] shadow-[0_14px_34px_-12px_rgba(40,30,15,0.4)] p-1.5 z-200"
+          style={{ top: menuPos.top, right: menuPos.right }}
+        >
+          {canEdit && activeDoc.content && (
+            <button
+              className="w-full flex items-center gap-2 text-left text-[13px] text-(--ink-body) px-2.5 py-1.5 rounded-[7px] hover:bg-(--bg-hover) cursor-pointer transition-colors border-none bg-transparent"
+              onClick={enterEdit}
+            >
+              <EditIcon /> Edit
+            </button>
+          )}
+          {canEdit && activeDoc.content && <div className="h-px bg-(--line) my-1 mx-1" />}
+          <button
+            className="w-full flex items-center gap-2 text-left text-[13px] text-(--ink-body) px-2.5 py-1.5 rounded-[7px] hover:bg-(--bg-hover) cursor-pointer transition-colors border-none bg-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={pdfLoading || activeDoc.pdfStatus === "generating"}
+            onClick={() => { void handlePdf(false); setShowActions(false); }}
+          >
+            {pdfLoading || activeDoc.pdfStatus === "generating" ? (
+              <><span className="mini-spin" />Generating PDF…</>
+            ) : activeDoc.pdfStatus === "ready" ? (
+              <><DownloadIcon />Download PDF</>
+            ) : activeDoc.pdfStatus === "failed" ? (
+              <><RecompileIcon />Retry PDF</>
+            ) : (
+              <><PdfIcon />Generate PDF</>
+            )}
+          </button>
+          {activeDoc.pdfStatus === "ready" && (
+            <button
+              className="w-full flex items-center gap-2 text-left text-[13px] text-(--ink-body) px-2.5 py-1.5 rounded-[7px] hover:bg-(--bg-hover) cursor-pointer transition-colors border-none bg-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={pdfLoading}
+              onClick={() => { void handlePdf(true); setShowActions(false); }}
+            >
+              <RecompileIcon />Regenerate PDF
+            </button>
+          )}
+          <div className="h-px bg-(--line) my-1 mx-1" />
+          <button
+            className="w-full flex items-center gap-2 text-left text-[13px] text-(--ink-body) px-2.5 py-1.5 rounded-[7px] hover:bg-(--bg-hover) cursor-pointer transition-colors border-none bg-transparent"
+            onClick={() => setStaticMode((s) => !s)}
+          >
+            {staticMode ? <EyeOffIcon /> : <EyeIcon />}
+            {staticMode ? "Disable static view" : "Enable static view"}
+          </button>
+          {canEdit && (
+            <>
+              <div className="h-px bg-(--line) my-1 mx-1" />
+              <button
+                className="w-full flex items-center gap-2 text-left text-[13px] px-2.5 py-1.5 rounded-[7px] hover:bg-(--bg-hover) cursor-pointer transition-colors border-none bg-transparent text-red-500"
+                onClick={deleteDoc}
+              >
+                <TrashIcon />Delete
+              </button>
+            </>
+          )}
+        </div>,
+        document.body
+      )}
+
       {/* Compile heartbeat */}
       {isCompiling && (
         <div className="card hb">
@@ -754,6 +821,7 @@ export function MasterDocView({
               markdown={editContent}
               classId={classId}
               topicId={topicId}
+              staticMode={staticMode}
               allSources={activeDoc?.sources}
             />
           </div>
@@ -780,6 +848,7 @@ export function MasterDocView({
             markdown={activeDoc.content}
             classId={classId}
             topicId={topicId}
+            staticMode={staticMode}
             allSources={activeDoc.sources}
           />
         ) : (

@@ -84,6 +84,7 @@ const RATE_LIMITS = {
   getAvatarUploadUrl: 20,
   createPDF: 20,
   updateMasterDocumentContent: 60,
+  deleteMasterDocument: 30,
 } as const;
 
 export async function rateLimit(
