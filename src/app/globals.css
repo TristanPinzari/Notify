@@ -1734,6 +1734,7 @@ textarea.inwrap::placeholder {
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+
 .side-head {
   padding: 20px 20px 14px;
   display: flex;
@@ -2458,6 +2459,51 @@ html.dark [data-sonner-toast] {
   flex: 1;
   width: 100%;
   box-sizing: border-box;
+}
+
+.edit-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: var(--paper);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+}
+.edit-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.edit-modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-heading);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.edit-modal-body {
+  display: flex;
+  gap: 16px;
+  padding: 16px 20px;
+  overflow: hidden;
+  min-height: 0;
+}
+.edit-modal-panel {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+@media (max-width: 768px) {
+  .edit-modal-body {
+    flex-direction: column;
+    padding: 12px 14px;
+  }
 }
 
 .kicker {

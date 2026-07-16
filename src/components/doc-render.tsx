@@ -54,10 +54,20 @@ function SourceLink({
 }
 
 function parseSources(raw: string): SrcRef[] {
-  return raw.split(",").flatMap((part) => {
-    const [name, id] = part.trim().split("|");
-    return name.trim() ? [{ name: name.trim(), id: id?.trim() || undefined }] : [];
-  });
+  const results: SrcRef[] = [];
+  let lastEnd = 0;
+  const re = /\|\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw)) !== null) {
+    const name = raw
+      .slice(lastEnd, m.index)
+      .replace(/^[,\s]+/, "")
+      .replace(/\s*\|[^|]*$/, "")
+      .trim();
+    if (name) results.push({ name, id: m[1] });
+    lastEnd = m.index + m[0].length;
+  }
+  return results;
 }
 
 /** Remove <source .../> from text; capture all distinct sources found */

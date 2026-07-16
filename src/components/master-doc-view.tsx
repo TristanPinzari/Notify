@@ -16,6 +16,7 @@ import type { CompilationSettings } from "@/server/actions/master-documents";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { oneDark } from "@codemirror/theme-one-dark";
+import { useEscapeKey } from "@/hooks/use-escape-key";
 import {
   SettingsIcon,
   RecompileIcon,
@@ -116,6 +117,9 @@ const HB_STEPS: [CompileStep, string][] = [
   ["saving", "Saving"],
 ];
 
+const EDITOR_EXTENSIONS = [markdown()];
+const EDITOR_BASIC_SETUP = { lineNumbers: false, foldGutter: false };
+
 const MENU_ITEM_CLS =
   "w-full flex items-center gap-2 text-left text-[13px] text-(--ink-body) px-2.5 py-1.5 rounded-[7px] hover:bg-(--bg-hover) cursor-pointer transition-colors border-none bg-transparent disabled:opacity-50 disabled:cursor-not-allowed";
 
@@ -148,6 +152,7 @@ export function MasterDocView({
   const activeDoc = docs.find((d) => d.id === activeId) ?? null;
   const isCompiling = activeDoc?.status === "compiling";
   const docFailed = activeDoc?.status === "failed";
+  useEscapeKey(() => { if (editMode && !editSaving) cancelEdit(); });
   const compileDisabled =
     docs.some((d) => d.status === "compiling") || compileStep !== null;
 
@@ -342,8 +347,11 @@ export function MasterDocView({
             : d,
         ),
       );
+      toast.success("Changes saved.");
       setEditMode(false);
       setEditContent("");
+    } catch {
+      toast.error("Failed to save changes.");
     } finally {
       setEditSaving(false);
     }
@@ -407,7 +415,7 @@ export function MasterDocView({
   const hasDoc = docs.length > 0;
 
   return (
-    <div className={`pane${editMode ? " max-w-300" : ""}`}>
+    <div className="pane">
       <div className="pane-head flex-col gap-3.5">
         <div>
           <div className="kicker">Master Document</div>
@@ -417,78 +425,50 @@ export function MasterDocView({
           className="flex flex-col sm:flex-row gap-2 w-full"
           id="master-doc-buttons"
         >
-          {editMode ? (
+          {canCompile && (
             <>
               <button
-                className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px]"
-                onClick={cancelEdit}
-                disabled={editSaving}
+                className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px] w-full sm:flex-1 justify-center"
+                onClick={() => setShowConfig((s) => !s)}
+                disabled={compileDisabled}
               >
-                Cancel
+                <SettingsIcon />
+                Compile settings
               </button>
               <button
-                className="btn btn-primary text-[13.5px] px-4 py-2.5 rounded-[10px]"
-                onClick={saveEdit}
-                disabled={editSaving}
+                className="btn btn-primary text-[13.5px] px-4 py-2.5 rounded-[10px] w-full sm:flex-1 justify-center"
+                onClick={compile}
+                disabled={compileDisabled}
               >
-                {editSaving ? (
+                {compileDisabled ? (
                   <>
                     <span className="mini-spin" />
-                    Saving…
+                    {compileStep === "fetching"
+                      ? "Fetching sources…"
+                      : compileStep === "generating"
+                        ? "Generating"
+                        : compileStep === "saving"
+                          ? "Saving…"
+                          : "Compiling…"}
                   </>
                 ) : (
-                  "Save"
+                  <>
+                    <RecompileIcon />
+                    {hasDoc ? "Recompile" : "Compile"}
+                  </>
                 )}
               </button>
             </>
-          ) : (
-            <>
-              {canCompile && (
-                <>
-                  <button
-                    className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px] w-full sm:flex-1 justify-center"
-                    onClick={() => setShowConfig((s) => !s)}
-                    disabled={compileDisabled}
-                  >
-                    <SettingsIcon />
-                    Compile settings
-                  </button>
-                  <button
-                    className="btn btn-primary text-[13.5px] px-4 py-2.5 rounded-[10px] w-full sm:flex-1 justify-center"
-                    onClick={compile}
-                    disabled={compileDisabled}
-                  >
-                    {compileDisabled ? (
-                      <>
-                        <span className="mini-spin" />
-                        {compileStep === "fetching"
-                          ? "Fetching sources…"
-                          : compileStep === "generating"
-                            ? "Generating"
-                            : compileStep === "saving"
-                              ? "Saving…"
-                              : "Compiling…"}
-                      </>
-                    ) : (
-                      <>
-                        <RecompileIcon />
-                        {hasDoc ? "Recompile" : "Compile"}
-                      </>
-                    )}
-                  </button>
-                </>
-              )}
-              {activeDoc && activeDoc.status !== "compiling" && (
-                <button
-                  ref={menuBtnRef}
-                  className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px] w-full sm:flex-1 justify-center"
-                  onClick={openMenu}
-                >
-                  <SettingsIcon />
-                  Actions
-                </button>
-              )}
-            </>
+          )}
+          {activeDoc && activeDoc.status !== "compiling" && (
+            <button
+              ref={menuBtnRef}
+              className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px] w-full sm:flex-1 justify-center"
+              onClick={openMenu}
+            >
+              <SettingsIcon />
+              Actions
+            </button>
           )}
         </div>
       </div>
@@ -843,31 +823,61 @@ export function MasterDocView({
         </div>
       )}
 
-      {/* Edit split view */}
-      {editMode && (
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 min-w-0 h-[45vh] md:h-[calc(100dvh-150px)] overflow-hidden rounded-[10px]">
-            <CodeMirror
-              value={editContent}
-              onChange={setEditContent}
-              extensions={[markdown()]}
-              theme={oneDark}
-              height="calc(100dvh - 150px)"
-              className="text-[13px]"
-              basicSetup={{ lineNumbers: false, foldGutter: false }}
-            />
-          </div>
-          <div className="flex-1 min-w-0 h-[45vh] md:h-[calc(100dvh-150px)] overflow-y-auto overflow-x-hidden">
-            <CompiledDoc
-              markdown={editContent}
-              classId={classId}
-              topicId={topicId}
-              staticMode={staticMode}
-              allSources={activeDoc?.sources}
-            />
-          </div>
-        </div>
-      )}
+      {/* Edit modal */}
+      {editMode &&
+        createPortal(
+          <div className="edit-modal">
+            <div className="edit-modal-head">
+              <span className="edit-modal-title">{topicName}</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px]"
+                  onClick={cancelEdit}
+                  disabled={editSaving}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-primary text-[13.5px] px-4 py-2.5 rounded-[10px]"
+                  onClick={saveEdit}
+                  disabled={editSaving}
+                >
+                  {editSaving ? (
+                    <>
+                      <span className="mini-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    "Save"
+                  )}
+                </button>
+              </div>
+            </div>
+            <div className="edit-modal-body">
+              <div className="edit-modal-panel overflow-hidden rounded-[10px]">
+                <CodeMirror
+                  value={editContent}
+                  onChange={setEditContent}
+                  extensions={EDITOR_EXTENSIONS}
+                  theme={oneDark}
+                  height="100%"
+                  className="h-full text-[13px]"
+                  basicSetup={EDITOR_BASIC_SETUP}
+                />
+              </div>
+              <div className="edit-modal-panel overflow-y-auto overflow-x-hidden">
+                <CompiledDoc
+                  markdown={editContent}
+                  classId={classId}
+                  topicId={topicId}
+                  staticMode={staticMode}
+                  allSources={activeDoc?.sources}
+                />
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {/* Content */}
       {!editMode &&
