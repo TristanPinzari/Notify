@@ -70,6 +70,24 @@ const DEFAULTS: CompilationSettings = {
   fromScratch: false,
 };
 
+const CONFLICT_TIP: Record<CompilationSettings["conflictResolution"], string> =
+  {
+    trust_pinned:
+      "Trust pinned contributions when sources disagree — only flag if pinned contributions conflict with each other",
+    trust_majority:
+      "Go with what most contributions agree on — only flag when there's no clear majority",
+    flag_all: "Always show disagreements as a visible conflict block",
+    replace_flag:
+      "Write the best answer inline — a subtle marker shows where contributions differed",
+  };
+
+const FACTCHECK_TIP: Record<CompilationSettings["factChecking"], string> = {
+  none: "",
+  flag: "Keep the original claim — dubious ones are marked, hover to see the suggested correction",
+  replace:
+    "Replace wrong claims with the correction — hover to see what the source originally said",
+};
+
 const LABEL = {
   outputType: { bullet: "Bullets", prose: "Prose", both: "Both" } as const,
   depth: {
@@ -619,6 +637,7 @@ export function MasterDocView({
                   key={v}
                   className={draft.conflictResolution === v ? "on" : ""}
                   onClick={() => setSetting("conflictResolution", v)}
+                  title={CONFLICT_TIP[v]}
                 >
                   {LABEL.conflictResolution[v]}
                 </button>
@@ -638,6 +657,7 @@ export function MasterDocView({
                   key={v}
                   className={draft.factChecking === v ? "on" : ""}
                   onClick={() => setSetting("factChecking", v)}
+                  title={FACTCHECK_TIP[v] || undefined}
                 >
                   {LABEL.factChecking[v]}
                 </button>

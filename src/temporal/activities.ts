@@ -481,6 +481,7 @@ export async function generatePDF(
         classId,
         topicId,
         allSources,
+        staticMode: true,
       }),
     );
     const baseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";

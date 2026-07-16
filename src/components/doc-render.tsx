@@ -294,11 +294,14 @@ function SourceCite({
   n,
   name,
   href,
+  staticMode,
 }: {
   n: number;
   name: string;
   href?: string;
+  staticMode?: boolean;
 }) {
+  if (staticMode) return <sup className="src-cite-static">[{n}]</sup>;
   return (
     <a
       className="src-cite"
@@ -313,9 +316,13 @@ function SourceCite({
 
 function SourceGroup({
   sources,
+  staticMode,
 }: {
   sources: { n: number; name: string; href?: string }[];
+  staticMode?: boolean;
 }) {
+  if (staticMode)
+    return <sup className="src-cite-static">[{sources.map((s) => s.n).join(", ")}]</sup>;
   return (
     <span className="src-group">
       <MultiSourceIcon />
@@ -341,11 +348,15 @@ function Flagged({
   correction,
   original,
   children,
+  staticMode,
 }: {
   correction?: string;
   original?: string;
   children: React.ReactNode;
+  staticMode?: boolean;
 }) {
+  if (staticMode)
+    return correction && !original ? <>{children} <em>({correction})</em></> : <>{children}</>;
   const tipLabel = original
     ? "Original claim"
     : correction
@@ -434,6 +445,7 @@ function Resolved({
   children,
   classId,
   topicId,
+  staticMode,
 }: {
   sources: SrcRef[];
   conflict: string;
@@ -441,7 +453,9 @@ function Resolved({
   children: React.ReactNode;
   classId?: string;
   topicId?: string;
+  staticMode?: boolean;
 }) {
+  if (staticMode) return <>{children}</>;
   return (
     <span className="resolved" tabIndex={0}>
       {children}
@@ -475,7 +489,7 @@ function Resolved({
 const INLINE_RE =
   /<flagged(?<flaggedAttrs>\s[^>]*)?>(?<flaggedInner>[\s\S]*?)<\/flagged>|<resolved(?<resolvedAttrs>\s[^>]*)?>(?<resolvedInner>[\s\S]*?)<\/resolved>|<math>(?<mathTex>[\s\S]*?)<\/math>|\*\*(?<boldInner>[^*]+)\*\*|<q>(?<quoteInner>[\s\S]*?)<\/q>/;
 
-function renderInline(text: string, k = 0, classId = "", topicId = ""): React.ReactNode[] {
+function renderInline(text: string, k = 0, classId = "", topicId = "", staticMode = false): React.ReactNode[] {
   const out: React.ReactNode[] = [];
   let rest = text;
   while (rest.length) {
@@ -493,8 +507,9 @@ function renderInline(text: string, k = 0, classId = "", topicId = ""): React.Re
           key={k++}
           correction={getAttr(a, "correction")}
           original={getAttr(a, "original")}
+          staticMode={staticMode}
         >
-          {renderInline(g.flaggedInner, k + 1000, classId, topicId)}
+          {renderInline(g.flaggedInner, k + 1000, classId, topicId, staticMode)}
         </Flagged>,
       );
     } else if (m[0].startsWith("<resolved")) {
@@ -507,8 +522,9 @@ function renderInline(text: string, k = 0, classId = "", topicId = ""): React.Re
           verdict={getAttr(a, "verdict")}
           classId={classId}
           topicId={topicId}
+          staticMode={staticMode}
         >
-          {renderInline(g.resolvedInner, k + 1000, classId, topicId)}
+          {renderInline(g.resolvedInner, k + 1000, classId, topicId, staticMode)}
         </Resolved>,
       );
     } else if (m[0].startsWith("<math>")) {
@@ -531,6 +547,7 @@ function renderBlocks(
   reg: SourceReg,
   classId: string,
   topicId: string,
+  staticMode = false,
 ): React.ReactNode[] {
   const out: React.ReactNode[] = [];
   let k = 0;
@@ -553,16 +570,16 @@ function renderBlocks(
     }));
     if (resolved.length === 1) {
       const { n, name, href } = resolved[0];
-      return <SourceCite n={n} name={name} href={href} />;
+      return <SourceCite n={n} name={name} href={href} staticMode={staticMode} />;
     }
-    return <SourceGroup sources={resolved} />;
+    return <SourceGroup sources={resolved} staticMode={staticMode} />;
   }
 
   function renderWithCite(text: string, srcs: SrcRef[]): React.ReactNode {
-    if (srcs.length === 0) return renderInline(text, 0, classId, topicId);
+    if (srcs.length === 0) return renderInline(text, 0, classId, topicId, staticMode);
     return (
       <>
-        {renderInline(text, 0, classId, topicId)}
+        {renderInline(text, 0, classId, topicId, staticMode)}
         {cite(srcs)}
       </>
     );
@@ -585,7 +602,7 @@ function renderBlocks(
       case "conflict":
         out.push(
           <Conflict key={k++} sources={b.sources} verdict={b.verdict} classId={classId} topicId={topicId}>
-            {renderInline(b.inner, 0, classId, topicId)}
+            {renderInline(b.inner, 0, classId, topicId, staticMode)}
           </Conflict>,
         );
         break;
@@ -606,11 +623,13 @@ export function CompiledDoc({
   classId,
   topicId,
   allSources,
+  staticMode,
 }: {
   markdown: string;
   classId: string;
   topicId: string;
   allSources?: { id?: string; name: string }[];
+  staticMode?: boolean;
 }) {
   const { body, sources } = useMemo(() => {
     const reg = makeRegistry();
@@ -621,9 +640,9 @@ export function CompiledDoc({
     }
     const blocks = parseBlocks(markdown, nameById);
     assignCitations(blocks);
-    const body = renderBlocks(blocks, reg, classId, topicId);
+    const body = renderBlocks(blocks, reg, classId, topicId, staticMode);
     return { body, sources: reg.list() };
-  }, [markdown, classId, topicId, allSources]);
+  }, [markdown, classId, topicId, allSources, staticMode]);
 
   return (
     <article className="doc">
