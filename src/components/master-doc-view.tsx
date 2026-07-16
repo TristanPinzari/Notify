@@ -116,6 +116,9 @@ const HB_STEPS: [CompileStep, string][] = [
   ["saving", "Saving"],
 ];
 
+const MENU_ITEM_CLS =
+  "w-full flex items-center gap-2 text-left text-[13px] text-(--ink-body) px-2.5 py-1.5 rounded-[7px] hover:bg-(--bg-hover) cursor-pointer transition-colors border-none bg-transparent disabled:opacity-50 disabled:cursor-not-allowed";
+
 export function MasterDocView({
   classId,
   topicId,
@@ -130,7 +133,9 @@ export function MasterDocView({
   );
   const [showConfig, setShowConfig] = useState(false);
   const [showActions, setShowActions] = useState(false);
-  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(
+    null,
+  );
   const [compileStep, setCompileStep] = useState<CompileStep | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -142,6 +147,7 @@ export function MasterDocView({
 
   const activeDoc = docs.find((d) => d.id === activeId) ?? null;
   const isCompiling = activeDoc?.status === "compiling";
+  const docFailed = activeDoc?.status === "failed";
   const compileDisabled =
     docs.some((d) => d.status === "compiling") || compileStep !== null;
 
@@ -217,17 +223,18 @@ export function MasterDocView({
   useEffect(() => {
     if (!showActions) return;
     function onDown(e: MouseEvent) {
-      if (
-        menuRef.current && !menuRef.current.contains(e.target as Node) &&
-        menuBtnRef.current && !menuBtnRef.current.contains(e.target as Node)
-      ) setShowActions(false);
+      if (menuRef.current?.contains(e.target as Node)) return;
+      if (menuBtnRef.current?.contains(e.target as Node)) return;
+      setShowActions(false);
     }
-    function onScroll() { setShowActions(false); }
+    function onClose() { setShowActions(false); }
     document.addEventListener("mousedown", onDown);
-    document.addEventListener("scroll", onScroll, true);
+    document.addEventListener("scroll", onClose, true);
+    window.addEventListener("resize", onClose);
     return () => {
       document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("scroll", onScroll, true);
+      document.removeEventListener("scroll", onClose, true);
+      window.removeEventListener("resize", onClose);
     };
   }, [showActions]);
 
@@ -277,6 +284,7 @@ export function MasterDocView({
   }
 
   function openMenu() {
+    if (showActions) return setShowActions(false);
     const r = menuBtnRef.current?.getBoundingClientRect();
     if (!r) return;
     setMenuPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
@@ -294,7 +302,10 @@ export function MasterDocView({
   async function deleteDoc() {
     if (!activeDoc) return;
     const res = await deleteMasterDocument(classId, activeDoc.id);
-    if ("error" in res) { toast.error(res.error); return; }
+    if ("error" in res) {
+      toast.error(res.error);
+      return;
+    }
     const remaining = docs.filter((d) => d.id !== activeDoc.id);
     setDocs(remaining);
     setActiveId(remaining[0]?.id ?? null);
@@ -397,17 +408,17 @@ export function MasterDocView({
 
   return (
     <div className={`pane${editMode ? " max-w-300" : ""}`}>
-      <div className="pane-head">
+      <div className="pane-head flex-col gap-3.5">
         <div>
           <div className="kicker">Master Document</div>
           <h1 className="pane-title">{topicName}</h1>
         </div>
         <div
-          className="flex flex-col gap-2 shrink-0 items-end"
+          className="flex flex-col sm:flex-row gap-2 w-full"
           id="master-doc-buttons"
         >
           {editMode ? (
-            <div className="flex gap-2">
+            <>
               <button
                 className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px]"
                 onClick={cancelEdit}
@@ -429,158 +440,58 @@ export function MasterDocView({
                   "Save"
                 )}
               </button>
-            </div>
-          ) : null}
-          {canCompile && !editMode && (
-            <div className="flex gap-2">
-              <button
-                className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px]"
-                onClick={() => setShowConfig((s) => !s)}
-                disabled={compileDisabled}
-              >
-                <SettingsIcon />
-                Compile settings
-              </button>
-              <button
-                className="btn btn-primary text-[13.5px] px-4 py-2.5 rounded-[10px]"
-                onClick={compile}
-                disabled={compileDisabled}
-              >
-                {compileDisabled ? (
-                  <>
-                    <span className="mini-spin" />
-                    {compileStep === "fetching"
-                      ? "Fetching sources…"
-                      : compileStep === "generating"
-                        ? "Generating"
-                        : compileStep === "saving"
-                          ? "Saving…"
-                          : "Compiling…"}
-                  </>
-                ) : (
-                  <>
-                    <RecompileIcon />
-                    {hasDoc ? "Recompile" : "Compile"}
-                  </>
-                )}
-              </button>
-            </div>
-          )}
-          {activeDoc && activeDoc.status === "ready" && !editMode && (
-            <div className="flex gap-2">
-              <button
-                ref={menuBtnRef}
-                className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px]"
-                onClick={openMenu}
-              >
-                <SettingsIcon />
-                Actions
-              </button>
-            </div>
+            </>
+          ) : (
+            <>
+              {canCompile && (
+                <>
+                  <button
+                    className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px] w-full sm:flex-1 justify-center"
+                    onClick={() => setShowConfig((s) => !s)}
+                    disabled={compileDisabled}
+                  >
+                    <SettingsIcon />
+                    Compile settings
+                  </button>
+                  <button
+                    className="btn btn-primary text-[13.5px] px-4 py-2.5 rounded-[10px] w-full sm:flex-1 justify-center"
+                    onClick={compile}
+                    disabled={compileDisabled}
+                  >
+                    {compileDisabled ? (
+                      <>
+                        <span className="mini-spin" />
+                        {compileStep === "fetching"
+                          ? "Fetching sources…"
+                          : compileStep === "generating"
+                            ? "Generating"
+                            : compileStep === "saving"
+                              ? "Saving…"
+                              : "Compiling…"}
+                      </>
+                    ) : (
+                      <>
+                        <RecompileIcon />
+                        {hasDoc ? "Recompile" : "Compile"}
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
+              {activeDoc && activeDoc.status !== "compiling" && (
+                <button
+                  ref={menuBtnRef}
+                  className="btn btn-ghost text-[13.5px] px-4 py-2.5 rounded-[10px] w-full sm:flex-1 justify-center"
+                  onClick={openMenu}
+                >
+                  <SettingsIcon />
+                  Actions
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
-
-      {/* Version switcher */}
-      {docs.length > 0 && (
-        <div className="doc-switch">
-          {docs.map((d) => (
-            <button
-              key={d.id}
-              className={`doc-pill${d.id === activeId ? " on" : ""}`}
-              onClick={() => selectDoc(d.id)}
-            >
-              <span className="dp-when">{timeAgo(d.createdAt)}</span>
-              <span className="dp-meta">
-                {LABEL.outputType[d.outputType]} · {d.sourceIds.length} sources
-              </span>
-            </button>
-          ))}
-          <span className="doc-keep">Saves last 3 only</span>
-        </div>
-      )}
-
-      {/* Provenance chips */}
-      {activeDoc && (
-        <div className="flex flex-wrap gap-2 mb-6">
-          <Link
-            className="chip link"
-            href={
-              contributors > 0
-                ? `/home/${classId}/${topicId}/members?members=${activeDoc.contributorIds.join(",")}&reason=who+contributed+to+this+master+doc`
-                : `/home/${classId}/${topicId}/members`
-            }
-          >
-            <MembersIcon />
-            From{" "}
-            <b>
-              {contributors} contributor{contributors !== 1 ? "s" : ""}
-            </b>
-            <ChevronExtIcon />
-          </Link>
-          <Link
-            className="chip link"
-            href={
-              sources > 0
-                ? `/home/${classId}/${topicId}/collection?sources=${activeDoc.sourceIds.join(",")}&reason=used+in+this+master+doc`
-                : `/home/${classId}/${topicId}/collection`
-            }
-          >
-            <CollectionIcon />
-            <b>
-              {sources} source{sources !== 1 ? "s" : ""}
-            </b>
-            <ChevronExtIcon />
-          </Link>
-          {activeDoc.deletedSourceNames.length > 0 && (
-            <span className="chip deleted-chip">
-              <b>{activeDoc.deletedSourceNames.length} deleted</b>
-              <span className="tip">
-                {activeDoc.deletedSourceNames.map((n, i) => (
-                  <span key={i} className="del-name">
-                    {n}
-                  </span>
-                ))}
-              </span>
-            </span>
-          )}
-          {activeDoc.status !== "compiling" && (
-            <span className="chip">
-              <ClockIcon />
-              Compiled <b>{timeAgo(activeDoc.createdAt)}</b>
-            </span>
-          )}
-          {activeDoc.manuallyEdited && (
-            <span className="chip">
-              <EditIcon />
-              Edited
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Specbar — read-only settings of the selected doc */}
-      {activeDoc && activeDoc.status !== "compiling" && (
-        <div className="specbar">
-          <span className="sb-lead">Compiled with</span>
-          <span className="spec">
-            <i>Format</i> {LABEL.outputType[activeDoc.outputType]}
-          </span>
-          <span className="spec">
-            <i>Depth</i> {LABEL.depth[activeDoc.depth]}
-          </span>
-          <span className="spec">
-            <i>Conflicts</i>{" "}
-            {LABEL.conflictResolution[activeDoc.conflictResolution]}
-          </span>
-          <span className="spec">
-            <i>Fact-check</i> {LABEL.factChecking[activeDoc.factChecking]}
-          </span>
-          <span className={`spec${activeDoc.sourcesInline ? "" : " off"}`}>
-            <i>Inline sources</i> {activeDoc.sourcesInline ? "On" : "Off"}
-          </span>
-        </div>
-      )}
 
       {/* Compile settings panel */}
       {showConfig && !compileDisabled && (
@@ -706,66 +617,196 @@ export function MasterDocView({
       )}
 
       {/* Actions dropdown (portal) */}
-      {showActions && menuPos && activeDoc && activeDoc.status === "ready" && !editMode && createPortal(
-        <div
-          ref={menuRef}
-          className="fixed w-56 bg-(--paper-raised) border border-(--line-soft) rounded-[11px] shadow-[0_14px_34px_-12px_rgba(40,30,15,0.4)] p-1.5 z-200"
-          style={{ top: menuPos.top, right: menuPos.right }}
-        >
-          {canEdit && activeDoc.content && (
-            <button
-              className="w-full flex items-center gap-2 text-left text-[13px] text-(--ink-body) px-2.5 py-1.5 rounded-[7px] hover:bg-(--bg-hover) cursor-pointer transition-colors border-none bg-transparent"
-              onClick={enterEdit}
-            >
-              <EditIcon /> Edit
-            </button>
-          )}
-          {canEdit && activeDoc.content && <div className="h-px bg-(--line) my-1 mx-1" />}
-          <button
-            className="w-full flex items-center gap-2 text-left text-[13px] text-(--ink-body) px-2.5 py-1.5 rounded-[7px] hover:bg-(--bg-hover) cursor-pointer transition-colors border-none bg-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={pdfLoading || activeDoc.pdfStatus === "generating"}
-            onClick={() => { void handlePdf(false); setShowActions(false); }}
+      {showActions &&
+        menuPos &&
+        activeDoc &&
+        activeDoc.status !== "compiling" &&
+        !editMode &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="fixed w-56 bg-(--paper-raised) border border-(--line-soft) rounded-[11px] shadow-[0_14px_34px_-12px_rgba(40,30,15,0.4)] p-1.5 z-200"
+            style={{ top: menuPos.top, right: menuPos.right }}
           >
-            {pdfLoading || activeDoc.pdfStatus === "generating" ? (
-              <><span className="mini-spin" />Generating PDF…</>
-            ) : activeDoc.pdfStatus === "ready" ? (
-              <><DownloadIcon />Download PDF</>
-            ) : activeDoc.pdfStatus === "failed" ? (
-              <><RecompileIcon />Retry PDF</>
-            ) : (
-              <><PdfIcon />Generate PDF</>
+            {canEdit && activeDoc.content && (
+              <>
+                <button
+                  className={MENU_ITEM_CLS}
+                  onClick={enterEdit}
+                  disabled={docFailed}
+                >
+                  <EditIcon /> Edit
+                </button>
+                <div className="h-px bg-(--line) my-1 mx-1" />
+              </>
             )}
-          </button>
-          {activeDoc.pdfStatus === "ready" && (
             <button
-              className="w-full flex items-center gap-2 text-left text-[13px] text-(--ink-body) px-2.5 py-1.5 rounded-[7px] hover:bg-(--bg-hover) cursor-pointer transition-colors border-none bg-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={pdfLoading}
-              onClick={() => { void handlePdf(true); setShowActions(false); }}
+              className={MENU_ITEM_CLS}
+              disabled={docFailed || pdfLoading || activeDoc.pdfStatus === "generating"}
+              onClick={() => {
+                void handlePdf(false);
+                setShowActions(false);
+              }}
             >
-              <RecompileIcon />Regenerate PDF
+              {pdfLoading || activeDoc.pdfStatus === "generating" ? (
+                <>
+                  <span className="mini-spin" />
+                  Generating PDF…
+                </>
+              ) : activeDoc.pdfStatus === "ready" ? (
+                <>
+                  <DownloadIcon />
+                  Download PDF
+                </>
+              ) : activeDoc.pdfStatus === "failed" ? (
+                <>
+                  <RecompileIcon />
+                  Retry PDF
+                </>
+              ) : (
+                <>
+                  <PdfIcon />
+                  Generate PDF
+                </>
+              )}
             </button>
-          )}
-          <div className="h-px bg-(--line) my-1 mx-1" />
-          <button
-            className="w-full flex items-center gap-2 text-left text-[13px] text-(--ink-body) px-2.5 py-1.5 rounded-[7px] hover:bg-(--bg-hover) cursor-pointer transition-colors border-none bg-transparent"
-            onClick={() => setStaticMode((s) => !s)}
-          >
-            {staticMode ? <EyeOffIcon /> : <EyeIcon />}
-            {staticMode ? "Disable static view" : "Enable static view"}
-          </button>
-          {canEdit && (
-            <>
-              <div className="h-px bg-(--line) my-1 mx-1" />
+            {activeDoc.pdfStatus === "ready" && (
               <button
-                className="w-full flex items-center gap-2 text-left text-[13px] px-2.5 py-1.5 rounded-[7px] hover:bg-(--bg-hover) cursor-pointer transition-colors border-none bg-transparent text-red-500"
-                onClick={deleteDoc}
+                className={MENU_ITEM_CLS}
+                disabled={pdfLoading}
+                onClick={() => {
+                  void handlePdf(true);
+                  setShowActions(false);
+                }}
               >
-                <TrashIcon />Delete
+                <RecompileIcon />
+                Regenerate PDF
               </button>
-            </>
+            )}
+            <div className="h-px bg-(--line) my-1 mx-1" />
+            <button
+              className={MENU_ITEM_CLS}
+              disabled={docFailed}
+              onClick={() => setStaticMode((s) => !s)}
+            >
+              {staticMode ? <EyeOffIcon /> : <EyeIcon />}
+              {staticMode ? "Disable static view" : "Enable static view"}
+            </button>
+            {canEdit && (
+              <>
+                <div className="h-px bg-(--line) my-1 mx-1" />
+                <button
+                  className="w-full flex items-center gap-2 text-left text-[13px] px-2.5 py-1.5 rounded-[7px] hover:bg-(--bg-hover) cursor-pointer transition-colors border-none bg-transparent text-red-500"
+                  onClick={deleteDoc}
+                >
+                  <TrashIcon />
+                  Delete
+                </button>
+              </>
+            )}
+          </div>,
+          document.body,
+        )}
+
+      {/* Version switcher */}
+      {docs.length > 0 && (
+        <div className="doc-switch">
+          {docs.map((d) => (
+            <button
+              key={d.id}
+              className={`doc-pill${d.id === activeId ? " on" : ""}`}
+              onClick={() => selectDoc(d.id)}
+            >
+              <span className="dp-when">{timeAgo(d.createdAt)}</span>
+              <span className="dp-meta">
+                {LABEL.outputType[d.outputType]} · {d.sourceIds.length} sources
+              </span>
+            </button>
+          ))}
+          <span className="doc-keep">Saves last 3 only</span>
+        </div>
+      )}
+
+      {/* Provenance chips */}
+      {activeDoc && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          <Link
+            className="chip link"
+            href={
+              contributors > 0
+                ? `/home/${classId}/${topicId}/members?members=${activeDoc.contributorIds.join(",")}&reason=who+contributed+to+this+master+doc`
+                : `/home/${classId}/${topicId}/members`
+            }
+          >
+            <MembersIcon />
+            From{" "}
+            <b>
+              {contributors} contributor{contributors !== 1 ? "s" : ""}
+            </b>
+            <ChevronExtIcon />
+          </Link>
+          <Link
+            className="chip link"
+            href={
+              sources > 0
+                ? `/home/${classId}/${topicId}/collection?sources=${activeDoc.sourceIds.join(",")}&reason=used+in+this+master+doc`
+                : `/home/${classId}/${topicId}/collection`
+            }
+          >
+            <CollectionIcon />
+            <b>
+              {sources} source{sources !== 1 ? "s" : ""}
+            </b>
+            <ChevronExtIcon />
+          </Link>
+          {activeDoc.deletedSourceNames.length > 0 && (
+            <span className="chip deleted-chip">
+              <b>{activeDoc.deletedSourceNames.length} deleted</b>
+              <span className="tip">
+                {activeDoc.deletedSourceNames.map((n, i) => (
+                  <span key={i} className="del-name">
+                    {n}
+                  </span>
+                ))}
+              </span>
+            </span>
           )}
-        </div>,
-        document.body
+          {activeDoc.status !== "compiling" && (
+            <span className="chip">
+              <ClockIcon />
+              Compiled <b>{timeAgo(activeDoc.createdAt)}</b>
+            </span>
+          )}
+          {activeDoc.manuallyEdited && (
+            <span className="chip">
+              <EditIcon />
+              Edited
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Specbar — read-only settings of the selected doc */}
+      {activeDoc && activeDoc.status !== "compiling" && (
+        <div className="specbar">
+          <span className="sb-lead">Compiled with</span>
+          <span className="spec">
+            <i>Format</i> {LABEL.outputType[activeDoc.outputType]}
+          </span>
+          <span className="spec">
+            <i>Depth</i> {LABEL.depth[activeDoc.depth]}
+          </span>
+          <span className="spec">
+            <i>Conflicts</i>{" "}
+            {LABEL.conflictResolution[activeDoc.conflictResolution]}
+          </span>
+          <span className="spec">
+            <i>Fact-check</i> {LABEL.factChecking[activeDoc.factChecking]}
+          </span>
+          <span className={`spec${activeDoc.sourcesInline ? "" : " off"}`}>
+            <i>Inline sources</i> {activeDoc.sourcesInline ? "On" : "Off"}
+          </span>
+        </div>
       )}
 
       {/* Compile heartbeat */}
