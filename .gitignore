@@ -32,9 +32,13 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
+
+# Neon agent skills (regenerated from skills-lock.json)
+.agents/
 
 # typescript
 *.tsbuildinfo

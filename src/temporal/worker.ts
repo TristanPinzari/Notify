@@ -9,11 +9,10 @@ import {
   runCompilation,
   generatePDF,
 } from "./activities";
+import { connectionOptions, NAMESPACE, TASK_QUEUE } from "./client";
 
 async function main() {
-  const connection = await NativeConnection.connect({
-    address: process.env.TEMPORAL_ADDRESS ?? "localhost:7233",
-  });
+  const connection = await NativeConnection.connect(connectionOptions());
 
   const worker = await Worker.create({
     workflowsPath: require.resolve("./workflows"),
@@ -26,18 +25,13 @@ async function main() {
       runCompilation,
       generatePDF,
     },
-    taskQueue: "main",
-    namespace: process.env.TEMPORAL_NAMESPACE ?? "default",
+    taskQueue: TASK_QUEUE,
+    namespace: NAMESPACE,
     connection,
   });
 
-  const clientConnection = await Connection.connect({
-    address: process.env.TEMPORAL_ADDRESS ?? "localhost:7233",
-  });
-  const client = new Client({
-    connection: clientConnection,
-    namespace: process.env.TEMPORAL_NAMESPACE ?? "default",
-  });
+  const clientConnection = await Connection.connect(connectionOptions());
+  const client = new Client({ connection: clientConnection, namespace: NAMESPACE });
 
   try {
     await client.schedule.create({
@@ -46,7 +40,7 @@ async function main() {
       action: {
         type: "startWorkflow",
         workflowType: "reconcileStorage",
-        taskQueue: "main",
+        taskQueue: TASK_QUEUE,
       },
     });
   } catch (e: unknown) {
@@ -64,7 +58,7 @@ async function main() {
       action: {
         type: "startWorkflow",
         workflowType: "reconcileDatabase",
-        taskQueue: "main",
+        taskQueue: TASK_QUEUE,
       },
     });
   } catch (e: unknown) {
@@ -82,7 +76,7 @@ async function main() {
       action: {
         type: "startWorkflow",
         workflowType: "reconcileMasterDocuments",
-        taskQueue: "main",
+        taskQueue: TASK_QUEUE,
       },
     });
   } catch (e: unknown) {
@@ -103,7 +97,7 @@ async function main() {
       action: {
         type: "startWorkflow",
         workflowType: "purgeOldLogs",
-        taskQueue: "main",
+        taskQueue: TASK_QUEUE,
       },
     });
   } catch (e: unknown) {
@@ -114,7 +108,9 @@ async function main() {
     }
   }
 
-  console.log("Temporal worker started, listening on task queue: main");
+  await clientConnection.close();
+
+  console.log(`Temporal worker started, listening on task queue: ${TASK_QUEUE}`);
   await worker.run();
 }
 

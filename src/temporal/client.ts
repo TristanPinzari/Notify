@@ -1,19 +1,26 @@
 import { Connection, Client } from "@temporalio/client";
 
-const NAMESPACE = process.env.TEMPORAL_NAMESPACE ?? "default";
+export const NAMESPACE = process.env.TEMPORAL_NAMESPACE ?? "default";
 export const TASK_QUEUE = "main";
 
 let client: Client | null = null;
 
+export function connectionOptions() {
+  const address = process.env.TEMPORAL_ADDRESS ?? "localhost:7233";
+  const isCloud = !address.startsWith("localhost");
+  return {
+    address,
+    ...(isCloud && {
+      tls: true,
+      ...(process.env.TEMPORAL_API_KEY && { apiKey: process.env.TEMPORAL_API_KEY }),
+    }),
+  };
+}
+
 export async function getTemporalClient(): Promise<Client> {
   if (client) return client;
-
-  const connection = await Connection.connect({
-    address: process.env.TEMPORAL_ADDRESS ?? "localhost:7233",
-  });
-
+  const connection = await Connection.connect(connectionOptions());
   client = new Client({ connection, namespace: NAMESPACE });
-
   return client;
 }
 

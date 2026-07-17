@@ -35,6 +35,17 @@ import path from "path";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION! });
 
+function sanitizeAiError(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (/high demand|overloaded|rate.?limit|429|too many requests|capacity|try again later/i.test(msg))
+    return "AI service is busy. Please try again shortly.";
+  if (/quota|billing|payment|insufficient/i.test(msg))
+    return "AI service quota exceeded. Please contact support.";
+  if (/invalid.?key|unauthorized|403|authentication/i.test(msg))
+    return "AI service configuration error. Please contact support.";
+  return msg;
+}
+
 async function fetchS3Buffer(s3Key: string): Promise<Buffer> {
   const res = await s3.send(
     new GetObjectCommand({ Bucket: process.env.AWS_S3_BUCKET!, Key: s3Key }),
@@ -128,11 +139,15 @@ async function runExtraction(
         { expiresIn: 300 },
       );
       const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
-      const ocrResponse = await client.ocr.process({
-        model: "mistral-ocr-latest",
-        document: { type: "document_url", documentUrl: signedUrl },
-      });
-      return { text: ocrResponse.pages.map((p) => p.markdown).join("\n\n") };
+      try {
+        const ocrResponse = await client.ocr.process({
+          model: "mistral-ocr-latest",
+          document: { type: "document_url", documentUrl: signedUrl },
+        });
+        return { text: ocrResponse.pages.map((p) => p.markdown).join("\n\n") };
+      } catch (e) {
+        throw new Error(sanitizeAiError(e));
+      }
     }
 
     case "speech_to_text": {
@@ -146,11 +161,15 @@ async function runExtraction(
         { expiresIn: 300 },
       );
       const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
-      const transcriptionResponse = await client.audio.transcriptions.complete({
-        model: "voxtral-mini-latest",
-        fileUrl: signedUrl,
-      });
-      return { text: transcriptionResponse.text };
+      try {
+        const transcriptionResponse = await client.audio.transcriptions.complete({
+          model: "voxtral-mini-latest",
+          fileUrl: signedUrl,
+        });
+        return { text: transcriptionResponse.text };
+      } catch (e) {
+        throw new Error(sanitizeAiError(e));
+      }
     }
 
     default:
@@ -303,33 +322,37 @@ export async function runCompilation(
 
     let content: string;
 
-    if (totalTokens <= 800_000) {
-      console.log(`[runCompilation] single-pass generation…`);
-      content = await ai.generate(fullPrompt);
-    } else if (totalTokens <= 1_600_000) {
-      console.log(`[runCompilation] two-pass generation (pass 1/2)…`);
-      const half = Math.ceil(forPrompt.length / 2);
-      const firstPrompt = buildPrompt(
-        forPrompt.slice(0, half),
-        settings,
-        "",
-        false,
-        existingDocument,
-      );
-      const contextBlock = await ai.generate(firstPrompt);
-      console.log(`[runCompilation] two-pass generation (pass 2/2)…`);
-      const secondPrompt = buildPrompt(
-        forPrompt.slice(half),
-        settings,
-        contextBlock,
-        true,
-        existingDocument,
-      );
-      content = await ai.generate(secondPrompt);
-    } else {
-      throw new Error(
-        "Topic has too many contributions to compile. Try removing some contributions or splitting into multiple topics.",
-      );
+    try {
+      if (totalTokens <= 800_000) {
+        console.log(`[runCompilation] single-pass generation…`);
+        content = await ai.generate(fullPrompt);
+      } else if (totalTokens <= 1_600_000) {
+        console.log(`[runCompilation] two-pass generation (pass 1/2)…`);
+        const half = Math.ceil(forPrompt.length / 2);
+        const firstPrompt = buildPrompt(
+          forPrompt.slice(0, half),
+          settings,
+          "",
+          false,
+          existingDocument,
+        );
+        const contextBlock = await ai.generate(firstPrompt);
+        console.log(`[runCompilation] two-pass generation (pass 2/2)…`);
+        const secondPrompt = buildPrompt(
+          forPrompt.slice(half),
+          settings,
+          contextBlock,
+          true,
+          existingDocument,
+        );
+        content = await ai.generate(secondPrompt);
+      } else {
+        throw new Error(
+          "Topic has too many contributions to compile. Try removing some contributions or splitting into multiple topics.",
+        );
+      }
+    } catch (e) {
+      throw new Error(sanitizeAiError(e));
     }
 
     console.log(
