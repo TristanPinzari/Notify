@@ -22,7 +22,11 @@ import {
 import { getBaseUrl } from "@/lib/utils";
 import type { ActivityPayload } from "@/lib/activity-log";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let _resend: Resend | null = null;
+function getResend() {
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
+  return _resend;
+}
 const FROM = "Notify <notifications@notifyy.ca>";
 
 async function notifyRemoval(
@@ -66,7 +70,7 @@ async function notifyRemoval(
       type === "member_kicked"
         ? `You were removed from ${className}`
         : `You were banned from ${className}`;
-    await resend.emails.send({
+    await getResend().emails.send({
       from: FROM,
       to: targetUser[0].email,
       subject,
@@ -136,7 +140,7 @@ export async function triggerNotifications(
       });
 
       if (prefs[0]?.notifyRankChange) {
-        await resend.emails.send({
+        await getResend().emails.send({
           from: FROM,
           to: targetUser[0].email,
           subject:
@@ -240,7 +244,7 @@ export async function triggerNotifications(
         allMembers
           .filter((m) => m.notifyMasterDoc)
           .map((m) =>
-            resend.emails.send({
+            getResend().emails.send({
               from: FROM,
               to: m.email,
               subject: `New master document – ${topicRow[0].name}`,
@@ -306,7 +310,7 @@ export async function triggerNotifications(
       });
 
       if (targetUser[0].notifyUnbanned) {
-        await resend.emails.send({
+        await getResend().emails.send({
           from: FROM,
           to: targetUser[0].email,
           subject: `Your ban in ${classRow[0].name} has been lifted`,
