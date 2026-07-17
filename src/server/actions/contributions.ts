@@ -27,7 +27,7 @@ import {
   requireRank,
   topicBelongsToClass,
 } from "./shared";
-import { getTemporalClient } from "@/temporal/client";
+import { getTemporalClient, checkTemporalReady, TASK_QUEUE } from "@/temporal/client";
 import type { ExtractionInput } from "@/temporal/workflows";
 import { logActivity } from "@/lib/activity-log";
 
@@ -38,19 +38,38 @@ async function startExtraction(
   extractionMethod: EMethod,
   s3Key?: string,
   url?: string,
-) {
-  const temporalClient = await getTemporalClient();
-  const input: ExtractionInput = {
-    contributionId: id,
-    extractionMethod: extractionMethod,
-    s3Key,
-    url: url,
-  };
-  await temporalClient.workflow.start("extractContribution", {
-    args: [input],
-    taskQueue: "main",
-    workflowId: `extract-${id}-${Date.now()}`,
-  });
+): Promise<boolean> {
+  const fail = (reason: string) =>
+    db
+      .update(contributions)
+      .set({ status: "failed", failureReason: reason })
+      .where(eq(contributions.id, id));
+
+  const health = await checkTemporalReady();
+  if (!health.ok) {
+    await fail("Extraction service is unavailable. Please try again.");
+    return false;
+  }
+
+  try {
+    const temporalClient = await getTemporalClient();
+    const input: ExtractionInput = {
+      contributionId: id,
+      extractionMethod,
+      s3Key,
+      url,
+    };
+    await temporalClient.workflow.start("extractContribution", {
+      args: [input],
+      taskQueue: TASK_QUEUE,
+      workflowId: `extract-${id}-${Date.now()}`,
+    });
+    return true;
+  } catch (e) {
+    console.error(`ERROR: failed to queue extraction for contribution ${id}:`, e);
+    await fail("Failed to queue extraction. Please try again.");
+    return false;
+  }
 }
 
 export async function createContribution(
@@ -522,12 +541,14 @@ export async function restartExtraction(
       .set({ status: "processing" })
       .where(eq(contributions.id, contributionId));
 
-    await startExtraction(
+    const queued = await startExtraction(
       contributionId,
       contribution[0].extractionMethod,
       contribution[0].s3Key || undefined,
       contribution[0].url || undefined,
     );
+
+    if (!queued) return { error: "Extraction service is unavailable. Try again shortly." };
 
     logActivity(
       classId,

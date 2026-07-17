@@ -24,7 +24,7 @@ import {
   topicBelongsToClass,
 } from "./shared";
 import { logActivity } from "@/lib/activity-log";
-import { getTemporalClient } from "@/temporal/client";
+import { getTemporalClient, checkTemporalReady, TASK_QUEUE } from "@/temporal/client";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
   DeleteObjectCommand,
@@ -104,6 +104,9 @@ export async function createMasterDocument(
       if (!newContrib) return { error: "No new contributions to compile." };
     }
 
+    const health = await checkTemporalReady();
+    if (!health.ok) return { error: "Compilation service is unavailable. Try again shortly." };
+
     const masterDocumentId = crypto.randomUUID();
     const { fromScratch, ...docSettings } = settings;
     await db.insert(masterDocuments).values({
@@ -128,7 +131,7 @@ export async function createMasterDocument(
     try {
       await temporalClient.workflow.start("compileContributions", {
         args: [masterDocumentId, topicId, settings],
-        taskQueue: "main",
+        taskQueue: TASK_QUEUE,
         workflowId: `compile-${masterDocumentId}`,
       });
     } catch (e) {
@@ -295,12 +298,29 @@ export async function createPDF(
       }
     }
 
+    const resetPdfStatus = () =>
+      db
+        .update(masterDocuments)
+        .set({ pdfStatus: "pending", pdfGenerationStartedAt: null })
+        .where(eq(masterDocuments.id, masterDocumentId));
+
+    const health = await checkTemporalReady();
+    if (!health.ok) {
+      await resetPdfStatus();
+      return { error: "PDF service is unavailable. Try again shortly." };
+    }
+
     const temporalClient = await getTemporalClient();
-    await temporalClient.workflow.start("runPDFGeneration", {
-      args: [classId, row[0].topicId, masterDocumentId],
-      taskQueue: "main",
-      workflowId: `pdf-${masterDocumentId}`,
-    });
+    try {
+      await temporalClient.workflow.start("runPDFGeneration", {
+        args: [classId, row[0].topicId, masterDocumentId],
+        taskQueue: TASK_QUEUE,
+        workflowId: `pdf-${masterDocumentId}`,
+      });
+    } catch (e) {
+      await resetPdfStatus();
+      throw e;
+    }
 
     return { success: true, generating: true };
   } catch (e) {
