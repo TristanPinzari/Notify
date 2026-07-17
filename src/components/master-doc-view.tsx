@@ -703,7 +703,7 @@ export function MasterDocView({
               </span>
             </button>
           ))}
-          <span className="doc-keep">Saves last 3 only</span>
+          <span className="doc-keep">Saves last 5 only</span>
         </div>
       )}
 

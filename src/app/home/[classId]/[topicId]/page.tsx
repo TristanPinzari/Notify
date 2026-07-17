@@ -64,7 +64,7 @@ export default async function MasterDocPage({
       .from(masterDocuments)
       .where(eq(masterDocuments.topicId, topicId))
       .orderBy(desc(masterDocuments.createdAt))
-      .limit(3),
+      .limit(5),
 
     db
       .select({

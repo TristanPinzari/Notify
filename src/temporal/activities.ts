@@ -384,7 +384,7 @@ export async function runCompilation(
           ),
         )
         .orderBy(desc(masterDocuments.createdAt))
-        .offset(3);
+        .offset(5);
       if (oldDocs.length > 0)
         await tx.delete(masterDocuments).where(
           inArray(
