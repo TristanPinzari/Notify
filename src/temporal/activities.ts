@@ -510,7 +510,7 @@ export async function generatePDF(
     const baseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
     const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8" /><base href="${baseUrl}" /><style>${css}@page{margin:20mm 18mm;background-color:#f4efe4}html,body{background:var(--paper)}</style></head><body>${body}</body></html>`;
 
-    const browser = await puppeteer.launch({ headless: "shell" });
+    const browser = await puppeteer.launch({ headless: "shell", args: ["--no-sandbox", "--disable-setuid-sandbox"] });
     let pdf: Buffer;
     try {
       const page = await browser.newPage();

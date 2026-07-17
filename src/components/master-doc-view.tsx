@@ -245,17 +245,14 @@ export function MasterDocView({
 
   async function handlePdf(force: boolean) {
     if (!activeDoc) return;
-    const tab = force ? null : window.open("", "_blank");
     setPdfLoading(true);
     const res = await createPDF(classId, activeDoc.id, force);
     setPdfLoading(false);
     if ("error" in res) {
       toast.error(res.error);
-      tab?.close();
       return;
     }
     if (res.generating) {
-      tab?.close();
       setDocs((prev) =>
         prev.map((d) =>
           d.id === activeDoc.id ? { ...d, pdfStatus: "generating" } : d,
@@ -267,8 +264,7 @@ export function MasterDocView({
           d.id === activeDoc.id ? { ...d, pdfStatus: "ready" } : d,
         ),
       );
-      if (tab) tab.location.href = res.url;
-      else window.open(res.url, "_blank");
+      window.open(res.url, "_blank");
     }
   }
 
