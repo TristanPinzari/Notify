@@ -860,6 +860,12 @@ h1.head em {
 
 /* ---------- responsive ---------- */
 
+@media (max-width: 1400px) {
+  .hero::before {
+    content: none;
+  }
+}
+
 /* hero stacks before the two-column layout gets horizontally squished */
 @media (max-width: 1100px) {
   .hero-inner {
