@@ -497,7 +497,7 @@ function Resolved({
 /* ─── inline renderer ───────────────────────────────────────────────── */
 
 const INLINE_RE =
-  /<flagged(?<flaggedAttrs>\s[^>]*)?>(?<flaggedInner>[\s\S]*?)<\/flagged>|<resolved(?<resolvedAttrs>\s[^>]*)?>(?<resolvedInner>[\s\S]*?)<\/resolved>|<math>(?<mathTex>[\s\S]*?)<\/math>|\*\*(?<boldInner>[^*]+)\*\*|<q>(?<quoteInner>[\s\S]*?)<\/q>/;
+  /<flagged(?<flaggedAttrs>\s[^>]*)?>(?<flaggedInner>[\s\S]*?)<\/flagged>|<resolved(?<resolvedAttrs>\s[^>]*)?>(?<resolvedInner>[\s\S]*?)<\/resolved>|<math>(?<mathTex>[\s\S]*?)<\/math>|\*\*(?<boldInner>[^*]+)\*\*|\*(?<italicStar>[^*\n]+)\*|_(?<italicUnder>[^_\n]+)_|<q>(?<quoteInner>[\s\S]*?)<\/q>/;
 
 function renderInline(text: string, k = 0, classId = "", topicId = "", staticMode = false): React.ReactNode[] {
   const out: React.ReactNode[] = [];
@@ -541,6 +541,8 @@ function renderInline(text: string, k = 0, classId = "", topicId = "", staticMod
       out.push(<MathNode key={k++} tex={g.mathTex} block={false} />);
     } else if (m[0].startsWith("**")) {
       out.push(<strong key={k++}>{g.boldInner}</strong>);
+    } else if (g.italicStar !== undefined || g.italicUnder !== undefined) {
+      out.push(<em key={k++}>{g.italicStar ?? g.italicUnder}</em>);
     } else {
       out.push(<q key={k++}>{g.quoteInner}</q>);
     }

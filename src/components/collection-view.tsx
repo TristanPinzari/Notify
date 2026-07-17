@@ -846,12 +846,11 @@ function SourceRow({
         setOpen(false);
         toast.success("Saved — re-extracting with new method.");
       } else {
-        const wasFailedWithText =
-          f.status === "failed" && dText.trim().length > 0;
         onUpdate(f.id, {
           name: dName.trim(),
           manuallyEdited: true,
-          ...(wasFailedWithText ? { status: "ready", failureReason: null } : {}),
+          status: "ready",
+          failureReason: null,
         });
         setText(dText);
         toast.success("Source updated.");
