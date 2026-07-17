@@ -10,7 +10,7 @@ import {
   notifications,
 } from "@/server/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { Resend } from "resend";
+import { getResend } from "@/lib/resend";
 import {
   renderRankChanged,
   renderMasterDoc,
@@ -22,11 +22,6 @@ import {
 import { getBaseUrl } from "@/lib/utils";
 import type { ActivityPayload } from "@/lib/activity-log";
 
-let _resend: Resend | null = null;
-function getResend() {
-  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
-  return _resend;
-}
 const FROM = "Notify <notifications@notifyy.ca>";
 
 async function notifyRemoval(

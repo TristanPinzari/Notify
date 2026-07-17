@@ -1065,12 +1065,12 @@ function SourceRow({
                     <span className="inspect-meta">
                       <b>{EXTRACTION_LABELS[f.method]}</b>
                       {text != null &&
-                        ` · ${text.length.toLocaleString()} chars`}
+                        ` · ${text.length} chars`}
                     </span>
                   )}
                   {f.type === "custom" && text != null && (
                     <span className="inspect-meta">
-                      {text.length.toLocaleString()} chars
+                      {text.length} chars
                     </span>
                   )}
                   <div className="inspect-actions">
@@ -1180,6 +1180,7 @@ export default function CollectionView({
   const [customMode, setCustomMode] = useState<"text" | "record">("text");
   const [customName, setCustomName] = useState("");
   const [customText, setCustomText] = useState("");
+  const customTextTrimmed = customText.trim();
   const [stagingState, setStagingState] = useState<
     Record<number, "uploading" | "error">
   >({});
@@ -1346,7 +1347,8 @@ export default function CollectionView({
   }
 
   function stageCustom() {
-    if (!customText.trim()) return;
+    const trimmed = customText.trim();
+    if (!trimmed) return;
     const name = customName.trim() || "Custom note";
     setStaged((st) => [
       ...st,
@@ -1355,10 +1357,10 @@ export default function CollectionView({
         kind: "file",
         type: "custom",
         name,
-        size: `${customText.trim().length.toLocaleString()} chars`,
+        size: `${trimmed.length} chars`,
         method: "text_extraction",
         file: undefined,
-        text: customText.trim(),
+        text: trimmed,
       } as StagedFile,
     ]);
     setCustomName("");
@@ -1764,7 +1766,7 @@ export default function CollectionView({
                   </div>
                   <div className="flex items-center gap-2.5">
                     <span className="text-[12px] text-(--ink-faint) mr-auto">
-                      {customText.trim().length.toLocaleString()} characters
+                      {customTextTrimmed.length} characters
                     </span>
                     <button
                       className="btn btn-ghost"
@@ -1780,7 +1782,7 @@ export default function CollectionView({
                     <button
                       className="btn btn-primary"
                       onClick={stageCustom}
-                      disabled={!customText.trim()}
+                      disabled={!customTextTrimmed}
                     >
                       <PlusIcon />
                       Add to selection

@@ -173,8 +173,12 @@ export function MasterDocView({
     const compilingDoc = docs.find((d) => d.status === "compiling");
     if (!compilingDoc) return;
 
+    let fetching = false;
     const interval = setInterval(async () => {
+      if (fetching) return;
+      fetching = true;
       const res = await getMasterDocumentStatus(compilingDoc.id);
+      fetching = false;
       if ("error" in res) return;
       if (res.status !== "compiling") {
         clearInterval(interval);
@@ -206,24 +210,30 @@ export function MasterDocView({
     return () => clearInterval(interval);
   }, [docs]);
 
-  useEffect(() => {
-    if (!activeDoc || activeDoc.pdfStatus !== "generating") return;
-    const id = activeDoc.id;
+  const pdfPollingId = activeDoc?.pdfStatus === "generating" ? activeDoc.id : null;
 
+  useEffect(() => {
+    if (!pdfPollingId) return;
+
+    let fetching = false;
     const interval = setInterval(async () => {
-      const res = await createPDF(classId, id, false);
+      if (fetching) return;
+      fetching = true;
+      const res = await getMasterDocumentStatus(pdfPollingId);
+      fetching = false;
       if ("error" in res) return;
-      if (!res.generating) {
+      if (res.pdfStatus !== "generating") {
+        clearInterval(interval);
         setDocs((prev) =>
           prev.map((d) =>
-            d.id === id ? { ...d, pdfStatus: res.url ? "ready" : "failed" } : d,
+            d.id === pdfPollingId ? { ...d, pdfStatus: res.pdfStatus ?? "failed" } : d,
           ),
         );
       }
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [activeDoc, classId]);
+  }, [pdfPollingId]);
 
   useEffect(() => {
     if (!showActions) return;
@@ -621,7 +631,7 @@ export function MasterDocView({
               disabled={docFailed || pdfLoading || activeDoc.pdfStatus === "generating"}
               onClick={() => {
                 void handlePdf(false);
-                setShowActions(false);
+                if (activeDoc.pdfStatus === "ready") setShowActions(false);
               }}
             >
               {pdfLoading || activeDoc.pdfStatus === "generating" ? (
@@ -652,7 +662,6 @@ export function MasterDocView({
                 disabled={pdfLoading}
                 onClick={() => {
                   void handlePdf(true);
-                  setShowActions(false);
                 }}
               >
                 <RecompileIcon />

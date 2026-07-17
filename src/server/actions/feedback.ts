@@ -2,10 +2,9 @@
 
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
-import { Resend } from "resend";
+import { getResend } from "@/lib/resend";
 import { rateLimit } from "./shared";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function sendFeedback(
   message: string,
@@ -21,7 +20,7 @@ export async function sendFeedback(
 
   const { name, email } = session.user;
 
-  const { error } = await resend.emails.send({
+  const { error } = await getResend().emails.send({
     from: "Notify <noreply@notifyy.ca>",
     to: "tristanpinzari@gmail.com",
     subject: `Notify feedback from ${name}`,

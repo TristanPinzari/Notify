@@ -2,12 +2,11 @@ import { NextRequest } from "next/server";
 import { db } from "@/server/db";
 import { user, userClasses, classes, activityLogs } from "@/server/db/schema";
 import { eq, and, gte, inArray, sql } from "drizzle-orm";
-import { Resend } from "resend";
+import { getResend } from "@/lib/resend";
 import { renderDigest } from "@/lib/emails";
 import type { ClassDigest } from "@/lib/emails";
 import { MEMBER_LOSS_ACTIONS } from "@/lib/activity-log";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = "Notify <notifications@notifyy.ca>";
 const BATCH_SIZE = 100;
 
@@ -150,7 +149,7 @@ export async function GET(req: NextRequest) {
   }
 
   for (let i = 0; i < emails.length; i += BATCH_SIZE) {
-    await resend.batch.send(emails.slice(i, i + BATCH_SIZE));
+    await getResend().batch.send(emails.slice(i, i + BATCH_SIZE));
   }
 
   return Response.json({ sent: emails.length });

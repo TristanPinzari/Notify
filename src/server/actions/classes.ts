@@ -24,13 +24,12 @@ import {
   requireRank,
 } from "./shared";
 import { logActivity } from "@/lib/activity-log";
-import { Resend } from "resend";
+import { getResend } from "@/lib/resend";
 import { renderClassInvite } from "@/lib/emails";
 import { EMAIL_RE, MAX_INVITE_BATCH } from "@/lib/validation";
 import { emailInvites, topics, notifications } from "@/server/db/schema";
 import { getBaseUrl } from "@/lib/utils";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 const DEFAULT_NOTIF_PREFS = {
   notifyRankChange: true,
@@ -1033,7 +1032,7 @@ export async function sendClassInvites(classId: string, rawEmails: string[]) {
     );
     await Promise.all(
       toSend.map((email) =>
-        resend.emails.send({
+        getResend().emails.send({
           from: "Notify <invites@notifyy.ca>",
           to: email,
           subject: `${session.user.name} invited you to ${cls.name} on Notify`,

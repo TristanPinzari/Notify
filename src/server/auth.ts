@@ -6,7 +6,7 @@ import * as schema from "@/server/db/schema";
 import { account } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
 import { EMAIL_RE } from "@/lib/validation";
-import { Resend } from "resend";
+import { getResend } from "@/lib/resend";
 import {
   renderResetPassword,
   renderVerifyEmail,
@@ -14,7 +14,6 @@ import {
   renderVerifyNewEmail,
 } from "@/lib/emails";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const senderEmail = "Notify <noreply@notifyy.ca>";
 
 export const auth = betterAuth({
@@ -53,7 +52,7 @@ export const auth = betterAuth({
     changeEmail: {
       enabled: true,
       sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
-        const { error } = await resend.emails.send({
+        const { error } = await getResend().emails.send({
           from: senderEmail,
           to: user.email,
           subject: "Notify | Confirm Your Email Change",
@@ -69,7 +68,7 @@ export const auth = betterAuth({
     minPasswordLength: 8,
     requireEmailVerification: true,
     sendResetPassword: async ({ user, url }) => {
-      const { error } = await resend.emails.send({
+      const { error } = await getResend().emails.send({
         from: senderEmail,
         to: user.email,
         subject: "Notify | Reset Your Password",
@@ -93,7 +92,7 @@ export const auth = betterAuth({
           url = u.toString();
         } catch {}
       }
-      const { error } = await resend.emails.send({
+      const { error } = await getResend().emails.send({
         from: senderEmail,
         to: user.email,
         subject: isEmailChange
