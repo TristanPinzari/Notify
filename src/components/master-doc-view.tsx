@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { CompiledDoc } from "@/components/doc-render";
@@ -25,7 +25,6 @@ import {
   ClockIcon,
   ChevronExtIcon,
   EditIcon,
-  CheckIcon,
   DocEmptyIcon,
   FailIcon,
   DownloadIcon,
@@ -110,13 +109,6 @@ const LABEL = {
   factChecking: { none: "None", flag: "Flag", replace: "Replace" } as const,
 };
 
-type CompileStep = "fetching" | "generating" | "saving";
-const HB_STEPS: [CompileStep, string][] = [
-  ["fetching", "Fetching sources"],
-  ["generating", "Generating"],
-  ["saving", "Saving"],
-];
-
 const EDITOR_EXTENSIONS = [markdown()];
 const EDITOR_BASIC_SETUP = { lineNumbers: false, foldGutter: false };
 
@@ -140,7 +132,7 @@ export function MasterDocView({
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(
     null,
   );
-  const [compileStep, setCompileStep] = useState<CompileStep | null>(null);
+  const [compiling, setCompiling] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editContent, setEditContent] = useState("");
@@ -150,11 +142,13 @@ export function MasterDocView({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const activeDoc = docs.find((d) => d.id === activeId) ?? null;
+  const compilingDocId = docs.find((d) => d.status === "compiling")?.id ?? null;
   const isCompiling = activeDoc?.status === "compiling";
   const docFailed = activeDoc?.status === "failed";
-  useEscapeKey(() => { if (editMode && !editSaving) cancelEdit(); });
-  const compileDisabled =
-    docs.some((d) => d.status === "compiling") || compileStep !== null;
+  useEscapeKey(() => {
+    if (editMode && !editSaving) cancelEdit();
+  });
+  const compileDisabled = compilingDocId !== null || compiling;
 
   const [draft, setDraft] = useState<CompilationSettings>(
     initialDocs[0]
@@ -170,47 +164,44 @@ export function MasterDocView({
   );
 
   useEffect(() => {
-    const compilingDoc = docs.find((d) => d.status === "compiling");
-    if (!compilingDoc) return;
+    if (!compilingDocId) return;
 
     let fetching = false;
     const interval = setInterval(async () => {
       if (fetching) return;
       fetching = true;
-      const res = await getMasterDocumentStatus(compilingDoc.id);
+      const res = await getMasterDocumentStatus(compilingDocId);
       fetching = false;
       if ("error" in res) return;
       if (res.status !== "compiling") {
         clearInterval(interval);
-        setCompileStep("saving");
-        setTimeout(() => {
-          setDocs((prev) =>
-            prev.map((d) =>
-              d.id === compilingDoc.id
-                ? {
-                    ...d,
-                    status: res.status as DocStatus,
-                    content: res.content,
-                    failureReason: res.failureReason,
-                    sources: res.sources,
-                    sourceIds: res.sourceIds,
-                    deletedSourceNames: res.deletedSourceNames,
-                    contributorIds: res.contributorIds,
-                    pdfStatus: res.pdfStatus,
-                    manuallyEdited: res.manuallyEdited,
-                  }
-                : d,
-            ),
-          );
-          setCompileStep(null);
-        }, 750);
+        setDocs((prev) =>
+          prev.map((d) =>
+            d.id === compilingDocId
+              ? {
+                  ...d,
+                  status: res.status as DocStatus,
+                  content: res.content,
+                  failureReason: res.failureReason,
+                  sources: res.sources,
+                  sourceIds: res.sourceIds,
+                  deletedSourceNames: res.deletedSourceNames,
+                  contributorIds: res.contributorIds,
+                  pdfStatus: res.pdfStatus,
+                  manuallyEdited: res.manuallyEdited,
+                }
+              : d,
+          ),
+        );
+        setCompiling(false);
       }
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [docs]);
+  }, [compilingDocId]);
 
-  const pdfPollingId = activeDoc?.pdfStatus === "generating" ? activeDoc.id : null;
+  const pdfPollingId =
+    activeDoc?.pdfStatus === "generating" ? activeDoc.id : null;
 
   useEffect(() => {
     if (!pdfPollingId) return;
@@ -226,7 +217,9 @@ export function MasterDocView({
         clearInterval(interval);
         setDocs((prev) =>
           prev.map((d) =>
-            d.id === pdfPollingId ? { ...d, pdfStatus: res.pdfStatus ?? "failed" } : d,
+            d.id === pdfPollingId
+              ? { ...d, pdfStatus: res.pdfStatus ?? "failed" }
+              : d,
           ),
         );
       }
@@ -242,7 +235,9 @@ export function MasterDocView({
       if (menuBtnRef.current?.contains(e.target as Node)) return;
       setShowActions(false);
     }
-    function onClose() { setShowActions(false); }
+    function onClose() {
+      setShowActions(false);
+    }
     document.addEventListener("mousedown", onDown);
     document.addEventListener("scroll", onClose, true);
     window.addEventListener("resize", onClose);
@@ -371,18 +366,16 @@ export function MasterDocView({
   }
 
   async function compile() {
-    setCompileStep("fetching");
+    setCompiling(true);
     setShowConfig(false);
     try {
       const res = await createMasterDocument(classId, topicId, draft);
 
       if ("error" in res) {
         toast.error(res.error);
-        setCompileStep(null);
+        setCompiling(false);
         return;
       }
-
-      setCompileStep("generating");
 
       const docSettings: Omit<CompilationSettings, "fromScratch"> = {
         outputType: draft.outputType,
@@ -409,13 +402,10 @@ export function MasterDocView({
       setActiveId(res.masterDocumentId);
     } catch {
       toast.error("Something went wrong.");
-      setCompileStep(null);
+      setCompiling(false);
     }
   }
 
-  const stepIndex = compileStep
-    ? HB_STEPS.findIndex(([k]) => k === compileStep)
-    : -1;
   const sources = activeDoc?.sourceIds.length ?? 0;
   const contributors = activeDoc?.contributorIds.length ?? 0;
   const hasDoc = docs.length > 0;
@@ -449,13 +439,7 @@ export function MasterDocView({
                 {compileDisabled ? (
                   <>
                     <span className="mini-spin" />
-                    {compileStep === "fetching"
-                      ? "Fetching sources…"
-                      : compileStep === "generating"
-                        ? "Generating"
-                        : compileStep === "saving"
-                          ? "Saving…"
-                          : "Compiling…"}
+                    Generating…
                   </>
                 ) : (
                   <>
@@ -628,7 +612,9 @@ export function MasterDocView({
             )}
             <button
               className={MENU_ITEM_CLS}
-              disabled={docFailed || pdfLoading || activeDoc.pdfStatus === "generating"}
+              disabled={
+                docFailed || pdfLoading || activeDoc.pdfStatus === "generating"
+              }
               onClick={() => {
                 void handlePdf(false);
                 if (activeDoc.pdfStatus === "ready") setShowActions(false);
@@ -796,35 +782,15 @@ export function MasterDocView({
 
       {/* Compile heartbeat */}
       {isCompiling && (
-        <div className="card hb">
-          {HB_STEPS.map(([key, label], i) => {
-            const state =
-              stepIndex < 0
-                ? ""
-                : i < stepIndex
-                  ? "done"
-                  : i === stepIndex
-                    ? "on"
-                    : "";
-            return (
-              <Fragment key={key}>
-                {i > 0 && <span className="hb-line" />}
-                <span className={`hb-step${state ? ` ${state}` : ""}`}>
-                  <span className="hb-ic">
-                    {state === "done" ? (
-                      <CheckIcon />
-                    ) : state === "on" ? (
-                      <span className="spin-amber" />
-                    ) : (
-                      <span className="w-1.5 h-1.5 rounded-full bg-(--ink-fainter)" />
-                    )}
-                  </span>
-                  {label}
-                  {state === "on" && key === "generating" ? "…" : ""}
-                </span>
-              </Fragment>
-            );
-          })}
+        <div className="hb">
+          <span className="hb-ring" />
+          <div>
+            <h3 className="hb-label">Compiling your master document…</h3>
+            <p className="hb-sub">
+              Pulling in new contributions and writing the updated version. This
+              usually takes under a minute.
+            </p>
+          </div>
         </div>
       )}
 

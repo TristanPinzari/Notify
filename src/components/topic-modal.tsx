@@ -74,7 +74,7 @@ export function TopicModal({ classId, onClose, onSuccess }: Props) {
         </div>
 
         {error && (
-          <div className="formerr justify-center mb-3">
+          <div className="formerr justify-center">
             <WarnIcon />
             {error}
           </div>
