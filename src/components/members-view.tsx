@@ -501,7 +501,7 @@ function CodeModal({
     <>
       <div className="modal-backdrop" onClick={onClose} />
       <div
-        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-250 bg-(--paper-raised) rounded-3xl px-18 py-15 pb-14 text-center shadow-[0_34px_90px_-22px_rgba(0,0,0,0.55)] max-w-195 w-[calc(100vw-60px)] animate-[pop_0.2s_ease]"
+        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-250 bg-(--paper-raised) border border-(--line-strong) rounded-3xl px-18 py-15 pb-14 text-center shadow-[0_34px_90px_-22px_rgba(0,0,0,0.55)] max-w-195 w-[calc(100vw-60px)] animate-[pop_0.2s_ease]"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -515,9 +515,7 @@ function CodeModal({
           Join {className}
         </div>
         <div className="text-[17px] text-(--ink-faint) mb-2.5">Class code</div>
-        <div
-          className="font-mono font-medium text-(--ink-heading) mb-10 break-all text-[clamp(48px,10vw,104px)] leading-none tracking-widest"
-        >
+        <div className="font-mono font-medium text-(--ink-heading) mb-10 break-all text-[clamp(48px,10vw,104px)] leading-none tracking-widest">
           {code}
         </div>
         <div className="flex gap-3 justify-center flex-wrap">
@@ -607,9 +605,7 @@ function BanModal({
             onClick={onConfirm}
           >
             {pending ? (
-              <span
-                className="spin w-3.5 h-3.5 border-t-(--danger)"
-              />
+              <span className="spin w-3.5 h-3.5 border-t-(--danger)" />
             ) : (
               <BanIcon size={14} />
             )}
@@ -1086,9 +1082,7 @@ export default function MembersView({
       {canInvite && (
         <div className="bg-(--paper-raised) border border-(--line) rounded-[14px] p-5 mb-8">
           <div className="flex items-center gap-2.5 mb-4">
-            <span
-              className="w-7.5 h-7.5 rounded-lg flex items-center justify-center shrink-0 bg-(--accent-soft) text-(--accent-text)"
-            >
+            <span className="w-7.5 h-7.5 rounded-lg flex items-center justify-center shrink-0 bg-(--accent-soft) text-(--accent-text)">
               <ShareIcon size={17} />
             </span>
             <div>
@@ -1106,9 +1100,7 @@ export default function MembersView({
                 <div className="font-mono text-[9.5px] tracking-[0.14em] uppercase text-(--ink-fainter)">
                   Code
                 </div>
-                <div
-                  className="font-mono font-medium text-(--ink-heading) text-[18px] tracking-[0.22em]"
-                >
+                <div className="font-mono font-medium text-(--ink-heading) text-[18px] tracking-[0.22em]">
                   {code}
                 </div>
               </div>

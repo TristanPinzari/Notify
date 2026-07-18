@@ -949,7 +949,7 @@ export function AccountSettingsModal({ user, onClose }: Props) {
         </aside>
 
         {/* right panel */}
-        <section className="flex-1 flex flex-col min-w-0">
+        <section className="flex-1 flex flex-col min-w-0 min-h-0">
           <div className="flex items-center justify-between px-6 pt-5">
             <h2 className="font-serif font-normal text-[23px] text-(--ink-heading) m-0">
               {TABS.find((t) => t.id === tab)!.label}
@@ -958,7 +958,7 @@ export function AccountSettingsModal({ user, onClose }: Props) {
               <XIcon />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto px-6 pt-4.5 pb-6 max-modal-compact:pb-[env(safe-area-inset-bottom)]">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-4.5 pb-6 max-modal-compact:pb-[env(safe-area-inset-bottom)]">
             {tab === "profile" && (
               <ProfilePanel
                 name={displayName}
