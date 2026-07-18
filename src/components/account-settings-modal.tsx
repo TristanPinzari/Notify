@@ -898,7 +898,7 @@ export function AccountSettingsModal({ user, onClose }: Props) {
   return (
     <>
       <div className="modal-backdrop" onClick={onClose} />
-      <div className="fixed z-201 flex bg-(--paper-raised) border border-(--line) overflow-hidden shadow-[0_40px_100px_-30px_rgba(40,30,15,0.55),0_8px_24px_-8px_rgba(40,30,15,0.18)] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-190 h-140 max-h-[88vh] rounded-[18px] max-modal-compact:inset-0 max-modal-compact:translate-x-0 max-modal-compact:translate-y-0 max-modal-compact:max-w-full max-modal-compact:h-full max-modal-compact:max-h-none max-modal-compact:rounded-none max-modal-compact:flex-col">
+      <div className="fixed z-201 flex bg-(--paper-raised) border border-(--line) overflow-hidden shadow-[0_40px_100px_-30px_rgba(40,30,15,0.55),0_8px_24px_-8px_rgba(40,30,15,0.18)] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-190 h-140 max-h-[88vh] rounded-[18px] max-modal-compact:inset-0 max-modal-compact:translate-x-0 max-modal-compact:translate-y-0 max-modal-compact:max-w-full max-modal-compact:h-dvh max-modal-compact:max-h-dvh max-modal-compact:rounded-none max-modal-compact:flex-col">
         {/* left rail */}
         <aside className="w-53 shrink-0 bg-(--paper-sidebar) border-r border-(--line) p-[22px_14px] flex flex-col max-modal-compact:w-full max-modal-compact:flex-row max-modal-compact:p-0 max-modal-compact:border-r-0 max-modal-compact:border-b">
           {/* user identity */}
@@ -958,7 +958,7 @@ export function AccountSettingsModal({ user, onClose }: Props) {
               <XIcon />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto px-6 pt-4.5 pb-6 max-modal-compact:pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+          <div className="flex-1 overflow-y-auto px-6 pt-4.5 pb-6">
             {tab === "profile" && (
               <ProfilePanel
                 name={displayName}
