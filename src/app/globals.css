@@ -1433,7 +1433,7 @@ textarea.inwrap::placeholder {
   border: 1px solid rgba(180, 69, 47, 0.2);
   border-radius: 10px;
   padding: 11px 13px;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
 }
 
 .divider {
@@ -1739,7 +1739,6 @@ textarea.inwrap::placeholder {
   height: 100vh;
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
-
 
 .side-head {
   padding: 20px 20px 14px;
@@ -5057,4 +5056,3 @@ a.rtip-src:hover {
     grid-template-columns: 1fr;
   }
 }
-
