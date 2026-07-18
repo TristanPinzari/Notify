@@ -958,7 +958,7 @@ export function AccountSettingsModal({ user, onClose }: Props) {
               <XIcon />
             </button>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-4.5 pb-6 max-modal-compact:pb-[env(safe-area-inset-bottom)]">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-4.5 pb-6 max-modal-compact:pb-[max(env(safe-area-inset-bottom),20px)]">
             {tab === "profile" && (
               <ProfilePanel
                 name={displayName}
