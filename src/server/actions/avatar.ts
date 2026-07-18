@@ -29,7 +29,7 @@ export async function getAvatarUploadUrl() {
       Key: key,
       ContentType: "image/webp",
     }),
-    { expiresIn: 60 },
+    { expiresIn: 300 },
   );
 
   const publicUrl = `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${key}`;

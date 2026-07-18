@@ -1063,14 +1063,11 @@ function SourceRow({
                   {f.type !== "custom" && (
                     <span className="inspect-meta">
                       <b>{EXTRACTION_LABELS[f.method]}</b>
-                      {text != null &&
-                        ` · ${text.length} chars`}
+                      {text != null && ` · ${text.length} chars`}
                     </span>
                   )}
                   {f.type === "custom" && text != null && (
-                    <span className="inspect-meta">
-                      {text.length} chars
-                    </span>
+                    <span className="inspect-meta">{text.length} chars</span>
                   )}
                   <div className="inspect-actions">
                     <button
@@ -1132,6 +1129,24 @@ type Props = {
   highlightSources?: string[];
   filterReason?: string;
 };
+
+function detectType(file: File): CType {
+  if (file.type === "application/pdf") return "pdf";
+  if (file.type.startsWith("image/")) return "image";
+  if (file.type.startsWith("audio/")) return "audio";
+  if (
+    file.type === "text/plain" ||
+    file.type === "text/markdown" ||
+    file.type === "text/x-markdown"
+  )
+    return "text";
+  return "pdf";
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export default function CollectionView({
   contributions,
@@ -1214,29 +1229,6 @@ export default function CollectionView({
     return () => clearInterval(interval);
   }, [classId, topicId]);
 
-  function detectType(file: File): CType {
-    if (file.type === "application/pdf") return "pdf";
-    if (
-      file.type ===
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
-      return "pdf";
-    if (file.type.startsWith("image/")) return "image";
-    if (file.type.startsWith("audio/")) return "audio";
-    if (
-      file.type === "text/plain" ||
-      file.type === "text/markdown" ||
-      file.type === "text/x-markdown"
-    )
-      return "text";
-    return "pdf";
-  }
-
-  function formatSize(bytes: number): string {
-    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
   function stageFiles(rawFiles: File[]) {
     const items: StagedFile[] = rawFiles.map((f) => {
       const type = detectType(f);
@@ -1252,6 +1244,24 @@ export default function CollectionView({
     });
     setStaged((st) => [...st, ...items]);
   }
+
+  const lastPasteRef = useRef(0);
+
+  useEffect(() => {
+    if (!canUpload) return;
+    function onPaste(e: ClipboardEvent) {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+      const pastedFiles = e.clipboardData?.files;
+      if (!pastedFiles?.length) return;
+      const now = Date.now();
+      if (now - lastPasteRef.current < 500) return;
+      lastPasteRef.current = now;
+      stageFiles(Array.from(pastedFiles));
+    }
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [canUpload]);
 
   function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files?.length) {
