@@ -459,10 +459,7 @@ function BannedItem({
           {banned.name}
         </div>
         <div
-          className="text-[12.5px] italic mt-0.5"
-          style={{
-            color: banned.reason ? "var(--ink-faint)" : "var(--ink-fainter)",
-          }}
+          className={`text-[12.5px] italic mt-0.5 ${banned.reason ? "text-(--ink-faint)" : "text-(--ink-fainter)"}`}
         >
           {banned.reason ?? "No reason given"}
         </div>
@@ -477,10 +474,7 @@ function BannedItem({
         onClick={onUnban}
       >
         {busy ? (
-          <span
-            className="spin"
-            style={{ width: 12, height: 12, borderTopColor: "var(--accent)" }}
-          />
+          <span className="spin w-3 h-3 border-t-(--accent)" />
         ) : (
           <UnbanIcon size={13} />
         )}
@@ -507,8 +501,7 @@ function CodeModal({
     <>
       <div className="modal-backdrop" onClick={onClose} />
       <div
-        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-250 bg-(--paper-raised) rounded-3xl px-18 py-15 pb-14 text-center shadow-[0_34px_90px_-22px_rgba(0,0,0,0.55)] max-w-195 w-[calc(100vw-60px)]"
-        style={{ animation: "pop 0.2s ease" }}
+        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-250 bg-(--paper-raised) rounded-3xl px-18 py-15 pb-14 text-center shadow-[0_34px_90px_-22px_rgba(0,0,0,0.55)] max-w-195 w-[calc(100vw-60px)] animate-[pop_0.2s_ease]"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -523,12 +516,7 @@ function CodeModal({
         </div>
         <div className="text-[17px] text-(--ink-faint) mb-2.5">Class code</div>
         <div
-          className="font-mono font-medium text-(--ink-heading) mb-10 break-all"
-          style={{
-            fontSize: "clamp(48px, 10vw, 104px)",
-            lineHeight: 1,
-            letterSpacing: "0.1em",
-          }}
+          className="font-mono font-medium text-(--ink-heading) mb-10 break-all text-[clamp(48px,10vw,104px)] leading-none tracking-widest"
         >
           {code}
         </div>
@@ -594,8 +582,7 @@ function BanModal({
         <div className="field">
           <label className="label">Reason (optional)</label>
           <textarea
-            className="inwrap w-full resize-none"
-            style={{ height: 80 }}
+            className="inwrap w-full resize-none h-20"
             placeholder="e.g. Uploading irrelevant documents"
             value={reason}
             onChange={(e) => onReasonChange(e.target.value)}
@@ -615,23 +602,13 @@ function BanModal({
             Cancel
           </button>
           <button
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-[9px] text-sm font-semibold py-2.5 cursor-pointer transition-all disabled:opacity-50"
-            style={{
-              background: "var(--danger-bg)",
-              border: "1px solid var(--danger-soft)",
-              color: "var(--danger)",
-            }}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-[9px] text-sm font-semibold py-2.5 cursor-pointer transition-all disabled:opacity-50 bg-(--danger-bg) border border-(--danger-soft) text-(--danger)"
             disabled={pending}
             onClick={onConfirm}
           >
             {pending ? (
               <span
-                className="spin"
-                style={{
-                  width: 14,
-                  height: 14,
-                  borderTopColor: "var(--danger)",
-                }}
+                className="spin w-3.5 h-3.5 border-t-(--danger)"
               />
             ) : (
               <BanIcon size={14} />
@@ -688,10 +665,7 @@ function BanInfoModal({
         <div className="field">
           <label className="label">Reason</label>
           <div
-            className="text-sm leading-[1.55] italic"
-            style={{
-              color: target.reason ? "var(--ink-body)" : "var(--ink-fainter)",
-            }}
+            className={`text-sm leading-[1.55] italic ${target.reason ? "text-(--ink-body)" : "text-(--ink-fainter)"}`}
           >
             {target.reason ?? "No reason was provided."}
           </div>
@@ -743,8 +717,7 @@ function ProfileModal({
     <>
       <div className="modal-backdrop" onClick={onClose} />
       <div
-        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-250 w-[calc(100vw-48px)] max-w-100 bg-(--paper-raised) border border-(--line-strong) rounded-[20px] shadow-[0_34px_90px_-22px_rgba(0,0,0,0.55)] overflow-hidden"
-        style={{ animation: "pop 0.18s ease" }}
+        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-250 w-[calc(100vw-48px)] max-w-100 bg-(--paper-raised) border border-(--line-strong) rounded-[20px] shadow-[0_34px_90px_-22px_rgba(0,0,0,0.55)] overflow-hidden animate-[pop_0.18s_ease]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -1114,11 +1087,7 @@ export default function MembersView({
         <div className="bg-(--paper-raised) border border-(--line) rounded-[14px] p-5 mb-8">
           <div className="flex items-center gap-2.5 mb-4">
             <span
-              className="w-7.5 h-7.5 rounded-lg flex items-center justify-center shrink-0"
-              style={{
-                background: "var(--accent-soft)",
-                color: "var(--accent-text)",
-              }}
+              className="w-7.5 h-7.5 rounded-lg flex items-center justify-center shrink-0 bg-(--accent-soft) text-(--accent-text)"
             >
               <ShareIcon size={17} />
             </span>
@@ -1138,8 +1107,7 @@ export default function MembersView({
                   Code
                 </div>
                 <div
-                  className="font-mono font-medium text-(--ink-heading)"
-                  style={{ fontSize: 18, letterSpacing: "0.22em" }}
+                  className="font-mono font-medium text-(--ink-heading) text-[18px] tracking-[0.22em]"
                 >
                   {code}
                 </div>

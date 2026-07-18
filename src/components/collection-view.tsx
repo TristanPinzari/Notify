@@ -1727,13 +1727,7 @@ export default function CollectionView({
                     className={customMode === "text" ? "on" : ""}
                     onClick={() => setCustomMode("text")}
                   >
-                    <span
-                      style={{
-                        fontFamily: "var(--font-serif), Georgia, serif",
-                        fontSize: 14,
-                        lineHeight: 1,
-                      }}
-                    >
+                    <span className="font-serif text-[14px] leading-none">
                       T
                     </span>
                     Text

@@ -32,8 +32,7 @@ export default function NotFound() {
       {/* Brand */}
       <Link
         href="/home"
-        className="fixed z-10 font-serif text-[26px] tracking-tight text-(--ink-heading)"
-        style={{ top: 30, left: "max(34px, 8vw)" }}
+        className="fixed z-10 font-serif text-[26px] tracking-tight text-(--ink-heading) top-7.5 left-[max(34px,8vw)]"
       >
         <span className="text-(--accent)">N</span>otify
       </Link>

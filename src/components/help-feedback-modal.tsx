@@ -29,7 +29,7 @@ export function HelpFeedbackModal({ onClose }: Props) {
   return (
     <>
       <div className="modal-backdrop" onClick={() => !sending && onClose()} />
-      <div className="modal" style={{ maxWidth: 460 }}>
+      <div className="modal max-w-115">
         <div className="modal-head">
           <span className="modal-title">Help &amp; feedback</span>
           <button
@@ -48,8 +48,7 @@ export function HelpFeedbackModal({ onClose }: Props) {
         <div className="field">
           <label className="label">Your message</label>
           <textarea
-            className="inwrap w-full resize-none"
-            style={{ height: 140 }}
+            className="inwrap w-full resize-none h-35"
             placeholder="Describe your question or feedback…"
             maxLength={2000}
             value={message}

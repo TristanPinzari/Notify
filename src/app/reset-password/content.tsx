@@ -106,7 +106,7 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
             <>
               <div
                 className="icon-top amber bg-(--danger-bg) text-(--danger)"
-                style={{ borderColor: "rgba(180,69,47,0.2)" }}
+                className="icon-top amber bg-(--danger-bg) text-(--danger) border-[rgba(180,69,47,0.2)]"
               >
                 <WarnIcon />
               </div>

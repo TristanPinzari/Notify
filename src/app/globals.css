@@ -5041,13 +5041,6 @@ a.rtip-src:hover {
 }
 
 @media (max-width: 800px) {
-  .acct-modal-outer {
-    height: var(--app-height, 100svh);
-    max-height: var(--app-height, 100svh);
-  }
-}
-
-@media (max-width: 800px) {
   .acct-tab-mob {
     flex-direction: column;
     flex: 1 1 0%;

@@ -65,7 +65,7 @@ export function ConfirmModal({
             onClick={onConfirm}
           >
             {pending ? (
-              <span className="spin" style={{ width: 14, height: 14 }} />
+              <span className="spin w-3.5 h-3.5" />
             ) : (
               confirmIcon
             )}
