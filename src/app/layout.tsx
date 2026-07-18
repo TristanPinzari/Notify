@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans, DM_Serif_Display } from "next/font/google";
 import { Toaster } from "sonner";
 import { PostHogProvider } from "@/components/posthog-provider";
@@ -18,6 +18,10 @@ const dmSerifDisplay = DM_Serif_Display({
   variable: "--font-serif",
   display: "swap",
 });
+
+export const viewport: Viewport = {
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   title: { default: "Notify", template: "%s · Notify" },

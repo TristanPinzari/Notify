@@ -1760,7 +1760,7 @@ textarea.inwrap::placeholder {
   border-right: 1px solid var(--line-soft);
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -2101,6 +2101,7 @@ textarea.inwrap::placeholder {
   position: relative;
   border-top: 1px solid var(--line-soft);
   padding: 12px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
 }
 
 .user-btn {
@@ -4077,6 +4078,7 @@ a.rtip-src:hover {
   transition: background 0.15s;
   cursor: pointer;
   font-family: var(--sans);
+  white-space: nowrap;
 }
 .btn-danger-solid:hover {
   background: #86322a;

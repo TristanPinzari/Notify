@@ -1248,10 +1248,10 @@ export default function SettingsView({
                   )}
                 </div>
               </div>
-              <div className="flex gap-2 items-center shrink-0">
+              <div className="flex flex-wrap gap-2 items-center shrink-0">
                 {successor && (
                   <button
-                    className="btn btn-ghost"
+                    className="btn btn-ghost flex-1 justify-center"
                     style={{ padding: "9px 15px", fontSize: 13 }}
                     disabled={clearingSuccessor}
                     onClick={clearSuccessor}
@@ -1265,14 +1265,14 @@ export default function SettingsView({
                 )}
                 {successor && (
                   <button
-                    className="btn-danger-solid"
+                    className="btn-danger-solid flex-1 justify-center"
                     onClick={() => setTransferNowOpen(true)}
                   >
-                    Transfer now
+                    Transfer
                   </button>
                 )}
                 <button
-                  className="btn-danger"
+                  className="btn-danger flex-1"
                   onClick={() => setTransferOpen(true)}
                 >
                   <MembersIcon />
