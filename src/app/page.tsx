@@ -45,7 +45,7 @@ export default function Page() {
                   Log in
                 </Link>
                 <Link className="nav-signup" href="/sign-up">
-                  Sign up free
+                  Sign up
                 </Link>
               </>
             )}
@@ -76,7 +76,7 @@ export default function Page() {
                 className="btn btn-primary btn-lg"
                 href={session ? "/home" : "/sign-up"}
               >
-                Start a class free <span className="arrow">→</span>
+                Start a class <span className="arrow">→</span>
               </Link>
               <Link
                 className="btn btn-ghost btn-lg"
@@ -311,13 +311,13 @@ export default function Page() {
             <br />
             <em>Start sharing one.</em>
           </h2>
-          <p>Free for students. Spin up your first class in under a minute.</p>
+          <p>Spin up your first class in under a minute.</p>
           <div className="hero-cta justify-center">
             <Link
               className="btn btn-primary btn-lg"
               href={session ? "/home" : "/sign-up"}
             >
-              Sign up free <span className="arrow">→</span>
+              Sign up <span className="arrow">→</span>
             </Link>
             <Link
               className="btn btn-ghost btn-lg"
