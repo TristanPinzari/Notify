@@ -338,10 +338,10 @@ a {
 }
 .hero-inner {
   display: grid;
-  grid-template-columns: 1fr 480px;
+  grid-template-columns: 1fr 600px;
   gap: 56px;
   align-items: center;
-  padding: 84px 50px 92px;
+  padding: 60px 0 68px;
 }
 .eyebrow {
   display: inline-flex;
@@ -420,7 +420,7 @@ h1.head em {
     0 8px 22px -12px rgba(60, 45, 25, 0.18);
   overflow: hidden;
   display: flex;
-  height: 430px;
+  height: 380px;
 }
 .mock-side {
   width: 150px;
@@ -867,7 +867,7 @@ h1.head em {
 }
 
 /* hero stacks before the two-column layout gets horizontally squished */
-@media (max-width: 1100px) {
+@media (max-width: 1300px) {
   .hero-inner {
     grid-template-columns: 1fr;
     gap: 40px;
@@ -887,7 +887,7 @@ h1.head em {
     justify-content: center;
   }
   .mock-stage {
-    max-width: 520px;
+    width: min(80%, 600px);
     margin: 0 auto;
   }
   h1.head {
@@ -933,6 +933,33 @@ h1.head em {
     padding: 72px 0;
   }
 }
+@media (max-width: 640px) {
+  .mock {
+    height: 330px;
+  }
+  .mock-side {
+    display: none;
+  }
+  .mock-floats {
+    display: none;
+  }
+  .mock-body {
+    padding: 14px 16px;
+  }
+  .mock-h1 {
+    font-size: 18px;
+  }
+  .mock-h2 {
+    font-size: 12px;
+  }
+  .mock-kick {
+    font-size: 7.5px;
+  }
+  .mock-line {
+    height: 6px;
+    margin-bottom: 5px;
+  }
+}
 @media (max-width: 520px) {
   .cta::before,
   .cta::after {
@@ -970,16 +997,8 @@ h1.head em {
   .nav-inner {
     height: 60px;
   }
-
-  .mock-floats {
-    display: none;
-  }
-  /* hide mock sidebar so content fills full width */
-  .mock-side {
-    display: none;
-  }
   .mock {
-    height: 300px;
+    height: auto;
   }
   /* origin — same element as .wrap */
   .origin-inner {
@@ -1034,6 +1053,11 @@ h1.head em {
   .foot-links {
     flex-wrap: wrap;
     gap: 12px 20px;
+  }
+}
+@media (max-width: 440px) {
+  .mock {
+    display: none;
   }
 }
 

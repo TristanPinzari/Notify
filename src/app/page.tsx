@@ -6,9 +6,10 @@ import Image from "next/image";
 import {
   SunRaysIcon,
   FileIcon,
-  SunIcon,
   BellIcon,
   MembersIcon,
+  CollectionIcon,
+  DocSparkleIcon,
 } from "@/components/icons";
 
 export default function Page() {
@@ -177,7 +178,7 @@ export default function Page() {
                 </div>
                 <div>
                   <div className="ft">notes_wk3.pdf</div>
-                  <div className="fs">added by Maya</div>
+                  <div className="fs">added by Michelle</div>
                 </div>
               </div>
             </div>
@@ -256,7 +257,7 @@ export default function Page() {
           <div className="feat-grid">
             <div className="feat">
               <div className="ic">
-                <SunIcon />
+                <DocSparkleIcon />
               </div>
               <h3>AI that actually compiles</h3>
               <p>
@@ -267,7 +268,7 @@ export default function Page() {
             </div>
             <div className="feat">
               <div className="ic">
-                <BellIcon />
+                <BellIcon size={22} />
               </div>
               <h3>Stay in the loop</h3>
               <p>
@@ -278,7 +279,7 @@ export default function Page() {
             </div>
             <div className="feat">
               <div className="ic">
-                <MembersIcon size={22} />
+                <CollectionIcon size={22} />
               </div>
               <h3>One shared collection</h3>
               <p>
