@@ -306,6 +306,116 @@ function MicSelect({
   );
 }
 
+function MethodSelect({
+  value,
+  options,
+  onChange,
+  disabled,
+  variant = "field",
+}: {
+  value: EMethod;
+  options: EMethod[];
+  onChange: (m: EMethod) => void;
+  disabled?: boolean;
+  variant?: "field" | "pill";
+}) {
+  const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const isStatic = options.length <= 1;
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      const t = e.target as Node;
+      if (!triggerRef.current?.contains(t) && !dropdownRef.current?.contains(t))
+        setOpen(false);
+    }
+    const onScroll = () => setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("scroll", onScroll, true);
+    };
+  }, [open]);
+
+  const triggerClass =
+    variant === "pill"
+      ? cn(
+          "inline-flex items-center gap-1.5 bg-(--accent-soft) text-(--accent-text) text-[12px] font-semibold rounded-[8px] px-[11px] py-[7px] transition-[background,border-color] duration-150 border border-transparent",
+          !isStatic && !disabled && "cursor-pointer hover:border-(--accent)",
+          (isStatic || disabled) && "opacity-60 cursor-default",
+        )
+      : cn(
+          "w-full inline-flex items-center justify-between gap-2 bg-(--paper-raised) text-(--ink) text-[13.5px] border border-(--line) rounded-[9px] px-3 py-[10px] transition-[border-color,box-shadow] duration-150",
+          !isStatic &&
+            !disabled &&
+            "cursor-pointer hover:border-(--ink-fainter)",
+          (isStatic || disabled) && "opacity-60 cursor-default",
+          open && "border-(--accent) shadow-[0_0_0_3px_var(--accent-soft)]",
+        );
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        disabled={isStatic || disabled}
+        onClick={() => {
+          setRect(triggerRef.current?.getBoundingClientRect() ?? null);
+          setOpen((o) => !o);
+        }}
+        className={triggerClass}
+      >
+        <span className={variant === "field" ? "flex-1 text-left" : ""}>
+          {EXTRACTION_LABELS[value]}
+        </span>
+      </button>
+      {open &&
+        rect &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            style={{
+              top: rect.bottom + 6,
+              left: rect.left,
+              minWidth: rect.width,
+            }}
+            className="fixed z-9999 bg-(--paper-raised) border border-(--line) rounded-[11px] shadow-lg py-1 overflow-hidden"
+          >
+            {options.map((m) => {
+              const selected = m === value;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    onChange(m);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "w-full text-left px-3.5 py-2.5 text-[13px] flex items-center gap-2 cursor-pointer transition-colors duration-100",
+                    selected
+                      ? "text-(--accent-text) bg-(--accent-soft)"
+                      : "text-(--ink-nav) hover:bg-(--paper) hover:text-(--ink)",
+                  )}
+                >
+                  <span className="w-2.75 shrink-0">
+                    {selected && <CheckIcon size={11} />}
+                  </span>
+                  <span>{EXTRACTION_LABELS[m]}</span>
+                </button>
+              );
+            })}
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+
 function RecordPanel({
   name,
   setName,
@@ -966,18 +1076,12 @@ function SourceRow({
                   {f.type !== "custom" && (
                     <div className="iform-fld">
                       <label>Extraction method</label>
-                      <select
-                        className="tsel"
+                      <MethodSelect
                         value={dMethod}
-                        disabled={methods.length === 1}
-                        onChange={(e) => setDMethod(e.target.value as EMethod)}
-                      >
-                        {methods.map((m) => (
-                          <option key={m} value={m}>
-                            {EXTRACTION_LABELS[m]}
-                          </option>
-                        ))}
-                      </select>
+                        options={methods}
+                        onChange={setDMethod}
+                        variant="field"
+                      />
                       <div className="iform-hint">
                         {methods.length > 1
                           ? "Changing this will re-extract on save."
@@ -1516,9 +1620,15 @@ export default function CollectionView({
     const created = results.filter(
       (r): r is { id: string; createdAt: string } => !("error" in r),
     );
-    if (created.length < checked.length) {
+    const failed = results.filter((r): r is { error: string } => "error" in r);
+    if (failed.length > 0) {
       setStagingState((st) => ({ ...st, [s.id]: "error" }));
-      toast.error(`Some videos in ${s.name} failed to add.`);
+      const firstError = failed[0].error;
+      const allSame = failed.every((r) => r.error === firstError);
+      const suffix = allSame
+        ? `: ${firstError}`
+        : ` (${failed.length} failed — first error: ${firstError})`;
+      toast.error(`Some videos in "${s.name}" failed to add${suffix}`);
     } else {
       toast.success(`Successfully added ${s.name}.`);
       setStaged((st) => st.filter((x) => x.id !== s.id));
@@ -1934,22 +2044,13 @@ export default function CollectionView({
                 </div>
                 <div className="file-actions">
                   {METHODS_FOR_TYPE[s.type as CType].length > 1 && (
-                    <div className="method-wrap">
-                      <select
-                        className="method-select"
-                        value={s.method}
-                        disabled={uploading}
-                        onChange={(e) =>
-                          setMethod(s.id, e.target.value as EMethod)
-                        }
-                      >
-                        {METHODS_FOR_TYPE[s.type as CType].map((m) => (
-                          <option key={m} value={m}>
-                            {EXTRACTION_LABELS[m]}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <MethodSelect
+                      value={s.method}
+                      options={METHODS_FOR_TYPE[s.type as CType]}
+                      onChange={(m) => setMethod(s.id, m)}
+                      disabled={uploading}
+                      variant="pill"
+                    />
                   )}
                   <button
                     className="icon-btn text-(--ink-fainter)"
