@@ -145,7 +145,7 @@ const PERM_GROUPS: {
       {
         k: "minRankEditCompilation",
         title: "Edit master documents",
-        desc: "Who can hand-edit a compiled document.",
+        desc: "Who can hand-edit and delete a compiled document.",
       },
     ],
   },
@@ -1251,8 +1251,7 @@ export default function SettingsView({
               <div className="flex flex-wrap gap-2 items-center shrink-0">
                 {successor && (
                   <button
-                    className="btn btn-ghost flex-1 justify-center"
-                    style={{ padding: "9px 15px", fontSize: 13 }}
+                    className="btn btn-ghost flex-1 justify-center p-[9px_15px] text-[13px]"
                     disabled={clearingSuccessor}
                     onClick={clearSuccessor}
                   >

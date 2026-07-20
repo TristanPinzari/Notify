@@ -260,13 +260,11 @@ function MicSelect({
           <div
             ref={dropdownRef}
             style={{
-              position: "fixed",
               top: rect.bottom + 6,
               left: rect.left,
               minWidth: rect.width,
-              zIndex: 9999,
             }}
-            className="bg-(--paper-raised) border border-(--line) rounded-[11px] shadow-lg py-1 overflow-hidden"
+            className="fixed z-9999 bg-(--paper-raised) border border-(--line) rounded-[11px] shadow-lg py-1 overflow-hidden"
           >
             {devices.map((d) => {
               const selected = d.deviceId === value;
@@ -922,7 +920,7 @@ function SourceRow({
               <InspectIcon />
             </button>
           )}
-          {canDelete && (
+          {(canDelete || f.uploaderId === currentUserId) && (
             <button className="icon-btn" onClick={() => onRemove(f.name, f.id)}>
               <TrashIcon />
             </button>

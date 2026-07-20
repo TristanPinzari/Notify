@@ -19,6 +19,16 @@ export type NotifPrefs = {
 
 type NotifKey = keyof NotifPrefs;
 
+const NOTIF_KEYS: ReadonlySet<string> = new Set<NotifKey>([
+  "notifyRankChange",
+  "notifyMasterDoc",
+  "notifyDigest",
+  "notifyKick",
+  "notifyBanned",
+  "notifyUnbanned",
+  "notifyInvite",
+]);
+
 export async function getUserNotifications(): Promise<NotifPrefs | null> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return null;
@@ -39,6 +49,7 @@ export async function getUserNotifications(): Promise<NotifPrefs | null> {
 }
 
 export async function updateUserNotification(key: NotifKey, value: boolean) {
+  if (!NOTIF_KEYS.has(key)) return { error: "Invalid notification key." };
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
   await db
@@ -185,6 +196,14 @@ export async function deleteAccount(
         }
         // No designated successor — check user's decision
         if (decisionMap.get(classId) === false) {
+          const [other] = await tx
+            .select({ userId: userClasses.userId })
+            .from(userClasses)
+            .where(and(eq(userClasses.classId, classId), ne(userClasses.userId, userId)))
+            .limit(1);
+          if (!other) {
+            await tx.delete(classes).where(eq(classes.id, classId));
+          }
           await tx
             .insert(activityLogs)
             .values({

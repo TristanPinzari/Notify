@@ -56,8 +56,7 @@ export default async function TopicLayout({
       </div>
       <TopicTabs base={base} />
       <div
-        className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col"
-        style={{ scrollbarGutter: "stable" }}
+        className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col scrollbar-gutter-stable"
       >
         {children}
       </div>

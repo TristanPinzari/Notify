@@ -310,11 +310,10 @@ function ActionMenu({
         createPortal(
           <div
             ref={menuRef}
-            className="fixed w-48 bg-(--paper-raised) border border-(--line-strong) rounded-[11px] shadow-[0_14px_34px_-12px_rgba(40,30,15,0.4)] p-1.5 z-200"
+            className="fixed w-48 bg-(--paper-raised) border border-(--line-strong) rounded-[11px] shadow-[0_14px_34px_-12px_rgba(40,30,15,0.4)] p-1.5 z-200 animate-[pop_0.13s_ease]"
             style={{
               top: pos.top,
               right: pos.right,
-              animation: "pop 0.13s ease",
             }}
           >
             {showChangeRank && (

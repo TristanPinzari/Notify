@@ -21,9 +21,8 @@ export default function NotFound() {
 
       {/* Dashed margin rule */}
       <div
-        className="fixed top-0 bottom-0 w-px z-0"
+        className="fixed top-0 bottom-0 w-px z-0 left-[max(34px,5vw)]"
         style={{
-          left: "max(34px, 5vw)",
           background:
             "repeating-linear-gradient(to bottom, rgba(180,69,47,.2) 0 7px, transparent 7px 14px)",
         }}

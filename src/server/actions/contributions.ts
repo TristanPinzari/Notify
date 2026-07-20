@@ -17,7 +17,7 @@ import {
   topics,
   user,
 } from "@/server/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import {
@@ -90,6 +90,8 @@ export async function createContribution(
   }
   const limit = await rateLimit(session.user.id, "createContribution");
   if (limit) return limit;
+  if (data.name.trim().length === 0) return { error: "Contribution name cannot be empty." };
+  if (data.name.length > 200) return { error: "Contribution name must be 200 characters or fewer." };
 
   let s3Key: string | undefined;
 
@@ -129,8 +131,19 @@ export async function createContribution(
 
     const id = crypto.randomUUID();
     if (data.file) {
+      if (data.file.size > 50 * 1024 * 1024)
+        return { error: "File must be under 50 MB." };
       const buffer = Buffer.from(await data.file.arrayBuffer());
-      const ext = data.file.name.split(".").pop();
+      const MIME_EXT: Record<string, string> = {
+        "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
+        "image/gif": "gif", "image/heic": "heic",
+        "application/pdf": "pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+        "text/plain": "txt", "text/markdown": "md",
+        "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/wav": "wav",
+        "audio/ogg": "ogg", "audio/webm": "webm", "video/webm": "webm",
+      };
+      const ext = MIME_EXT[data.file.type] ?? "bin";
       s3Key = `contributions/${topicId}/${id}.${ext}`;
 
       await s3.send(
@@ -287,6 +300,14 @@ export async function getContributionUrl(
   }
 
   try {
+    const rank = await getUserRank(classId, session.user.id);
+    if (!rank) {
+      console.error(
+        `ERROR: user ${session.user.id} is not a member of class ${classId}`,
+      );
+      return { error: "You are not a member of this class." };
+    }
+
     const [contribution] = await db
       .select({ s3Key: contributions.s3Key, url: contributions.url })
       .from(contributions)
@@ -300,14 +321,6 @@ export async function getContributionUrl(
         `ERROR: contribution ${contributionId} does not belong to class ${classId}`,
       );
       return { error: "Contribution does not exist in this class." };
-    }
-
-    const rank = await getUserRank(classId, session.user.id);
-    if (!rank) {
-      console.error(
-        `ERROR: user ${session.user.id} is not a member of class ${classId}`,
-      );
-      return { error: "You are not a member of this class." };
     }
 
     if (contribution.url) return { url: contribution.url };
@@ -533,13 +546,14 @@ export async function restartExtraction(
       .limit(1);
 
     if (!contribution[0]) return { error: "This contribution does not exist." };
-    if (contribution[0].status === "processing")
-      return { error: "This contribution is already being processed." };
 
-    await db
+    // Atomic check-and-set: only updates if not already processing, preventing duplicate workflows.
+    const [locked] = await db
       .update(contributions)
       .set({ status: "processing" })
-      .where(eq(contributions.id, contributionId));
+      .where(and(eq(contributions.id, contributionId), ne(contributions.status, "processing")))
+      .returning({ id: contributions.id });
+    if (!locked) return { error: "This contribution is already being processed." };
 
     const queued = await startExtraction(
       contributionId,
@@ -577,6 +591,14 @@ export async function getContributionText(
   }
 
   try {
+    const rank = await getUserRank(classId, session.user.id);
+    if (!rank) {
+      console.error(
+        `ERROR: user ${session.user.id} is not a member of class ${classId}`,
+      );
+      return { error: "You are not a member of this class." };
+    }
+
     const [contribution] = await db
       .select({ text: contributions.text })
       .from(contributions)
@@ -591,14 +613,6 @@ export async function getContributionText(
         `ERROR: contribution ${contributionId} does not belong to class ${classId}`,
       );
       return { error: "Contribution not found." };
-    }
-
-    const rank = await getUserRank(classId, session.user.id);
-    if (!rank) {
-      console.error(
-        `ERROR: user ${session.user.id} is not a member of class ${classId}`,
-      );
-      return { error: "You are not a member of this class." };
     }
 
     return { text: contribution.text };

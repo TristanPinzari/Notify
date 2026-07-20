@@ -63,6 +63,8 @@ export async function createClass(name: string) {
   name = name.trim();
   if (name.length < 3)
     return { error: "Class name must be at least three characters long." };
+  if (name.length > 100)
+    return { error: "Class name must be 100 characters or fewer." };
 
   try {
     const code = await generateUniqueCode();
@@ -236,25 +238,26 @@ export async function leaveClass(classId: string, transfer = true) {
           });
         }
       } else if (transfer) {
-        // Auto-transfer to oldest remaining member
-        const [oldest] = await db
-          .select({
-            userId: userClasses.userId,
-            name: user.name,
-            rank: userClasses.rank,
-          })
-          .from(userClasses)
-          .innerJoin(user, eq(userClasses.userId, user.id))
-          .where(
-            and(
-              eq(userClasses.classId, classId),
-              ne(userClasses.userId, session.user.id),
-            ),
-          )
-          .orderBy(asc(userClasses.joinedAt))
-          .limit(1);
+        // Auto-transfer to oldest remaining member — query inside the transaction
+        // to avoid a race where the candidate leaves between the read and the write.
+        const promoted = await db.transaction(async (tx) => {
+          const [oldest] = await tx
+            .select({
+              userId: userClasses.userId,
+              name: user.name,
+              rank: userClasses.rank,
+            })
+            .from(userClasses)
+            .innerJoin(user, eq(userClasses.userId, user.id))
+            .where(
+              and(
+                eq(userClasses.classId, classId),
+                ne(userClasses.userId, session.user.id),
+              ),
+            )
+            .orderBy(asc(userClasses.joinedAt))
+            .limit(1);
 
-        await db.transaction(async (tx) => {
           if (oldest) {
             await tx
               .update(userClasses)
@@ -277,14 +280,15 @@ export async function leaveClass(classId: string, transfer = true) {
             // No other members — delete the class entirely
             await tx.delete(classes).where(eq(classes.id, classId));
           }
+          return oldest ?? null;
         });
 
-        if (oldest) {
+        if (promoted) {
           logActivity(classId, session.user.id, {
             action: "rank_changed",
-            target: { id: oldest.userId, name: oldest.name },
+            target: { id: promoted.userId, name: promoted.name },
             rank: "owner",
-            oldRank: oldest.rank,
+            oldRank: promoted.rank,
           });
         }
       } else {
@@ -604,6 +608,7 @@ export async function banFromClass(
   if (!session) return { error: "Not authenticated." };
 
   if (userId === session.user.id) return { error: "You cannot ban yourself." };
+  if (reason && reason.length > 500) return { error: "Ban reason must be 500 characters or fewer." };
 
   try {
     const cls = await db
@@ -788,11 +793,18 @@ export async function changeUserRank(
   }
 }
 
+const CLASS_NOTIF_KEYS: ReadonlySet<string> = new Set([
+  "notifyRankChange",
+  "notifyMasterDoc",
+  "notifyDigest",
+]);
+
 export async function updateClassNotification(
   classId: string,
   key: "notifyRankChange" | "notifyMasterDoc" | "notifyDigest",
   value: boolean,
 ) {
+  if (!CLASS_NOTIF_KEYS.has(key)) return { error: "Invalid notification key." };
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
   await db
@@ -824,6 +836,8 @@ export async function updateClassSettings(
     settings.name = settings.name.trim();
     if (settings.name.length < 3)
       return { error: "Class name must be at least three characters long." };
+    if (settings.name.length > 100)
+      return { error: "Class name must be 100 characters or fewer." };
   }
 
   try {
@@ -885,6 +899,7 @@ export async function getActivityLog(
   topicId: string | undefined,
   offset: number,
 ) {
+  if (!Number.isInteger(offset) || offset < 0) return { error: "Invalid offset." };
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
 
@@ -1022,15 +1037,9 @@ export async function sendClassInvites(classId: string, rawEmails: string[]) {
 
   if (toSend.length > 0) {
     const joinUrl = `${getBaseUrl()}/home?code=${cls.code}`;
-    await db.insert(emailInvites).values(
-      toSend.map((email) => ({
-        id: crypto.randomUUID(),
-        senderId: session.user.id,
-        recipientEmail: email,
-        classId,
-      })),
-    );
-    await Promise.all(
+    // Send emails first; only insert dedup records for addresses that actually received mail.
+    // This prevents a send failure from locking out a recipient for 24 hours.
+    const results = await Promise.allSettled(
       toSend.map((email) =>
         getResend().emails.send({
           from: "Notify <invites@notifyy.ca>",
@@ -1047,6 +1056,17 @@ export async function sendClassInvites(classId: string, rawEmails: string[]) {
         }),
       ),
     );
+    const sent = toSend.filter((_, i) => results[i].status === "fulfilled");
+    if (sent.length > 0) {
+      await db.insert(emailInvites).values(
+        sent.map((email) => ({
+          id: crypto.randomUUID(),
+          senderId: session.user.id,
+          recipientEmail: email,
+          classId,
+        })),
+      );
+    }
 
     const { name: className } = cls;
     const inviterName = session.user.name;
