@@ -1210,13 +1210,7 @@ h1.head em {
 }
 
 /* shared focus ring for all text inputs */
-:is(
-  .inwrap input,
-  textarea.inwrap,
-  .sv-input,
-  .extracted-edit,
-  .tin
-):focus {
+:is(.inwrap input, textarea.inwrap, .sv-input, .extracted-edit, .tin):focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
   background: var(--paper-raised);
@@ -1940,17 +1934,19 @@ textarea.inwrap::placeholder {
 }
 
 .topics {
+  display: grid;
+  grid-template-rows: 0fr;
   overflow: hidden;
-  max-height: 0;
-  transition: max-height 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: grid-template-rows 0.26s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .class.open .topics {
-  max-height: 360px;
+  grid-template-rows: 1fr;
 }
 
 .topics-inner {
-  padding: 3px 0 8px;
+  min-height: 0;
+  margin: 3px 0 8px;
   margin-left: 21px;
   border-left: 1px solid var(--line);
 }
@@ -4323,7 +4319,6 @@ a.rtip-src:hover {
   animation: mini-spin 0.7s linear infinite;
   flex-shrink: 0;
 }
-
 
 /* youtube playlist staging */
 .pl-head {
