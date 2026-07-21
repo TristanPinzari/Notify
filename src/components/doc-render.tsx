@@ -391,7 +391,11 @@ function Flagged({
 }
 
 function renderKatex(tex: string, displayMode: boolean): string {
-  return katex.renderToString(tex, { displayMode, throwOnError: false });
+  const src =
+    displayMode && tex.includes("\\\\") && !tex.includes("\\begin{")
+      ? `\\begin{aligned}${tex}\\end{aligned}`
+      : tex;
+  return katex.renderToString(src, { displayMode, throwOnError: false });
 }
 
 function MathNode({ tex, block }: { tex: string; block: boolean }) {
