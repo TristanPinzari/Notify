@@ -7,6 +7,16 @@ interface AIProvider {
   countTokens(prompt: string): Promise<number>;
 }
 
+function normalizeInlineTags(text: string): string {
+  return text.replace(
+    /(<(?:flagged|resolved)\s[^>]+>)([^<]*?)(<\/(?:flagged|resolved)>)([.,;:!?])/g,
+    (_, open, content: string, close, punct) =>
+      content.endsWith(punct)
+        ? `${open}${content}${close}`
+        : `${open}${content}${punct}${close}`,
+  );
+}
+
 export function extractMessage(err: unknown): string {
   if (!(err instanceof Error)) return "An unexpected error occurred.";
   if (err.message.startsWith("{")) {
@@ -42,7 +52,7 @@ export class Gemini implements AIProvider {
         contents: prompt,
       });
       if (!response.text) throw new Error("Gemini returned no content.");
-      return response.text;
+      return normalizeInlineTags(response.text);
     });
   }
 
