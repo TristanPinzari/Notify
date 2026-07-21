@@ -1936,7 +1936,6 @@ textarea.inwrap::placeholder {
 
 .topics {
   display: grid;
-  grid-template-columns: 100%;
   grid-template-rows: 0fr;
   overflow: hidden;
   transition: grid-template-rows 0.26s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1948,9 +1947,13 @@ textarea.inwrap::placeholder {
 
 .topics-inner {
   min-height: 0;
-  margin: 3px 0 8px;
+  overflow: hidden;
   margin-left: 21px;
   border-left: 1px solid var(--line);
+}
+
+.topics-inner > :first-child {
+  margin-top: 3px;
 }
 
 .topic {
@@ -2065,7 +2068,7 @@ textarea.inwrap::placeholder {
   font-weight: 600;
   padding: 10px;
   border-radius: 9px;
-  margin-top: 8px;
+  margin-top: 12px;
   cursor: pointer;
   transition: all 0.15s;
 }
