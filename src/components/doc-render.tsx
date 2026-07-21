@@ -393,7 +393,7 @@ function Flagged({
 function renderKatex(tex: string, displayMode: boolean): string {
   const src =
     displayMode && tex.includes("\\\\") && !tex.includes("\\begin{")
-      ? `\\begin{aligned}${tex}\\end{aligned}`
+      ? `\\begin{gathered}${tex}\\end{gathered}`
       : tex;
   return katex.renderToString(src, { displayMode, throwOnError: false });
 }
