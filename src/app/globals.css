@@ -1907,6 +1907,7 @@ textarea.inwrap::placeholder {
 
 .class-row-link .ctxt {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1935,6 +1936,7 @@ textarea.inwrap::placeholder {
 
 .topics {
   display: grid;
+  grid-template-columns: 100%;
   grid-template-rows: 0fr;
   overflow: hidden;
   transition: grid-template-rows 0.26s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1956,6 +1958,7 @@ textarea.inwrap::placeholder {
   display: flex;
   align-items: center;
   gap: 8px;
+  overflow: hidden;
   width: calc(100% - 10px);
   margin-left: 10px;
   text-align: left;
@@ -2043,6 +2046,7 @@ textarea.inwrap::placeholder {
 
 .ttxt {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

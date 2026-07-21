@@ -44,6 +44,7 @@ type Props = {
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
+
 export function Sidebar({ user, initialClasses }: Props) {
   const { data: classes = [] } = useSWR<SidebarClass[]>(
     "/api/sidebar",
@@ -183,7 +184,8 @@ export function Sidebar({ user, initialClasses }: Props) {
                         <Link
                           key={topic.id}
                           href={href}
-                          className={`topic ${pathname.startsWith(href) ? " active" : ""}`}
+                          title={topic.name}
+                          className={`topic${pathname.startsWith(href) ? " active" : ""}`}
                         >
                           <span className="topic-dot" />
                           <span className="ttxt">{topic.name}</span>
