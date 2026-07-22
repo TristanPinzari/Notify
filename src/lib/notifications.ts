@@ -235,7 +235,7 @@ export async function triggerNotifications(
           payload: notifPayload,
         })),
       );
-      await Promise.all(
+      await Promise.allSettled(
         allMembers
           .filter((m) => m.notifyMasterDoc)
           .map((m) =>

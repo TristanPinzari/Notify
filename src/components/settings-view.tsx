@@ -488,10 +488,12 @@ function DeleteTopicModal({
     setDeleting(true);
     const res = await deleteTopic(classId, topic.id);
     setDeleting(false);
-    if ("success" in res) {
-      mutate("/api/sidebar");
-      router.push(`/home/${classId}`);
+    if ("error" in res) {
+      toast.error(res.error);
+      return;
     }
+    mutate("/api/sidebar");
+    router.push(`/home/${classId}`);
   }
 
   return (
@@ -996,6 +998,14 @@ export default function SettingsView({
   }
 
   async function save() {
+    if (!name.trim()) {
+      toast.error("Class name cannot be empty.");
+      return;
+    }
+    if (topic && !topicName.trim()) {
+      toast.error("Topic name cannot be empty.");
+      return;
+    }
     setSaving(true);
     const settingsUpdate: ClassSettings = {};
     if (name !== cls.name) settingsUpdate.name = name;
@@ -1005,14 +1015,19 @@ export default function SettingsView({
       if (draft[k] !== cls[k]) settingsUpdate[k] = draft[k];
     });
 
-    const tasks: Promise<unknown>[] = [];
+    const tasks: Promise<{ error: string } | unknown>[] = [];
     if (Object.keys(settingsUpdate).length > 0)
       tasks.push(updateClassSettings(classId, settingsUpdate));
     if (topic && topicName !== topic.name)
       tasks.push(changeTopicName(classId, topic.id, topicName));
 
-    await Promise.all(tasks);
+    const results = await Promise.all(tasks);
     setSaving(false);
+    const failed = results.find((r): r is { error: string } => !!r && typeof r === "object" && "error" in r);
+    if (failed) {
+      toast.error(failed.error);
+      return;
+    }
     mutate("/api/sidebar");
     startTransition(() => router.refresh());
     toast.success("Successfully saved new settings.");
@@ -1022,7 +1037,7 @@ export default function SettingsView({
     setRegenLoading(true);
     const res = await regenerateCode(classId);
     setRegenLoading(false);
-    if ("success" in res && res.success) setCode(res.code!);
+    if ("success" in res && res.success && res.code) setCode(res.code);
   }
 
   const canDeleteTopic = topic?.canDelete ?? false;

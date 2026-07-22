@@ -43,6 +43,7 @@
   --danger-soft: rgba(180, 69, 47, 0.16);
   --serif: var(--font-serif), Georgia, serif;
   --sans: var(--font-sans), system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Code", monospace;
   --maxw: 1180px;
   --nav-bg: rgba(244, 239, 228, 0.82);
   --cta-sub: rgba(244, 239, 228, 0.7);
@@ -2690,21 +2691,6 @@ html.dark [data-sonner-toast] {
 }
 
 /* mini spinner */
-@keyframes mini-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-.mini-spin {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: mini-spin 0.6s linear infinite;
-  flex-shrink: 0;
-}
 .btn-ghost .mini-spin {
   border-color: rgba(196, 121, 24, 0.3);
   border-top-color: var(--accent);

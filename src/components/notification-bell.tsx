@@ -181,6 +181,7 @@ export function NotificationBell({ classId }: { classId?: string }) {
       <button
         className="icon-btn relative"
         title="Notifications"
+        aria-label="Notifications"
         onClick={handleOpen}
       >
         <BellIcon />

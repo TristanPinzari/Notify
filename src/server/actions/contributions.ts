@@ -223,6 +223,8 @@ export async function createCustomContribution(
     console.error("ERROR: createCustomContribution called with no session");
     return { error: "Not authenticated." };
   }
+  const limit = await rateLimit(session.user.id, "createContribution");
+  if (limit) return limit;
 
   try {
     if (!(await topicBelongsToClass(classId, topicId))) {
@@ -672,6 +674,8 @@ export async function editContribution(
         status: contributions.status,
         name: contributions.name,
         topicId: contributions.topicId,
+        uploadedBy: contributions.uploadedBy,
+        type: contributions.type,
       })
       .from(contributions)
       .innerJoin(topics, eq(contributions.topicId, topics.id))
@@ -687,6 +691,23 @@ export async function editContribution(
     }
     if (contribution.status === "processing")
       return { error: "This contribution is still being processed." };
+
+    if (contribution.uploadedBy !== session.user.id) {
+      const allowed = await requireRank(
+        classId,
+        session.user.id,
+        cls.minRankUploadContribution,
+        "edit contributions",
+      );
+      if ("error" in allowed) {
+        console.error(`ERROR: ${allowed.error}`);
+        return allowed;
+      }
+    }
+
+    if (data.text !== undefined && contribution.type !== "custom") {
+      return { error: "Text can only be manually set on custom contributions." };
+    }
 
     await db
       .update(contributions)

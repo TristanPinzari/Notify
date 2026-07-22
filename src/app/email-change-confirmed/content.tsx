@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { XIcon } from "@/components/icons";
+import { XIcon, MailIcon } from "@/components/icons";
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -65,20 +65,8 @@ export function EmailChangeConfirmedContent({
 
   return (
     <Shell>
-      <div className="w-22 h-22 rounded-full bg-(--accent-soft) border border-(--line-strong) flex items-center justify-center mx-auto mb-7.5">
-        <svg
-          width={42}
-          height={42}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="var(--accent)"
-          strokeWidth={1.8}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <rect x="2" y="4" width="20" height="16" rx="3" />
-          <path d="m2 7 10 6.5L22 7" />
-        </svg>
+      <div className="w-22 h-22 rounded-full bg-(--accent-soft) border border-(--line-strong) flex items-center justify-center mx-auto mb-7.5 text-(--accent)">
+        <MailIcon size={42} />
       </div>
       <div className="font-(family-name:--mono) text-[11px] font-medium tracking-[0.18em] uppercase text-(--accent) mb-3.5">
         Change approved

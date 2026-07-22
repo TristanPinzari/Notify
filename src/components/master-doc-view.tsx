@@ -310,6 +310,7 @@ export function MasterDocView({
     const res = await deleteMasterDocument(classId, activeDoc.id);
     if ("error" in res) {
       toast.error(res.error);
+      setShowActions(false);
       return;
     }
     const remaining = docs.filter((d) => d.id !== activeDoc.id);
@@ -398,7 +399,7 @@ export function MasterDocView({
         pdfStatus: "pending",
         manuallyEdited: false,
       };
-      setDocs((prev) => [newDoc, ...prev].slice(0, 4));
+      setDocs((prev) => [newDoc, ...prev].slice(0, 5));
       setActiveId(res.masterDocumentId);
     } catch {
       toast.error("Something went wrong.");

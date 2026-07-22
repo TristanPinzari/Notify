@@ -19,12 +19,13 @@ export async function sendFeedback(
   if (trimmed.length > 2000) return { error: "Message is too long." };
 
   const { name, email } = session.user;
+  const escapedName = name.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   const { error } = await getResend().emails.send({
     from: "Notify <noreply@notifyy.ca>",
     to: "tristanpinzari@gmail.com",
     subject: `Notify feedback from ${name}`,
-    html: `<p><strong>From:</strong> ${name} &lt;${email}&gt;</p><p><strong>Message:</strong></p><p style="white-space:pre-wrap">${trimmed.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`,
+    html: `<p><strong>From:</strong> ${escapedName} &lt;${email}&gt;</p><p><strong>Message:</strong></p><p style="white-space:pre-wrap">${trimmed.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`,
   });
 
   if (error) {

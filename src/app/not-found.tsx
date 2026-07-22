@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BackIcon } from "@/components/icons";
+import { BackIcon, ArrowRightIcon } from "@/components/icons";
 
 export default function NotFound() {
   return (
@@ -63,7 +63,7 @@ export default function NotFound() {
           >
             Back to my classes
             <span className="transition-transform duration-200 group-hover:translate-x-1">
-              →
+              <ArrowRightIcon size={16} />
             </span>
           </Link>
           <button

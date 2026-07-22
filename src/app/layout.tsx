@@ -38,7 +38,6 @@ export default function RootLayout({
       lang="en"
       className={`h-full antialiased ${dmSans.variable} ${dmSerifDisplay.variable}`}
       suppressHydrationWarning
-      data-scroll-behavior="smooth"
     >
       <head>
         <script

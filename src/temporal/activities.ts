@@ -626,7 +626,7 @@ export async function cleanStuckContributions() {
     .where(
       and(
         eq(contributions.status, "processing"),
-        lt(contributions.createdAt, cutoff),
+        lt(contributions.updatedAt, cutoff),
       ),
     );
   console.log(`[cleanStuckContributions] done`);

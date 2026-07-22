@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useEscapeKey } from "@/hooks/use-escape-key";
 import { createClass, joinClass } from "@/server/actions/classes";
 import { toast } from "sonner";
-import { InfoIcon as WarnIcon, BookIcon, HashIcon } from "@/components/icons";
+import { InfoIcon as WarnIcon, BookIcon, HashIcon, XIcon } from "@/components/icons";
 import { useRouter } from "next/navigation";
 import { mutate } from "swr";
 
@@ -85,7 +85,7 @@ export function ClassModal({ onClose, onSuccess }: Props) {
             {mode === "create" ? "Create a class" : "Join a class"}
           </span>
           <button className="modal-close" onClick={onClose} aria-label="Close">
-            ✕
+            <XIcon size={16} />
           </button>
         </div>
 

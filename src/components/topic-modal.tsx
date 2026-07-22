@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createTopic } from "@/server/actions/topics";
 import { useEscapeKey } from "@/hooks/use-escape-key";
 import { toast } from "sonner";
-import { InfoIcon as WarnIcon, TopicIcon } from "@/components/icons";
+import { InfoIcon as WarnIcon, TopicIcon, XIcon } from "@/components/icons";
 import { useRouter } from "next/navigation";
 import { mutate } from "swr";
 
@@ -49,7 +49,7 @@ export function TopicModal({ classId, onClose, onSuccess }: Props) {
         <div className="modal-head">
           <span className="modal-title">New topic</span>
           <button className="modal-close" onClick={onClose} aria-label="Close">
-            ✕
+            <XIcon size={16} />
           </button>
         </div>
 

@@ -146,7 +146,7 @@ export default function ClassesView({ classes }: { classes: ClassRow[] }) {
               {(
                 [
                   ["recent", "Recent"],
-                  ["activity", "Most active"],
+                  ["activity", "Most members"],
                   ["az", "A–Z"],
                 ] as [Sort, string][]
               ).map(([key, label]) => (

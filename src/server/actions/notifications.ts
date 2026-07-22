@@ -52,7 +52,7 @@ export async function getClassNotifPrefs(
       className: classes.name,
     })
     .from(userClasses)
-    .innerJoin(classes, eq(classes.id, classId))
+    .innerJoin(classes, eq(classes.id, userClasses.classId))
     .where(
       and(
         eq(userClasses.classId, classId),

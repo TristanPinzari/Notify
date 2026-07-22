@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEscapeKey } from "@/hooks/use-escape-key";
+import { XIcon } from "@/components/icons";
 
 type Props = {
   title: string;
@@ -33,7 +34,7 @@ export function ConfirmModal({
         <div className="modal-head">
           <span className="modal-title">{title}</span>
           <button className="modal-close" onClick={onClose} aria-label="Close">
-            ✕
+            <XIcon size={16} />
           </button>
         </div>
         <p className="text-sm text-(--ink-faint) mb-4 mt-0 leading-normal">

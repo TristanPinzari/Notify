@@ -886,6 +886,7 @@ export default function MembersView({
   const [banInfoTarget, setBanInfoTarget] = useState<BannedRow | null>(null);
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [banPending, setBanPending] = useState(false);
+  const [regenPending, setRegenPending] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [sending, setSending] = useState(false);
   const [profileMember, setProfileMember] = useState<MemberRow | null>(null);
@@ -986,7 +987,10 @@ export default function MembersView({
   }
 
   async function handleRegen() {
+    if (regenPending) return;
+    setRegenPending(true);
     const res = await regenerateCode(classId);
+    setRegenPending(false);
     if ("error" in res) {
       toast.error(res.error);
     } else {
@@ -1127,8 +1131,9 @@ export default function MembersView({
             </button>
             {canRegen && (
               <button
-                className="inline-flex items-center gap-1.5 bg-(--paper-raised) border border-(--line) text-(--ink-nav) rounded-[9px] text-sm font-semibold px-3.75 py-2.25 hover:border-(--line-strong) hover:text-(--ink-heading) transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 bg-(--paper-raised) border border-(--line) text-(--ink-nav) rounded-[9px] text-sm font-semibold px-3.75 py-2.25 hover:border-(--line-strong) hover:text-(--ink-heading) transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleRegen}
+                disabled={regenPending}
               >
                 <RetryIcon />
                 Regenerate
