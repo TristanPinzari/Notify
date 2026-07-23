@@ -616,7 +616,7 @@ export function AuthForm({ defaultMode }: { defaultMode: "login" | "signup" }) {
               {isSignup && (
                 <p className="terms">
                   By creating an account you agree to Notify&apos;s{" "}
-                  <a href="#">Terms</a> and{" "}
+                  <a href="/terms">Terms</a> and{" "}
                   <a href="/privacy">Privacy Policy</a>.
                 </p>
               )}
