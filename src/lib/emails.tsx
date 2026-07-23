@@ -64,7 +64,7 @@ function footer() {
       </p>
       <p style="margin:0;font-family:${mono};font-size:11px;letter-spacing:.04em;color:${C.fainter};">
         Notify &middot; Study together, one document &middot;
-        <a href="https://notify.app" style="color:${C.faint};text-decoration:none;">notify.app</a>
+        <a href="https://notifyy.ca" style="color:${C.faint};text-decoration:none;">notifyy.ca</a>
       </p>
     </td>
   </tr>`;
@@ -290,7 +290,7 @@ function docCard(
   contributorCount: number,
 ) {
   const src = `${sourceCount} source${sourceCount !== 1 ? "s" : ""}`;
-  const ctr = `${contributorCount} classmate${contributorCount !== 1 ? "s" : ""}`;
+  const ctr = `${contributorCount} contributor${contributorCount !== 1 ? "s" : ""}`;
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
     style="margin:4px 0 18px;background:${C.paper};border:1px solid ${C.line};border-radius:13px;">
     <tbody><tr><td style="padding:16px 18px;">
