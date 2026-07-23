@@ -65,11 +65,7 @@ export function ConfirmModal({
             disabled={pending}
             onClick={onConfirm}
           >
-            {pending ? (
-              <span className="spin w-3.5 h-3.5" />
-            ) : (
-              confirmIcon
-            )}
+            {pending ? <span className="spin w-3.5 h-3.5" /> : confirmIcon}
             {confirmLabel}
           </button>
         </div>

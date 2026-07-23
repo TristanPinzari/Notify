@@ -24,7 +24,11 @@ import {
   topicBelongsToClass,
 } from "./shared";
 import { logActivity } from "@/lib/activity-log";
-import { getTemporalClient, checkTemporalReady, TASK_QUEUE } from "@/temporal/client";
+import {
+  getTemporalClient,
+  checkTemporalReady,
+  TASK_QUEUE,
+} from "@/temporal/client";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
   DeleteObjectCommand,
@@ -105,7 +109,10 @@ export async function createMasterDocument(
     }
 
     const health = await checkTemporalReady();
-    if (!health.ok) return { error: "Compilation service is unavailable. Try again shortly." };
+    if (!health.ok)
+      return {
+        error: "Compilation service is unavailable. Try again shortly.",
+      };
 
     const masterDocumentId = crypto.randomUUID();
     const { fromScratch, ...docSettings } = settings;
@@ -135,7 +142,9 @@ export async function createMasterDocument(
         workflowId: `compile-${masterDocumentId}`,
       });
     } catch (e) {
-      await db.delete(masterDocuments).where(eq(masterDocuments.id, masterDocumentId));
+      await db
+        .delete(masterDocuments)
+        .where(eq(masterDocuments.id, masterDocumentId));
       throw e;
     }
 

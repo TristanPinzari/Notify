@@ -5,7 +5,6 @@ import { headers } from "next/headers";
 import { getResend } from "@/lib/resend";
 import { rateLimit } from "./shared";
 
-
 export async function sendFeedback(
   message: string,
 ): Promise<{ error: string } | { ok: true }> {

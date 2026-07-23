@@ -28,9 +28,9 @@ const CONFLICT_RESOLUTION = {
   trust_majority:
     "When contributions state different facts, go with the majority version and write it as fact — do not use <conflict>. Only use <conflict> when no single version has majority support — including three-way splits where all sources differ — always include a verdict attribute with your judgment of which is most likely correct and briefly why.",
   flag_all:
-    "Whenever contributions state different facts about the same thing, use <conflict>. Always include a verdict attribute — state which source is most likely correct and briefly why, or write \"Neither — [your answer]\" if none of the sources are right.",
+    'Whenever contributions state different facts about the same thing, use <conflict>. Always include a verdict attribute — state which source is most likely correct and briefly why, or write "Neither — [your answer]" if none of the sources are right.',
   replace_flag:
-    "Whenever contributions state different facts about the same thing, write the correct answer as normal prose — do NOT use <conflict>. Instead, wrap just the resolved fact in <resolved sources=\"Name A, Name B\" conflict=\"A says X, B says Y\" verdict=\"brief reason for your choice\">your answer</resolved>. Choose the most accurate answer regardless of which source said it. If none are right, use your own knowledge and set verdict to \"Neither source was right — [brief explanation]\".",
+    'Whenever contributions state different facts about the same thing, write the correct answer as normal prose — do NOT use <conflict>. Instead, wrap just the resolved fact in <resolved sources="Name A, Name B" conflict="A says X, B says Y" verdict="brief reason for your choice">your answer</resolved>. Choose the most accurate answer regardless of which source said it. If none are right, use your own knowledge and set verdict to "Neither source was right — [brief explanation]".',
 };
 
 const FACT_CHECK = {
@@ -65,12 +65,16 @@ const MATH_TAG = `- <math>inline expression</math>
 
 function buildXmlTagReference(settings: CompilationSettings): string {
   const tags = [
-    settings.conflictResolution === "replace_flag" ? RESOLVED_TAG : CONFLICT_TAG,
+    settings.conflictResolution === "replace_flag"
+      ? RESOLVED_TAG
+      : CONFLICT_TAG,
     settings.factChecking === "flag" ? FLAGGED_TAG_FLAG : null,
     settings.factChecking === "replace" ? FLAGGED_TAG_REPLACE : null,
     settings.sourcesInline ? SOURCE_TAG : null,
     MATH_TAG,
-  ].filter(Boolean).join("\n\n");
+  ]
+    .filter(Boolean)
+    .join("\n\n");
   if (!tags.length) return "";
   return `## Custom XML Tags\nUse these tags within your markdown output:\n\n${tags}`;
 }

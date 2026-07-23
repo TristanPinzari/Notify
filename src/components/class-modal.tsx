@@ -4,7 +4,12 @@ import { useState } from "react";
 import { useEscapeKey } from "@/hooks/use-escape-key";
 import { createClass, joinClass } from "@/server/actions/classes";
 import { toast } from "sonner";
-import { InfoIcon as WarnIcon, BookIcon, HashIcon, XIcon } from "@/components/icons";
+import {
+  InfoIcon as WarnIcon,
+  BookIcon,
+  HashIcon,
+  XIcon,
+} from "@/components/icons";
 import { useRouter } from "next/navigation";
 import { mutate } from "swr";
 

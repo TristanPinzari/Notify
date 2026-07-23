@@ -1023,7 +1023,10 @@ export default function SettingsView({
 
     const results = await Promise.all(tasks);
     setSaving(false);
-    const failed = results.find((r): r is { error: string } => !!r && typeof r === "object" && "error" in r);
+    const failed = results.find(
+      (r): r is { error: string } =>
+        !!r && typeof r === "object" && "error" in r,
+    );
     if (failed) {
       toast.error(failed.error);
       return;

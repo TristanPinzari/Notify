@@ -191,9 +191,7 @@ export function NotificationBell({ classId }: { classId?: string }) {
       </button>
 
       {open && (
-        <div
-          className="absolute right-0 top-[calc(100%+8px)] w-80 bg-(--paper-raised) border border-(--line-strong) rounded-[13px] shadow-[0_14px_34px_-12px_rgba(40,30,15,0.4)] overflow-hidden z-50 animate-[pop_0.13s_ease]"
-        >
+        <div className="absolute right-0 top-[calc(100%+8px)] w-80 bg-(--paper-raised) border border-(--line-strong) rounded-[13px] shadow-[0_14px_34px_-12px_rgba(40,30,15,0.4)] overflow-hidden z-50 animate-[pop_0.13s_ease]">
           {/* header */}
           <div className="flex items-center px-4 py-2.5 border-b border-(--line-soft) gap-2">
             <span className="text-[13px] font-semibold text-(--ink-heading) flex-1">

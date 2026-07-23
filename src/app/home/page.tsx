@@ -115,9 +115,7 @@ export default async function HomePage({
         </div>
       </div>
 
-      <div
-        className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-gutter-stable"
-      >
+      <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-gutter-stable">
         <ClassesView classes={enriched} />
       </div>
       {code && <JoinCodeHandler code={code} />}

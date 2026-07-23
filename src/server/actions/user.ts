@@ -199,21 +199,24 @@ export async function deleteAccount(
           const [other] = await tx
             .select({ userId: userClasses.userId })
             .from(userClasses)
-            .where(and(eq(userClasses.classId, classId), ne(userClasses.userId, userId)))
+            .where(
+              and(
+                eq(userClasses.classId, classId),
+                ne(userClasses.userId, userId),
+              ),
+            )
             .limit(1);
           if (!other) {
             await tx.delete(classes).where(eq(classes.id, classId));
           }
-          await tx
-            .insert(activityLogs)
-            .values({
-              id: crypto.randomUUID(),
-              classId,
-              topicId: null,
-              userId,
-              action: "member_left",
-              metadata: null,
-            });
+          await tx.insert(activityLogs).values({
+            id: crypto.randomUUID(),
+            classId,
+            topicId: null,
+            userId,
+            action: "member_left",
+            metadata: null,
+          });
           continue;
         }
         const [oldest] = await tx

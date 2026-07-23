@@ -8,6 +8,8 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { db } from "@/server/db/worker";
 import {
+  classes,
+  userClasses,
   contributions,
   compilationSources,
   masterDocuments,
@@ -15,7 +17,7 @@ import {
   user,
   activityLogs,
 } from "@/server/db/schema";
-import { and, desc, eq, inArray, lt } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, max, notInArray } from "drizzle-orm";
 import { logActivity } from "@/lib/activity-log";
 import { YoutubeTranscript } from "youtube-transcript";
 import { PDFParse } from "pdf-parse";
@@ -32,12 +34,31 @@ import { renderToStaticMarkup } from "react-dom/server";
 import React from "react";
 import fs from "fs";
 import path from "path";
+import dns from "dns/promises";
+import { Agent } from "undici";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION! });
 
+let _pdfCssPromise: Promise<string> | null = null;
+const getPdfCss = (): Promise<string> =>
+  (_pdfCssPromise ??= Promise.all([
+    fs.promises.readFile(
+      path.join(process.cwd(), "src/app/globals.css"),
+      "utf-8",
+    ),
+    fs.promises.readFile(
+      path.join(process.cwd(), "node_modules/katex/dist/katex.min.css"),
+      "utf-8",
+    ),
+  ]).then(([a, k]) => a + k));
+
 function sanitizeAiError(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e);
-  if (/high demand|overloaded|rate.?limit|429|too many requests|capacity|try again later/i.test(msg))
+  if (
+    /high demand|overloaded|rate.?limit|429|too many requests|capacity|try again later/i.test(
+      msg,
+    )
+  )
     return "AI service is busy. Please try again shortly.";
   if (/quota|billing|payment|insufficient/i.test(msg))
     return "AI service quota exceeded. Please contact support.";
@@ -105,7 +126,38 @@ async function runExtraction(
           "Requests to private/internal addresses are not allowed.",
         );
 
+      // Resolve to IP and re-check — prevents DNS rebinding where the hostname
+      // passes the string check above but resolves to a private IP at fetch time.
+      const { address: resolvedAddress, family: resolvedFamily } = await dns
+        .lookup(hostname)
+        .catch(() => {
+          throw new Error("Could not resolve hostname.");
+        });
+      if (privateRanges.test(resolvedAddress))
+        throw new Error(
+          "Requests to private/internal addresses are not allowed.",
+        );
+
+      // Pin the connection to the already-resolved IP so fetch cannot re-resolve
+      // the hostname, closing the rebinding race window entirely.
+      // Node 22+ passes { all: true } to the lookup function, so the callback
+      // expects an array of addresses rather than (address, family).
+      const dispatcher = new Agent({
+        connect: {
+          lookup: (
+            _h: string,
+            _o: unknown,
+            cb: (
+              err: Error | null,
+              addresses: Array<{ address: string; family: number }>,
+            ) => void,
+          ) => cb(null, [{ address: resolvedAddress, family: resolvedFamily }]),
+        },
+      });
+
       const res = await fetch(normalizedUrl, {
+        // @ts-expect-error — dispatcher is a valid undici/Node 18+ fetch option
+        dispatcher,
         headers: { "User-Agent": "Mozilla/5.0 (compatible; NotifyBot/1.0)" },
         signal: AbortSignal.timeout(15_000),
       });
@@ -162,10 +214,11 @@ async function runExtraction(
       );
       const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
       try {
-        const transcriptionResponse = await client.audio.transcriptions.complete({
-          model: "voxtral-mini-latest",
-          fileUrl: signedUrl,
-        });
+        const transcriptionResponse =
+          await client.audio.transcriptions.complete({
+            model: "voxtral-mini-latest",
+            fileUrl: signedUrl,
+          });
         return { text: transcriptionResponse.text };
       } catch (e) {
         throw new Error(sanitizeAiError(e));
@@ -492,12 +545,7 @@ export async function generatePDF(
       name: r.contributionName ?? r.snapshotName ?? "Unknown",
     }));
 
-    const css =
-      fs.readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf-8") +
-      fs.readFileSync(
-        path.join(process.cwd(), "node_modules/katex/dist/katex.min.css"),
-        "utf-8",
-      );
+    const css = await getPdfCss();
     const body = renderToStaticMarkup(
       React.createElement(CompiledDoc, {
         markdown: doc.content,
@@ -510,7 +558,10 @@ export async function generatePDF(
     const baseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
     const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8" /><base href="${baseUrl}" /><style>${css}@page{margin:20mm 18mm;background-color:#f4efe4}html,body{background:var(--paper)}</style></head><body>${body}</body></html>`;
 
-    const browser = await puppeteer.launch({ headless: "shell", args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+    const browser = await puppeteer.launch({
+      headless: "shell",
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
     let pdf: Buffer;
     try {
       const page = await browser.newPage();
@@ -558,6 +609,76 @@ export async function cleanOldLogs() {
   console.log(`[cleanOldLogs] done`);
 }
 
+export async function cleanOrphanedClasses() {
+  console.log(`[cleanOrphanedClasses] start`);
+
+  const CUTOFF = new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000);
+
+  const orphaned = await db
+    .select({ id: classes.id, createdAt: classes.createdAt })
+    .from(classes)
+    .where(
+      notInArray(
+        classes.id,
+        db
+          .select({ classId: userClasses.classId })
+          .from(userClasses)
+          .where(eq(userClasses.rank, "owner")),
+      ),
+    );
+
+  if (orphaned.length === 0) {
+    console.log(`[cleanOrphanedClasses] no orphaned classes`);
+    return;
+  }
+
+  const orphanedIds = orphaned.map((c) => c.id);
+
+  const [lastUploads, lastCompilations] = await Promise.all([
+    db
+      .select({ classId: topics.classId, last: max(contributions.createdAt) })
+      .from(contributions)
+      .innerJoin(topics, eq(contributions.topicId, topics.id))
+      .where(inArray(topics.classId, orphanedIds))
+      .groupBy(topics.classId),
+    db
+      .select({ classId: topics.classId, last: max(masterDocuments.createdAt) })
+      .from(masterDocuments)
+      .innerJoin(topics, eq(masterDocuments.topicId, topics.id))
+      .where(inArray(topics.classId, orphanedIds))
+      .groupBy(topics.classId),
+  ]);
+
+  const uploadMap = new Map(lastUploads.map((r) => [r.classId, r.last]));
+  const compilationMap = new Map(
+    lastCompilations.map((r) => [r.classId, r.last]),
+  );
+  const createdAtMap = new Map(orphaned.map((c) => [c.id, c.createdAt]));
+
+  const toDelete = orphanedIds.filter((id) => {
+    const upload = uploadMap.get(id) ?? null;
+    const compilation = compilationMap.get(id) ?? null;
+    const lastActivity =
+      upload && compilation
+        ? upload > compilation
+          ? upload
+          : compilation
+        : (upload ?? compilation ?? createdAtMap.get(id)!);
+    return lastActivity < CUTOFF;
+  });
+
+  if (toDelete.length === 0) {
+    console.log(`[cleanOrphanedClasses] no stale orphaned classes`);
+    return;
+  }
+
+  console.log(
+    `[cleanOrphanedClasses] deleting ${toDelete.length} stale orphaned class(es)…`,
+  );
+  await db.delete(classes).where(inArray(classes.id, toDelete));
+  console.log(`[cleanOrphanedClasses] done`);
+}
+
 export async function cleanOrphanedFiles() {
   console.log(`[cleanOrphanedFiles] start`);
 
@@ -603,11 +724,20 @@ export async function cleanOrphanedFiles() {
   }
 
   console.log(`[cleanOrphanedFiles] deleting ${orphans.length} orphan(s)…`);
-  await s3.send(
-    new DeleteObjectsCommand({
-      Bucket: process.env.AWS_S3_BUCKET!,
-      Delete: { Objects: orphans.map((key) => ({ Key: key })) },
-    }),
+  const CHUNK = 1000;
+  await Promise.all(
+    Array.from({ length: Math.ceil(orphans.length / CHUNK) }, (_, i) =>
+      s3.send(
+        new DeleteObjectsCommand({
+          Bucket: process.env.AWS_S3_BUCKET!,
+          Delete: {
+            Objects: orphans
+              .slice(i * CHUNK, (i + 1) * CHUNK)
+              .map((key) => ({ Key: key })),
+          },
+        }),
+      ),
+    ),
   );
   console.log(`[cleanOrphanedFiles] done`);
 }
@@ -671,4 +801,5 @@ export type Activities = {
   cleanStuckContributions: typeof cleanStuckContributions;
   cleanStuckMasterDocuments: typeof cleanStuckMasterDocuments;
   cleanOldLogs: typeof cleanOldLogs;
+  cleanOrphanedClasses: typeof cleanOrphanedClasses;
 };

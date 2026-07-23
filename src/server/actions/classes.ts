@@ -30,7 +30,6 @@ import { EMAIL_RE, MAX_INVITE_BATCH } from "@/lib/validation";
 import { emailInvites, topics, notifications } from "@/server/db/schema";
 import { getBaseUrl } from "@/lib/utils";
 
-
 const DEFAULT_NOTIF_PREFS = {
   notifyRankChange: true,
   notifyMasterDoc: true,
@@ -83,14 +82,12 @@ export async function createClass(name: string) {
         .limit(1),
     ]);
     const notifDefaults = userPrefsRows[0] ?? DEFAULT_NOTIF_PREFS;
-    await db
-      .insert(userClasses)
-      .values({
-        userId: session.user.id,
-        classId,
-        rank: "owner",
-        ...notifDefaults,
-      });
+    await db.insert(userClasses).values({
+      userId: session.user.id,
+      classId,
+      rank: "owner",
+      ...notifDefaults,
+    });
 
     return { success: true, id: classId };
   } catch (e) {
@@ -153,14 +150,12 @@ export async function joinClass(code: string) {
     if (member.length > 0) return { alreadyMember: true, id: classId };
 
     const notifDefaults = userPrefsRows[0] ?? DEFAULT_NOTIF_PREFS;
-    await db
-      .insert(userClasses)
-      .values({
-        userId: session.user.id,
-        classId,
-        rank: defaultRank,
-        ...notifDefaults,
-      });
+    await db.insert(userClasses).values({
+      userId: session.user.id,
+      classId,
+      rank: defaultRank,
+      ...notifDefaults,
+    });
 
     logActivity(classId, session.user.id, { action: "member_joined" });
     return { success: true, id: classId };
@@ -192,20 +187,24 @@ export async function leaveClass(classId: string, transfer = true) {
       const nextOwnerId = cls?.nextOwnerId ?? null;
 
       if (nextOwnerId) {
-        // Designated successor — promote them
-        const [nextOwnerRow] = await db
-          .select({ name: user.name, rank: userClasses.rank })
-          .from(userClasses)
-          .innerJoin(user, eq(userClasses.userId, user.id))
-          .where(
-            and(
-              eq(userClasses.classId, classId),
-              eq(userClasses.userId, nextOwnerId),
-            ),
-          )
-          .limit(1);
+        // Designated successor — promote them (select inside transaction to
+        // prevent a race where the successor leaves between read and write).
+        const nextOwnerRow = await db.transaction(async (tx) => {
+          const [row] = await tx
+            .select({ name: user.name, rank: userClasses.rank })
+            .from(userClasses)
+            .innerJoin(user, eq(userClasses.userId, user.id))
+            .where(
+              and(
+                eq(userClasses.classId, classId),
+                eq(userClasses.userId, nextOwnerId),
+              ),
+            )
+            .limit(1);
 
-        await db.transaction(async (tx) => {
+          if (!row)
+            throw new Error("Designated successor has already left the class.");
+
           await tx
             .update(userClasses)
             .set({ rank: "owner" })
@@ -227,16 +226,16 @@ export async function leaveClass(classId: string, transfer = true) {
             .update(classes)
             .set({ nextOwnerId: null })
             .where(eq(classes.id, classId));
+
+          return row;
         });
 
-        if (nextOwnerRow) {
-          logActivity(classId, session.user.id, {
-            action: "rank_changed",
-            target: { id: nextOwnerId, name: nextOwnerRow.name },
-            rank: "owner",
-            oldRank: nextOwnerRow.rank,
-          });
-        }
+        logActivity(classId, session.user.id, {
+          action: "rank_changed",
+          target: { id: nextOwnerId, name: nextOwnerRow.name },
+          rank: "owner",
+          oldRank: nextOwnerRow.rank,
+        });
       } else if (transfer) {
         // Auto-transfer to oldest remaining member — query inside the transaction
         // to avoid a race where the candidate leaves between the read and the write.
@@ -608,7 +607,8 @@ export async function banFromClass(
   if (!session) return { error: "Not authenticated." };
 
   if (userId === session.user.id) return { error: "You cannot ban yourself." };
-  if (reason && reason.length > 500) return { error: "Ban reason must be 500 characters or fewer." };
+  if (reason && reason.length > 500)
+    return { error: "Ban reason must be 500 characters or fewer." };
 
   try {
     const cls = await db
@@ -899,7 +899,8 @@ export async function getActivityLog(
   topicId: string | undefined,
   offset: number,
 ) {
-  if (!Number.isInteger(offset) || offset < 0) return { error: "Invalid offset." };
+  if (!Number.isInteger(offset) || offset < 0)
+    return { error: "Invalid offset." };
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
 

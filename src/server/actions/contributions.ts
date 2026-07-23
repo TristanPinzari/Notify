@@ -27,7 +27,11 @@ import {
   requireRank,
   topicBelongsToClass,
 } from "./shared";
-import { getTemporalClient, checkTemporalReady, TASK_QUEUE } from "@/temporal/client";
+import {
+  getTemporalClient,
+  checkTemporalReady,
+  TASK_QUEUE,
+} from "@/temporal/client";
 import type { ExtractionInput } from "@/temporal/workflows";
 import { logActivity } from "@/lib/activity-log";
 
@@ -66,7 +70,10 @@ async function startExtraction(
     });
     return true;
   } catch (e) {
-    console.error(`ERROR: failed to queue extraction for contribution ${id}:`, e);
+    console.error(
+      `ERROR: failed to queue extraction for contribution ${id}:`,
+      e,
+    );
     await fail("Failed to queue extraction. Please try again.");
     return false;
   }
@@ -90,8 +97,10 @@ export async function createContribution(
   }
   const limit = await rateLimit(session.user.id, "createContribution");
   if (limit) return limit;
-  if (data.name.trim().length === 0) return { error: "Contribution name cannot be empty." };
-  if (data.name.length > 200) return { error: "Contribution name must be 200 characters or fewer." };
+  if (data.name.trim().length === 0)
+    return { error: "Contribution name cannot be empty." };
+  if (data.name.length > 200)
+    return { error: "Contribution name must be 200 characters or fewer." };
 
   let s3Key: string | undefined;
 
@@ -135,13 +144,22 @@ export async function createContribution(
         return { error: "File must be under 50 MB." };
       const buffer = Buffer.from(await data.file.arrayBuffer());
       const MIME_EXT: Record<string, string> = {
-        "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
-        "image/gif": "gif", "image/heic": "heic",
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+        "image/gif": "gif",
+        "image/heic": "heic",
         "application/pdf": "pdf",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-        "text/plain": "txt", "text/markdown": "md",
-        "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/wav": "wav",
-        "audio/ogg": "ogg", "audio/webm": "webm", "video/webm": "webm",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+          "docx",
+        "text/plain": "txt",
+        "text/markdown": "md",
+        "audio/mpeg": "mp3",
+        "audio/mp4": "m4a",
+        "audio/wav": "wav",
+        "audio/ogg": "ogg",
+        "audio/webm": "webm",
+        "video/webm": "webm",
       };
       const ext = MIME_EXT[data.file.type] ?? "bin";
       s3Key = `contributions/${topicId}/${id}.${ext}`;
@@ -544,7 +562,12 @@ export async function restartExtraction(
         name: contributions.name,
       })
       .from(contributions)
-      .where(and(eq(contributions.id, contributionId), eq(contributions.topicId, topicId)))
+      .where(
+        and(
+          eq(contributions.id, contributionId),
+          eq(contributions.topicId, topicId),
+        ),
+      )
       .limit(1);
 
     if (!contribution[0]) return { error: "This contribution does not exist." };
@@ -553,9 +576,15 @@ export async function restartExtraction(
     const [locked] = await db
       .update(contributions)
       .set({ status: "processing" })
-      .where(and(eq(contributions.id, contributionId), ne(contributions.status, "processing")))
+      .where(
+        and(
+          eq(contributions.id, contributionId),
+          ne(contributions.status, "processing"),
+        ),
+      )
       .returning({ id: contributions.id });
-    if (!locked) return { error: "This contribution is already being processed." };
+    if (!locked)
+      return { error: "This contribution is already being processed." };
 
     const queued = await startExtraction(
       contributionId,
@@ -564,7 +593,8 @@ export async function restartExtraction(
       contribution[0].url || undefined,
     );
 
-    if (!queued) return { error: "Extraction service is unavailable. Try again shortly." };
+    if (!queued)
+      return { error: "Extraction service is unavailable. Try again shortly." };
 
     logActivity(
       classId,
@@ -706,7 +736,9 @@ export async function editContribution(
     }
 
     if (data.text !== undefined && contribution.type !== "custom") {
-      return { error: "Text can only be manually set on custom contributions." };
+      return {
+        error: "Text can only be manually set on custom contributions.",
+      };
     }
 
     await db

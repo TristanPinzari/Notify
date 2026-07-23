@@ -183,22 +183,26 @@ export const classBans = pgTable(
   (t) => [unique().on(t.classId, t.bannedUserId)],
 );
 
-export const topics = pgTable("topics", {
-  id: text("id").primaryKey(),
-  classId: text("class_id")
-    .notNull()
-    .references(() => classes.id, { onDelete: "cascade" }),
-  name: text("name").notNull().default("Untitled topic"),
-  createdBy: text("created_by").references(() => user.id, {
-    onDelete: "set null",
-  }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-}, (t) => [index("topics_classId_idx").on(t.classId)]);
+export const topics = pgTable(
+  "topics",
+  {
+    id: text("id").primaryKey(),
+    classId: text("class_id")
+      .notNull()
+      .references(() => classes.id, { onDelete: "cascade" }),
+    name: text("name").notNull().default("Untitled topic"),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("topics_classId_idx").on(t.classId)],
+);
 
 export const masterDocuments = pgTable("master_documents", {
   id: text("id").primaryKey(),
@@ -284,21 +288,27 @@ export const compilationSources = pgTable(
   (t) => [index("compilation_sources_master_doc_idx").on(t.masterDocumentId)],
 );
 
-export const activityLogs = pgTable("activity_logs", {
-  id: text("id").primaryKey(),
-  classId: text("class_id")
-    .notNull()
-    .references(() => classes.id, { onDelete: "cascade" }),
-  topicId: text("topic_id").references(() => topics.id, {
-    onDelete: "set null",
-  }),
-  userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
-  action: text("action").notNull(),
-  metadata: text("metadata"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-}, (t) => [index("activity_logs_classId_createdAt_idx").on(t.classId, t.createdAt)]);
+export const activityLogs = pgTable(
+  "activity_logs",
+  {
+    id: text("id").primaryKey(),
+    classId: text("class_id")
+      .notNull()
+      .references(() => classes.id, { onDelete: "cascade" }),
+    topicId: text("topic_id").references(() => topics.id, {
+      onDelete: "set null",
+    }),
+    userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+    action: text("action").notNull(),
+    metadata: text("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("activity_logs_classId_createdAt_idx").on(t.classId, t.createdAt),
+  ],
+);
 
 // BetterAuth
 export const session = pgTable(

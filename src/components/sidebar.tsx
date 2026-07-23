@@ -44,7 +44,6 @@ type Props = {
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
-
 export function Sidebar({ user, initialClasses }: Props) {
   const { data: classes = [] } = useSWR<SidebarClass[]>(
     "/api/sidebar",

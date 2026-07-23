@@ -3,6 +3,7 @@ import { Client, Connection } from "@temporalio/client";
 import {
   extractText,
   cleanOrphanedFiles,
+  cleanOrphanedClasses,
   cleanStuckContributions,
   cleanStuckMasterDocuments,
   cleanOldLogs,
@@ -19,6 +20,7 @@ async function main() {
     activities: {
       extractText,
       cleanOrphanedFiles,
+      cleanOrphanedClasses,
       cleanStuckContributions,
       cleanStuckMasterDocuments,
       cleanOldLogs,
@@ -31,7 +33,10 @@ async function main() {
   });
 
   const clientConnection = await Connection.connect(connectionOptions());
-  const client = new Client({ connection: clientConnection, namespace: NAMESPACE });
+  const client = new Client({
+    connection: clientConnection,
+    namespace: NAMESPACE,
+  });
 
   try {
     await client.schedule.create({
@@ -108,9 +113,32 @@ async function main() {
     }
   }
 
+  try {
+    await client.schedule.create({
+      scheduleId: "purge-orphaned-classes",
+      spec: { cronExpressions: ["0 3 1 * *"] },
+      action: {
+        type: "startWorkflow",
+        workflowType: "purgeOrphanedClasses",
+        taskQueue: TASK_QUEUE,
+      },
+    });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message.includes("already exists")) {
+      // schedule persists across restarts, this is expected
+    } else {
+      console.error(
+        "ERROR: Failed to create purgeOrphanedClasses schedule: ",
+        e,
+      );
+    }
+  }
+
   await clientConnection.close();
 
-  console.log(`Temporal worker started, listening on task queue: ${TASK_QUEUE}`);
+  console.log(
+    `Temporal worker started, listening on task queue: ${TASK_QUEUE}`,
+  );
   await worker.run();
 }
 

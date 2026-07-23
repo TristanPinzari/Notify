@@ -56,7 +56,8 @@ function SourceLink({
 function parseSources(raw: string): SrcRef[] {
   const results: SrcRef[] = [];
   let lastEnd = 0;
-  const re = /\|\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
+  const re =
+    /\|\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(raw)) !== null) {
     const name = raw
@@ -168,7 +169,11 @@ function parseBlocks(md: string, nameById?: Map<string, string>): Block[] {
     if (/^\s*<conflict/.test(line)) {
       let buf = line;
       let accumulated = 0;
-      while (!/<\/conflict>/.test(buf) && i + 1 < lines.length && accumulated < 30) {
+      while (
+        !/<\/conflict>/.test(buf) &&
+        i + 1 < lines.length &&
+        accumulated < 30
+      ) {
         i++;
         accumulated++;
         buf += "\n" + lines[i];
@@ -332,7 +337,11 @@ function SourceGroup({
   staticMode?: boolean;
 }) {
   if (staticMode)
-    return <sup className="src-cite-static">[{sources.map((s) => s.n).join(", ")}]</sup>;
+    return (
+      <sup className="src-cite-static">
+        [{sources.map((s) => s.n).join(", ")}]
+      </sup>
+    );
   return (
     <span className="src-group">
       <MultiSourceIcon />
@@ -366,7 +375,13 @@ function Flagged({
   staticMode?: boolean;
 }) {
   if (staticMode)
-    return correction && !original ? <>{children} <em>({correction})</em></> : <>{children}</>;
+    return correction && !original ? (
+      <>
+        {children} <em>({correction})</em>
+      </>
+    ) : (
+      <>{children}</>
+    );
   const tipLabel = original
     ? "Original claim"
     : correction
@@ -433,7 +448,10 @@ function Conflict({
             {sources.map((s, i) => (
               <span key={i} className="vsitem">
                 {i > 0 && <span className="vs">vs</span>}
-                <SourceLink href={sourceHref(s.id, classId ?? "", topicId ?? "")} className="cside">
+                <SourceLink
+                  href={sourceHref(s.id, classId ?? "", topicId ?? "")}
+                  className="cside"
+                >
                   {s.name}
                 </SourceLink>
               </span>
@@ -444,7 +462,9 @@ function Conflict({
       <div className="cbody">{children}</div>
       {verdict && (
         <div className="cverdict">
-          <span className="vci"><SparkleIcon size={12} /></span>
+          <span className="vci">
+            <SparkleIcon size={12} />
+          </span>
           <span className="vtxt">{verdict}</span>
         </div>
       )}
@@ -481,7 +501,11 @@ function Resolved({
         {sources.length > 0 && (
           <span className="rtip-sources">
             {sources.map((s, i) => (
-              <SourceLink key={i} href={sourceHref(s.id, classId ?? "", topicId ?? "")} className="rtip-src">
+              <SourceLink
+                key={i}
+                href={sourceHref(s.id, classId ?? "", topicId ?? "")}
+                className="rtip-src"
+              >
                 {s.name}
               </SourceLink>
             ))}
@@ -489,7 +513,9 @@ function Resolved({
         )}
         {verdict && (
           <span className="rtip-verdict">
-            <span className="rtip-vci"><SparkleIcon size={10} /></span>
+            <span className="rtip-vci">
+              <SparkleIcon size={10} />
+            </span>
             {verdict}
           </span>
         )}
@@ -503,7 +529,13 @@ function Resolved({
 const INLINE_RE =
   /<flagged(?<flaggedAttrs>\s[^>]*)?>(?<flaggedInner>[\s\S]*?)<\/flagged>|<resolved(?<resolvedAttrs>\s[^>]*)?>(?<resolvedInner>[\s\S]*?)<\/resolved>|<math>(?<mathTex>[\s\S]*?)<\/math>|\*\*(?<boldInner>[^*]+)\*\*|\*(?<italicStar>[^*\n]+)\*|_(?<italicUnder>[^_\n]+)_|<q>(?<quoteInner>[\s\S]*?)<\/q>/;
 
-function renderInline(text: string, k = 0, classId = "", topicId = "", staticMode = false): React.ReactNode[] {
+function renderInline(
+  text: string,
+  k = 0,
+  classId = "",
+  topicId = "",
+  staticMode = false,
+): React.ReactNode[] {
   const out: React.ReactNode[] = [];
   let rest = text;
   while (rest.length) {
@@ -538,7 +570,13 @@ function renderInline(text: string, k = 0, classId = "", topicId = "", staticMod
           topicId={topicId}
           staticMode={staticMode}
         >
-          {renderInline(g.resolvedInner, k + 1000, classId, topicId, staticMode)}
+          {renderInline(
+            g.resolvedInner,
+            k + 1000,
+            classId,
+            topicId,
+            staticMode,
+          )}
         </Resolved>,
       );
     } else if (m[0].startsWith("<math>")) {
@@ -586,13 +624,16 @@ function renderBlocks(
     }));
     if (resolved.length === 1) {
       const { n, name, href } = resolved[0];
-      return <SourceCite n={n} name={name} href={href} staticMode={staticMode} />;
+      return (
+        <SourceCite n={n} name={name} href={href} staticMode={staticMode} />
+      );
     }
     return <SourceGroup sources={resolved} staticMode={staticMode} />;
   }
 
   function renderWithCite(text: string, srcs: SrcRef[]): React.ReactNode {
-    if (srcs.length === 0) return renderInline(text, 0, classId, topicId, staticMode);
+    if (srcs.length === 0)
+      return renderInline(text, 0, classId, topicId, staticMode);
     return (
       <>
         {renderInline(text, 0, classId, topicId, staticMode)}
@@ -617,7 +658,13 @@ function renderBlocks(
         break;
       case "conflict":
         out.push(
-          <Conflict key={k++} sources={b.sources} verdict={b.verdict} classId={classId} topicId={topicId}>
+          <Conflict
+            key={k++}
+            sources={b.sources}
+            verdict={b.verdict}
+            classId={classId}
+            topicId={topicId}
+          >
             {renderInline(b.inner, 0, classId, topicId, staticMode)}
           </Conflict>,
         );

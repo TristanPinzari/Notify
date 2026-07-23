@@ -18,6 +18,7 @@ const { runCompilation, generatePDF } = proxyActivities<Activities>({
 
 const {
   cleanOrphanedFiles,
+  cleanOrphanedClasses,
   cleanStuckContributions,
   cleanStuckMasterDocuments,
   cleanOldLogs,
@@ -69,4 +70,8 @@ export async function reconcileMasterDocuments(): Promise<void> {
 
 export async function purgeOldLogs(): Promise<void> {
   await cleanOldLogs();
+}
+
+export async function purgeOrphanedClasses(): Promise<void> {
+  await cleanOrphanedClasses();
 }

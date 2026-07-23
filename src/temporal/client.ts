@@ -12,7 +12,9 @@ export function connectionOptions() {
     address,
     ...(isCloud && {
       tls: true,
-      ...(process.env.TEMPORAL_API_KEY && { apiKey: process.env.TEMPORAL_API_KEY }),
+      ...(process.env.TEMPORAL_API_KEY && {
+        apiKey: process.env.TEMPORAL_API_KEY,
+      }),
     }),
   };
 }
@@ -24,7 +26,10 @@ export async function getTemporalClient(): Promise<Client> {
   return client;
 }
 
-export async function checkTemporalReady(): Promise<{ ok: boolean; reason?: string }> {
+export async function checkTemporalReady(): Promise<{
+  ok: boolean;
+  reason?: string;
+}> {
   try {
     const c = await getTemporalClient();
     const { pollers } = await c.workflowService.describeTaskQueue({
