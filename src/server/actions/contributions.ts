@@ -273,10 +273,16 @@ export async function createCustomContribution(
       return allowed;
     }
 
+    if (data.name.trim().length === 0)
+      return { error: "Contribution name cannot be empty." };
+    if (data.name.length > 200)
+      return { error: "Contribution name must be 200 characters or fewer." };
     if (!data.text) {
       console.error("ERROR: createCustomContribution called without text");
       return { error: "No text provided." };
     }
+    if (data.text.length > 50000)
+      return { error: "Text must be 50,000 characters or fewer." };
 
     const id = crypto.randomUUID();
     const [row] = await db
@@ -443,7 +449,10 @@ export async function deleteContribution(
       return { error: "Contribution does not exist in this class." };
     }
 
-    if (contribution.uploadedBy !== session.user.id) {
+    if (contribution.uploadedBy === session.user.id) {
+      const rank = await getUserRank(classId, session.user.id);
+      if (!rank) return { error: "You are not a member of this class." };
+    } else {
       const [cls] = await db
         .select({
           minRankDeleteContribution: classes.minRankDeleteContribution,
@@ -735,10 +744,17 @@ export async function editContribution(
       }
     }
 
-    if (data.text !== undefined && contribution.type !== "custom") {
-      return {
-        error: "Text can only be manually set on custom contributions.",
-      };
+    if (data.name !== undefined) {
+      if (data.name.trim().length === 0)
+        return { error: "Contribution name cannot be empty." };
+      if (data.name.length > 200)
+        return { error: "Contribution name must be 200 characters or fewer." };
+    }
+    if (data.text !== undefined) {
+      if (data.text.length > 50000)
+        return { error: "Text must be 50,000 characters or fewer." };
+      if (contribution.type !== "custom")
+        return { error: "Text can only be manually set on custom contributions." };
     }
 
     await db

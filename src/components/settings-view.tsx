@@ -415,12 +415,14 @@ function ActivityLog({
     if (loadingMore || !hasMore) return;
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - 60) {
       setLoadingMore(true);
-      getActivityLog(classId, topicId, entries.length).then((res) => {
-        setLoadingMore(false);
-        if ("error" in res) return;
-        setEntries((prev) => [...prev, ...res.entries]);
-        setHasMore(res.hasMore);
-      });
+      getActivityLog(classId, topicId, entries.length)
+        .then((res) => {
+          setLoadingMore(false);
+          if ("error" in res) return;
+          setEntries((prev) => [...prev, ...res.entries]);
+          setHasMore(res.hasMore);
+        })
+        .catch(() => setLoadingMore(false));
     }
   }
 
@@ -702,7 +704,7 @@ function LeaveClassModal({
                 >
                   {transfer
                     ? "The oldest member becomes the new owner"
-                    : "Class will have no owner"}
+                    : "No owner — deleted after 6 months of inactivity"}
                 </p>
               </div>
               <Toggle
@@ -762,9 +764,9 @@ function TransferOwnershipModal({
   useEscapeKey(() => saving === null && onClose());
 
   useEffect(() => {
-    getMembersForTransfer(classId).then((res) => {
-      if ("success" in res) setMembers(res.members);
-    });
+    getMembersForTransfer(classId)
+      .then((res) => { if ("success" in res) setMembers(res.members); })
+      .catch(() => {});
   }, [classId]);
 
   const filtered =
@@ -1041,6 +1043,7 @@ export default function SettingsView({
     const res = await regenerateCode(classId);
     setRegenLoading(false);
     if ("success" in res && res.success && res.code) setCode(res.code);
+    else if ("error" in res) toast.error(res.error);
   }
 
   const canDeleteTopic = topic?.canDelete ?? false;

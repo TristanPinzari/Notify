@@ -6,8 +6,8 @@ import { getResend } from "@/lib/resend";
 import { renderDigest } from "@/lib/emails";
 import type { ClassDigest } from "@/lib/emails";
 import { MEMBER_LOSS_ACTIONS } from "@/lib/activity-log";
+import { FROM } from "@/lib/notifications";
 
-const FROM = "Notify <notifications@notifyy.ca>";
 const BATCH_SIZE = 100;
 
 const activityTotal = (c: ClassDigest) =>

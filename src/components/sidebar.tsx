@@ -35,14 +35,17 @@ const BADGE_COLORS = [
 ];
 
 import type { SidebarClass } from "@/server/queries/sidebar";
-export type { SidebarClass } from "@/server/queries/sidebar";
 
 type Props = {
   user: { name: string; email: string; image?: string | null };
   initialClasses: SidebarClass[];
 };
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const fetcher = (url: string) =>
+  fetch(url).then((r) => {
+    if (!r.ok) throw new Error("Failed to fetch sidebar data.");
+    return r.json();
+  });
 
 export function Sidebar({ user, initialClasses }: Props) {
   const { data: classes = [] } = useSWR<SidebarClass[]>(

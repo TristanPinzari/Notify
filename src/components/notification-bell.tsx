@@ -89,21 +89,22 @@ function NotifIcon({ type }: { type: string }) {
 }
 
 function notifText(type: string, p: NotifPayload): string {
+  const cls = p.className ?? "a class";
   switch (type) {
     case "rank_changed":
-      return `Your role in ${p.className} changed to ${p.newRank}`;
+      return `Your role in ${cls} changed to ${p.newRank ?? "a new role"}`;
     case "compilation_completed":
-      return `New master doc for ${p.topicName} in ${p.className}`;
+      return `New master doc for ${p.topicName ?? "a topic"} in ${cls}`;
     case "member_kicked":
-      return `${p.actorName} removed you from ${p.className}`;
+      return `${p.actorName ?? "Someone"} removed you from ${cls}`;
     case "member_banned":
-      return `${p.actorName} banned you from ${p.className}`;
+      return `${p.actorName ?? "Someone"} banned you from ${cls}`;
     case "member_unbanned":
-      return `${p.actorName} lifted your ban in ${p.className}`;
+      return `${p.actorName ?? "Someone"} lifted your ban in ${cls}`;
     case "class_invitation":
-      return `${p.inviterName} invited you to ${p.className}`;
+      return `${p.inviterName ?? "Someone"} invited you to ${cls}`;
     case "next_owner_left":
-      return `Your successor ${p.memberName} left ${p.className}. Please designate a new one.`;
+      return `Your successor ${p.memberName ?? "a member"} left ${cls}. Please designate a new one.`;
     default:
       return "New notification";
   }
@@ -125,14 +126,13 @@ export function NotificationBell({ classId }: { classId?: string }) {
   }
 
   useEffect(() => {
-    getNotifications().then(setNotifs);
+    getNotifications().then(setNotifs).catch(() => {});
   }, []);
 
   useEffect(() => {
-    if (open && classId && classPrefs === null) {
-      getClassNotifPrefs(classId).then(setClassPrefs);
-    }
-  }, [open, classId, classPrefs]);
+    if (!open || !classId) return;
+    getClassNotifPrefs(classId).then(setClassPrefs).catch(() => {});
+  }, [open, classId]);
 
   useEffect(() => {
     if (!open) return;
@@ -171,7 +171,10 @@ export function NotificationBell({ classId }: { classId?: string }) {
   async function toggleClassPref(key: keyof ClassNotifPrefs, value: boolean) {
     if (!classId) return;
     setClassPrefs((p) => (p ? { ...p, [key]: value } : p));
-    await updateClassNotification(classId, key, value);
+    const res = await updateClassNotification(classId, key, value);
+    if (res && "error" in res) {
+      setClassPrefs((p) => (p ? { ...p, [key]: !value } : p));
+    }
   }
 
   const hasUnread = notifs?.some((n) => !n.readAt) ?? false;

@@ -1177,7 +1177,7 @@ export default function MembersView({
                 type="text"
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSendInvites()}
+                onKeyDown={(e) => e.key === "Enter" && !sending && handleSendInvites()}
                 placeholder="student@email.com, another@email.com"
                 className="flex-1 bg-(--paper-deep) border border-(--line) rounded-[10px] py-2.25 px-3.5 text-[13.5px] text-(--ink-body) placeholder:text-(--ink-fainter) outline-none focus:border-(--accent)"
               />

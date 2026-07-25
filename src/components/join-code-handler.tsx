@@ -13,19 +13,21 @@ export function JoinCodeHandler({ code }: { code: string }) {
   useEffect(() => {
     if (joining.current) return;
     joining.current = true;
-    joinClass(code).then((res) => {
-      if ("alreadyMember" in res) {
+    joinClass(code)
+      .then((res) => {
+        if ("alreadyMember" in res) {
+          router.replace(`/home/${res.id}`);
+          return;
+        }
+        if ("error" in res) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success("Joined class!");
+        mutate("/api/sidebar");
         router.replace(`/home/${res.id}`);
-        return;
-      }
-      if ("error" in res) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success("Joined class!");
-      mutate("/api/sidebar");
-      router.replace(`/home/${res.id}`);
-    });
+      })
+      .catch(() => toast.error("Something went wrong."));
   }, [code, router]);
 
   return null;

@@ -558,23 +558,6 @@ export function PdfIcon() {
   );
 }
 
-export function ProfileIcon() {
-  return (
-    <svg
-      width="17"
-      height="17"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 21v-1a6 6 0 0 1 12 0v1" />
-    </svg>
-  );
-}
 
 export function BellIcon({ size = 17 }: { size?: number } = {}) {
   return (
@@ -1106,41 +1089,6 @@ export function SunRaysIcon({ size = 16 }: { size?: number } = {}) {
   );
 }
 
-export function SunIcon({ size = 22 }: { size?: number } = {}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-export function TaskCheckIcon({ size = 22 }: { size?: number } = {}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M9 11l3 3L22 4" />
-      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-    </svg>
-  );
-}
 
 export function FileIcon({ size = 16 }: { size?: number } = {}) {
   return (

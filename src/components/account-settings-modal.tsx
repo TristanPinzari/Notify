@@ -365,7 +365,7 @@ function DeleteAccountModal({ onClose }: { onClose: () => void }) {
   const [noTransfer, setNoTransfer] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    getAccountDeletionPreview().then(setPreview);
+    getAccountDeletionPreview().then(setPreview).catch(() => {});
   }, []);
 
   function toggleTransfer(id: string) {
@@ -381,38 +381,44 @@ function DeleteAccountModal({ onClose }: { onClose: () => void }) {
   const willTransfer = preview?.willTransfer ?? [];
 
   async function confirm() {
+    if (deleting) return;
     setDeleting(true);
-    const decisions = [
-      ...willTransfer.map((c) => ({
-        classId: c.id,
-        transfer: !noTransfer.has(c.id),
-      })),
-      ...willDelete.map((c) => ({
-        classId: c.id,
-        transfer: true as const,
-      })),
-    ];
-    const res = await deleteAccount(decisions);
-    if ("error" in res) {
-      if ("code" in res && res.code === "OUT_OF_SYNC") {
-        setNoTransfer(new Set());
-        setPreview(null);
-        getAccountDeletionPreview().then(setPreview);
-        toast.warning(
-          "Your class list changed. Please review and confirm again.",
-        );
-      } else {
-        toast.error(res.error);
-      }
-      setDeleting(false);
-      return;
-    }
     try {
-      await authClient.signOut();
+      const decisions = [
+        ...willTransfer.map((c) => ({
+          classId: c.id,
+          transfer: !noTransfer.has(c.id),
+        })),
+        ...willDelete.map((c) => ({
+          classId: c.id,
+          transfer: true as const,
+        })),
+      ];
+      const res = await deleteAccount(decisions);
+      if ("error" in res) {
+        if ("code" in res && res.code === "OUT_OF_SYNC") {
+          setNoTransfer(new Set());
+          setPreview(null);
+          getAccountDeletionPreview().then(setPreview).catch(() => {});
+          toast.warning(
+            "Your class list changed. Please review and confirm again.",
+          );
+        } else {
+          toast.error(res.error);
+        }
+        setDeleting(false);
+        return;
+      }
+      try {
+        await authClient.signOut();
+      } catch {
+        // session already gone — ignore
+      }
+      router.push("/");
     } catch {
-      // session already gone — ignore
+      toast.error("Something went wrong.");
+      setDeleting(false);
     }
-    router.push("/");
   }
 
   return (
@@ -496,7 +502,7 @@ function DeleteAccountModal({ onClose }: { onClose: () => void }) {
           placeholder={DELETE_PHRASE}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && text === DELETE_PHRASE) confirm();
+            if (e.key === "Enter" && text === DELETE_PHRASE && !deleting) confirm();
           }}
         />
         <div className="del-actions">

@@ -170,30 +170,33 @@ export function MasterDocView({
     const interval = setInterval(async () => {
       if (fetching) return;
       fetching = true;
-      const res = await getMasterDocumentStatus(compilingDocId);
-      fetching = false;
-      if ("error" in res) return;
-      if (res.status !== "compiling") {
-        clearInterval(interval);
-        setDocs((prev) =>
-          prev.map((d) =>
-            d.id === compilingDocId
-              ? {
-                  ...d,
-                  status: res.status as DocStatus,
-                  content: res.content,
-                  failureReason: res.failureReason,
-                  sources: res.sources,
-                  sourceIds: res.sourceIds,
-                  deletedSourceNames: res.deletedSourceNames,
-                  contributorIds: res.contributorIds,
-                  pdfStatus: res.pdfStatus,
-                  manuallyEdited: res.manuallyEdited,
-                }
-              : d,
-          ),
-        );
-        setCompiling(false);
+      try {
+        const res = await getMasterDocumentStatus(compilingDocId);
+        if ("error" in res) return;
+        if (res.status !== "compiling") {
+          clearInterval(interval);
+          setDocs((prev) =>
+            prev.map((d) =>
+              d.id === compilingDocId
+                ? {
+                    ...d,
+                    status: res.status as DocStatus,
+                    content: res.content,
+                    failureReason: res.failureReason,
+                    sources: res.sources,
+                    sourceIds: res.sourceIds,
+                    deletedSourceNames: res.deletedSourceNames,
+                    contributorIds: res.contributorIds,
+                    pdfStatus: res.pdfStatus,
+                    manuallyEdited: res.manuallyEdited,
+                  }
+                : d,
+            ),
+          );
+          setCompiling(false);
+        }
+      } finally {
+        fetching = false;
       }
     }, 3000);
 
@@ -210,18 +213,21 @@ export function MasterDocView({
     const interval = setInterval(async () => {
       if (fetching) return;
       fetching = true;
-      const res = await getMasterDocumentStatus(pdfPollingId);
-      fetching = false;
-      if ("error" in res) return;
-      if (res.pdfStatus !== "generating") {
-        clearInterval(interval);
-        setDocs((prev) =>
-          prev.map((d) =>
-            d.id === pdfPollingId
-              ? { ...d, pdfStatus: res.pdfStatus ?? "failed" }
-              : d,
-          ),
-        );
+      try {
+        const res = await getMasterDocumentStatus(pdfPollingId);
+        if ("error" in res) return;
+        if (res.pdfStatus !== "generating") {
+          clearInterval(interval);
+          setDocs((prev) =>
+            prev.map((d) =>
+              d.id === pdfPollingId
+                ? { ...d, pdfStatus: res.pdfStatus ?? "failed" }
+                : d,
+            ),
+          );
+        }
+      } finally {
+        fetching = false;
       }
     }, 3000);
 

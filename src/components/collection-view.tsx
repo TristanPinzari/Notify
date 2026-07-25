@@ -766,7 +766,6 @@ function RecordPanel({
     );
   }
 
-  // added
   return (
     <div className="flex flex-col items-center gap-4 py-7 bg-(--paper) border border-(--line) rounded-xl text-center">
       <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-(--accent-text) bg-(--accent-soft) border border-[rgba(196,121,24,0.22)] px-2.5 py-1 rounded-full">
@@ -1309,23 +1308,23 @@ export default function CollectionView({
   useEffect(() => {
     const interval = setInterval(async () => {
       if (!filesRef.current.some((f) => f.status === "processing")) return;
-
-      const result = await getContributionStatuses(classId, topicId);
-      if ("error" in result) return;
-
-      const byId = new Map(result.statuses.map((s) => [s.id, s]));
-      setFiles((fs) =>
-        fs.map((f) => {
-          const s = byId.get(f.id);
-          if (!s) return f;
-          return {
-            ...f,
-            name: s.name,
-            status: s.status,
-            failureReason: s.failureReason,
-          };
-        }),
-      );
+      try {
+        const result = await getContributionStatuses(classId, topicId);
+        if ("error" in result) return;
+        const byId = new Map(result.statuses.map((s) => [s.id, s]));
+        setFiles((fs) =>
+          fs.map((f) => {
+            const s = byId.get(f.id);
+            if (!s) return f;
+            return {
+              ...f,
+              name: s.name,
+              status: s.status,
+              failureReason: s.failureReason,
+            };
+          }),
+        );
+      } catch {}
     }, POLL_INTERVAL_MS);
 
     return () => clearInterval(interval);

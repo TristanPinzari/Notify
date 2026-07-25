@@ -1,6 +1,6 @@
 import type { CompilationSettings } from "@/server/actions/master-documents";
 
-export type ContributionForPrompt = {
+type ContributionForPrompt = {
   id: string;
   name: string;
   text: string;

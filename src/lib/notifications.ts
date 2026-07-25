@@ -22,7 +22,7 @@ import {
 import { getBaseUrl } from "@/lib/utils";
 import type { ActivityPayload } from "@/lib/activity-log";
 
-const FROM = "Notify <notifications@notifyy.ca>";
+export const FROM = "Notify <notifications@notifyy.ca>";
 
 async function notifyRemoval(
   classId: string,

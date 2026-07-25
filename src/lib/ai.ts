@@ -17,7 +17,7 @@ function normalizeInlineTags(text: string): string {
   );
 }
 
-export function extractMessage(err: unknown): string {
+function extractMessage(err: unknown): string {
   if (!(err instanceof Error)) return "An unexpected error occurred.";
   if (err.message.startsWith("{")) {
     try {

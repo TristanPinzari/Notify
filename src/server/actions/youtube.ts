@@ -65,10 +65,7 @@ export async function getPlaylistInfo(url: string) {
   const itemsRes = await fetch(
     `https://www.googleapis.com/youtube/v3/playlistItems?playlistId=${playlistId}&part=snippet&maxResults=50&key=${process.env.YOUTUBE_API_KEY}`,
   );
-  if (!itemsRes.ok) {
-    const body = await itemsRes.json();
-    return { error: body.error?.message || "Failed to fetch playlist." };
-  }
+  if (!itemsRes.ok) return { error: "Failed to fetch playlist." };
   const itemsData = (await itemsRes.json()) as {
     items: YoutubePlaylistItem[];
   };

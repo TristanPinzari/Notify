@@ -69,24 +69,24 @@ export async function createClass(name: string) {
     const code = await generateUniqueCode();
 
     const classId = crypto.randomUUID();
-    const [, userPrefsRows] = await Promise.all([
-      db.insert(classes).values({ id: classId, name, code }),
-      db
-        .select({
-          notifyRankChange: user.notifyRankChange,
-          notifyMasterDoc: user.notifyMasterDoc,
-          notifyDigest: user.notifyDigest,
-        })
-        .from(user)
-        .where(eq(user.id, session.user.id))
-        .limit(1),
-    ]);
-    const notifDefaults = userPrefsRows[0] ?? DEFAULT_NOTIF_PREFS;
-    await db.insert(userClasses).values({
-      userId: session.user.id,
-      classId,
-      rank: "owner",
-      ...notifDefaults,
+    const [userPrefs] = await db
+      .select({
+        notifyRankChange: user.notifyRankChange,
+        notifyMasterDoc: user.notifyMasterDoc,
+        notifyDigest: user.notifyDigest,
+      })
+      .from(user)
+      .where(eq(user.id, session.user.id))
+      .limit(1);
+    const notifDefaults = userPrefs ?? DEFAULT_NOTIF_PREFS;
+    await db.transaction(async (tx) => {
+      await tx.insert(classes).values({ id: classId, name, code });
+      await tx.insert(userClasses).values({
+        userId: session.user.id,
+        classId,
+        rank: "owner",
+        ...notifDefaults,
+      });
     });
 
     return { success: true, id: classId };
@@ -347,7 +347,7 @@ export async function leaveClass(classId: string, transfer = true) {
         )
         .limit(1);
       if (ownerRow) {
-        const className = cls!.name;
+        const className = cls?.name;
         const memberName = session.user.name;
         after(async () => {
           await db.insert(notifications).values({
@@ -425,19 +425,19 @@ export async function transferOwnership(classId: string) {
       return { error: "Designate a successor before transferring." };
 
     const nextOwnerId = cls.nextOwnerId;
-    const [nextOwnerRow] = await db
-      .select({ name: user.name, rank: userClasses.rank })
-      .from(userClasses)
-      .innerJoin(user, eq(userClasses.userId, user.id))
-      .where(
-        and(
-          eq(userClasses.classId, classId),
-          eq(userClasses.userId, nextOwnerId),
-        ),
-      )
-      .limit(1);
-
-    await db.transaction(async (tx) => {
+    const nextOwnerRow = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ name: user.name, rank: userClasses.rank })
+        .from(userClasses)
+        .innerJoin(user, eq(userClasses.userId, user.id))
+        .where(
+          and(
+            eq(userClasses.classId, classId),
+            eq(userClasses.userId, nextOwnerId),
+          ),
+        )
+        .limit(1);
+      if (!row) throw new Error("Successor has left the class.");
       await tx
         .update(userClasses)
         .set({ rank: "owner" })
@@ -460,16 +460,15 @@ export async function transferOwnership(classId: string) {
         .update(classes)
         .set({ nextOwnerId: null })
         .where(eq(classes.id, classId));
+      return row;
     });
 
-    if (nextOwnerRow) {
-      logActivity(classId, session.user.id, {
-        action: "rank_changed",
-        target: { id: nextOwnerId, name: nextOwnerRow.name },
-        rank: "owner",
-        oldRank: nextOwnerRow.rank,
-      });
-    }
+    logActivity(classId, session.user.id, {
+      action: "rank_changed",
+      target: { id: nextOwnerId, name: nextOwnerRow.name },
+      rank: "owner",
+      oldRank: nextOwnerRow.rank,
+    });
     logActivity(classId, session.user.id, {
       action: "rank_changed",
       target: { id: session.user.id, name: session.user.name },
