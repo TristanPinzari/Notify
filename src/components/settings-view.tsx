@@ -494,6 +494,7 @@ function DeleteTopicModal({
       toast.error(res.error);
       return;
     }
+    toast.success("Topic deleted.");
     mutate("/api/sidebar");
     router.push(`/home/${classId}`);
   }
@@ -781,6 +782,7 @@ function TransferOwnershipModal({
     if ("error" in res) {
       toast.error(res.error);
     } else {
+      toast.success(`Successor set to ${name}.`);
       onSelect(id, name);
     }
   }
@@ -978,6 +980,7 @@ export default function SettingsView({
     if ("error" in res) {
       toast.error(res.error);
     } else {
+      toast.success("Successor cleared.");
       setSuccessor(null);
     }
   }
@@ -1042,8 +1045,10 @@ export default function SettingsView({
     setRegenLoading(true);
     const res = await regenerateCode(classId);
     setRegenLoading(false);
-    if ("success" in res && res.success && res.code) setCode(res.code);
-    else if ("error" in res) toast.error(res.error);
+    if ("success" in res && res.success && res.code) {
+      setCode(res.code);
+      toast.info("New code generated. Old invite links no longer work.");
+    } else if ("error" in res) toast.error(res.error);
   }
 
   const canDeleteTopic = topic?.canDelete ?? false;

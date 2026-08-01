@@ -323,6 +323,7 @@ export function MasterDocView({
     setDocs(remaining);
     setActiveId(remaining[0]?.id ?? null);
     setShowActions(false);
+    toast.success("Document deleted.");
   }
 
   function cancelEdit() {
