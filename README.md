@@ -40,14 +40,16 @@ The original version was built during my first year of university as a side proj
 2. **Topics** — Each class has topics (e.g. "Midterm 1", "Chapter 4"). Topics are the unit of organisation.
 
 3. **Collection** — Members contribute sources to a topic's collection. Sources can be:
-   - PDFs, text files, markdown files
-   - Images (handwriting OCR via Mistral)
-   - Audio recordings (speech-to-text via Mistral)
-   - YouTube videos (transcript extraction)
-   - Web articles (scraped)
-   - Word documents (.docx)
+   - PDFs, Word documents (.docx), text files, markdown files
+   - Images (handwriting and printed text extracted via OCR — Mistral)
+   - **In-app audio recording** — record directly in the browser with a waveform visualizer, pause/resume support, and a review step before uploading. Transcribed automatically on upload via Mistral.
+   - Audio file uploads (speech-to-text via Mistral)
+   - **YouTube videos** — paste a single video URL; transcript extracted automatically
+   - **YouTube playlists** — paste a playlist URL and every video in it is staged at once, each transcribed individually
+   - Web articles (scraped; SSRF-protected — private/internal addresses are blocked)
+   - Custom text — type or paste text directly as a source, no file needed
 
-   Each source shows a processing status. Extracted text can be manually edited. Sources can be pinned as a "source of truth" — pinned sources are always prioritised by the compiler and trusted over conflicting information from unpinned ones.
+   Each source shows a live processing status. Extracted text can be manually reviewed and corrected before compilation. Sources can be re-processed with a different extraction method at any time. Sources can be pinned as a "source of truth" — pinned sources are always prioritised by the compiler and trusted over conflicting information from unpinned ones.
 
 4. **Extraction** — When a source is added, a Temporal workflow kicks off in the background to extract its text. Each source shows a processing status and can be re-extracted once done.
 
@@ -60,9 +62,13 @@ The original version was built during my first year of university as a side proj
 
    Compilation is incremental by default — only new sources are merged into the existing document rather than recompiling everything from scratch. The last three compiled documents are kept per topic. Master documents can be manually edited after compilation and exported as a PDF (rendered via Puppeteer).
 
-6. **Notifications** — Members receive in-app and email notifications for: new master documents, role changes, kicks, bans, class invites, and digest summaries. Every notification type can be toggled per class or globally.
+6. **Notifications** — Members receive in-app and email notifications for: new master documents, role changes, kicks, bans, class invites, and weekly digest summaries. Every notification type can be toggled globally and overridden per class.
 
-7. **Activity log** — Every class and topic has a full audit log: uploads, compilations, role changes, settings edits, kicks, bans, and more. Logs older than four months are automatically pruned.
+7. **Activity log** — Every class and topic has a full audit log: uploads, compilations, role changes, settings edits, kicks, bans, renames, and more. Logs older than four months are automatically pruned.
+
+8. **Ownership transfer** — The owner can designate a successor at any time. On leaving, ownership transfers to them automatically. Without a designated successor, the owner can choose to auto-transfer to the longest-standing member or orphan the class. Orphaned classes with no activity for six months are automatically deleted.
+
+9. **Moderation** — Owners and admins can kick members (removable), ban members (blocked from rejoining, with optional reason), and unban at any time. All actions are logged.
 
 ## External APIs
 
@@ -83,7 +89,7 @@ The original version was built during my first year of university as a side proj
 - **PostgreSQL** + **Drizzle ORM**
 - **Temporal** — durable workflow engine for the extraction and compilation pipeline
 - **Tailwind CSS v4**
-- **better-auth** — authentication (email/password with email verification)
+- **better-auth** — authentication (email/password with email verification, Google OAuth)
 - **Puppeteer** — headless PDF generation for master documents
 
 ## Development
