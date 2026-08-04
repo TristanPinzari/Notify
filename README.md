@@ -1,4 +1,4 @@
-# [Notify](https://notifyy.ca/))
+# [Notify](https://notifyy.ca/)
 
 Notify is a collaborative study tool built for university classes. Students pool their learning materials — lecture notes, PDFs, recordings, YouTube videos, articles — and Notify automatically extracts the text from each one and compiles everything into a single master document per topic. The idea is that a whole class studying together produces better study material than any one person alone.
 
