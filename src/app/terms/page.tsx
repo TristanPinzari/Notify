@@ -84,9 +84,7 @@ export default function TermsPage() {
           <p>You agree not to use Notify to:</p>
           <ul className="list-disc pl-5 space-y-1.5">
             <li>Upload content you do not have the right to share</li>
-            <li>
-              Harass, impersonate, or harm other members of a class
-            </li>
+            <li>Harass, impersonate, or harm other members of a class</li>
             <li>
               Attempt to gain unauthorized access to other accounts, classes, or
               our systems
@@ -143,10 +141,13 @@ export default function TermsPage() {
 
         <Section title="Disclaimer of warranties">
           <p>
-            Notify is provided <strong className="text-(--ink-heading)">&ldquo;as is&rdquo;</strong> without
-            warranty of any kind. We make no guarantees that the service will be
-            available at all times, error-free, or that compiled documents will
-            be accurate or complete.
+            Notify is provided{" "}
+            <strong className="text-(--ink-heading)">
+              &ldquo;as is&rdquo;
+            </strong>{" "}
+            without warranty of any kind. We make no guarantees that the service
+            will be available at all times, error-free, or that compiled
+            documents will be accurate or complete.
           </p>
           <p>
             To the maximum extent permitted by applicable law, we disclaim all
@@ -157,8 +158,8 @@ export default function TermsPage() {
 
         <Section title="Limitation of liability">
           <p>
-            To the maximum extent permitted by law, Tristan Pinzari shall not
-            be liable for any indirect, incidental, special, consequential, or
+            To the maximum extent permitted by law, Tristan Pinzari shall not be
+            liable for any indirect, incidental, special, consequential, or
             punitive damages — including loss of data, loss of academic
             standing, or any other harm — arising from your use of or inability
             to use Notify, even if advised of the possibility of such damages.

@@ -126,12 +126,16 @@ export function NotificationBell({ classId }: { classId?: string }) {
   }
 
   useEffect(() => {
-    getNotifications().then(setNotifs).catch(() => {});
+    getNotifications()
+      .then(setNotifs)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
     if (!open || !classId) return;
-    getClassNotifPrefs(classId).then(setClassPrefs).catch(() => {});
+    getClassNotifPrefs(classId)
+      .then(setClassPrefs)
+      .catch(() => {});
   }, [open, classId]);
 
   useEffect(() => {

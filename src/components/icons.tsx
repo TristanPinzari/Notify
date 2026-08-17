@@ -558,7 +558,6 @@ export function PdfIcon() {
   );
 }
 
-
 export function BellIcon({ size = 17 }: { size?: number } = {}) {
   return (
     <svg
@@ -1088,7 +1087,6 @@ export function SunRaysIcon({ size = 16 }: { size?: number } = {}) {
     </svg>
   );
 }
-
 
 export function FileIcon({ size = 16 }: { size?: number } = {}) {
   return (

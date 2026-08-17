@@ -766,7 +766,9 @@ function TransferOwnershipModal({
 
   useEffect(() => {
     getMembersForTransfer(classId)
-      .then((res) => { if ("success" in res) setMembers(res.members); })
+      .then((res) => {
+        if ("success" in res) setMembers(res.members);
+      })
       .catch(() => {});
   }, [classId]);
 

@@ -365,7 +365,9 @@ function DeleteAccountModal({ onClose }: { onClose: () => void }) {
   const [noTransfer, setNoTransfer] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    getAccountDeletionPreview().then(setPreview).catch(() => {});
+    getAccountDeletionPreview()
+      .then(setPreview)
+      .catch(() => {});
   }, []);
 
   function toggleTransfer(id: string) {
@@ -399,7 +401,9 @@ function DeleteAccountModal({ onClose }: { onClose: () => void }) {
         if ("code" in res && res.code === "OUT_OF_SYNC") {
           setNoTransfer(new Set());
           setPreview(null);
-          getAccountDeletionPreview().then(setPreview).catch(() => {});
+          getAccountDeletionPreview()
+            .then(setPreview)
+            .catch(() => {});
           toast.warning(
             "Your class list changed. Please review and confirm again.",
           );
@@ -502,7 +506,8 @@ function DeleteAccountModal({ onClose }: { onClose: () => void }) {
           placeholder={DELETE_PHRASE}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && text === DELETE_PHRASE && !deleting) confirm();
+            if (e.key === "Enter" && text === DELETE_PHRASE && !deleting)
+              confirm();
           }}
         />
         <div className="del-actions">

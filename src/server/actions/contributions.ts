@@ -754,7 +754,9 @@ export async function editContribution(
       if (data.text.length > 50000)
         return { error: "Text must be 50,000 characters or fewer." };
       if (contribution.type !== "custom")
-        return { error: "Text can only be manually set on custom contributions." };
+        return {
+          error: "Text can only be manually set on custom contributions.",
+        };
     }
 
     await db
