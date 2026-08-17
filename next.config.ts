@@ -14,12 +14,6 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "cdn.notifyy.ca" },
     ],
   },
-  experimental: {
-    serverActions: {
-      bodySizeLimit: "50mb",
-    },
-    proxyClientMaxBodySize: "50mb",
-  },
 };
 
 export default withSentryConfig(nextConfig, {

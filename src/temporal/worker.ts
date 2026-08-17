@@ -2,6 +2,7 @@ import { Worker, NativeConnection } from "@temporalio/worker";
 import { Client, Connection } from "@temporalio/client";
 import {
   extractText,
+  markExtractionFailed,
   cleanOrphanedFiles,
   cleanOrphanedClasses,
   cleanStuckContributions,
@@ -19,6 +20,7 @@ async function main() {
     workflowsPath: require.resolve("./workflows"),
     activities: {
       extractText,
+      markExtractionFailed,
       cleanOrphanedFiles,
       cleanOrphanedClasses,
       cleanStuckContributions,

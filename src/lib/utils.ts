@@ -30,3 +30,7 @@ export function timeAgo(iso: string): string {
   const y = Math.floor(mo / 12);
   return `${y} year${y === 1 ? "" : "s"} ago`;
 }
+
+export function stripNullBytes(s: string): string {
+  return s.replace(/\x00/g, "");
+}

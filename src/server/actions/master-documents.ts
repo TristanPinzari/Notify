@@ -24,6 +24,7 @@ import {
   topicBelongsToClass,
 } from "./shared";
 import { logActivity } from "@/lib/activity-log";
+import { stripNullBytes } from "@/lib/utils";
 import {
   getTemporalClient,
   checkTemporalReady,
@@ -388,7 +389,7 @@ export async function updateMasterDocumentContent(
     await db
       .update(masterDocuments)
       .set({
-        content,
+        content: stripNullBytes(content),
         pdfStatus: "pending",
         pdfS3Key: null,
         manuallyEdited: true,

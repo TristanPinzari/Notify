@@ -18,6 +18,11 @@ interface YoutubePlaylistItem {
   };
 }
 
+async function ytError(res: Response, fallback: string) {
+  const body = await res.json().catch(() => null);
+  return { error: (body?.error?.message as string | undefined) ?? fallback };
+}
+
 function extractPlaylistId(url: string): string | null {
   const match = url.match(/[?&]list=([a-zA-Z0-9_-]+)/);
   return match ? match[1] : null;
@@ -42,7 +47,7 @@ export async function getVideoInfo(url: string) {
   const res = await fetch(
     `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,contentDetails&key=${process.env.YOUTUBE_API_KEY}`,
   );
-  if (!res.ok) return { error: "Failed to fetch video info." };
+  if (!res.ok) return ytError(res, "Failed to fetch video info.");
 
   const data = (await res.json()) as { items: YoutubeVideoItem[] };
   const video = data.items?.[0];
@@ -65,7 +70,7 @@ export async function getPlaylistInfo(url: string) {
   const itemsRes = await fetch(
     `https://www.googleapis.com/youtube/v3/playlistItems?playlistId=${playlistId}&part=snippet&maxResults=50&key=${process.env.YOUTUBE_API_KEY}`,
   );
-  if (!itemsRes.ok) return { error: "Failed to fetch playlist." };
+  if (!itemsRes.ok) return ytError(itemsRes, "Failed to fetch playlist.");
   const itemsData = (await itemsRes.json()) as {
     items: YoutubePlaylistItem[];
   };
@@ -79,7 +84,7 @@ export async function getPlaylistInfo(url: string) {
     `https://www.googleapis.com/youtube/v3/videos?id=${videoIds.join(",")}&part=contentDetails&key=${process.env.YOUTUBE_API_KEY}`,
   );
   if (!videosRes.ok)
-    return { error: "Failed to fetch playlist's videos' data." };
+    return ytError(videosRes, "Failed to fetch playlist video data.");
   const videosData = (await videosRes.json()) as {
     items: { id: string; contentDetails: { duration: string } }[];
   };

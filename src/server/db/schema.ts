@@ -261,7 +261,8 @@ export const contributions = pgTable(
       .defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
-      .defaultNow(),
+      .defaultNow()
+      .$onUpdate(() => new Date()),
   },
   (t) => [
     unique().on(t.topicId, t.url),

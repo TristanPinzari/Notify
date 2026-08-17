@@ -1,14 +1,20 @@
 import { proxyActivities } from "@temporalio/workflow";
+import { ActivityFailure, ApplicationFailure } from "@temporalio/common";
 import { type Activities } from "./activities";
 import { CompilationSettings } from "@/server/actions/master-documents";
 
 const { extractText } = proxyActivities<Activities>({
-  startToCloseTimeout: "10 minutes",
+  startToCloseTimeout: "90 minutes",
   retry: {
     maximumAttempts: 3,
     initialInterval: "5s",
     backoffCoefficient: 2,
   },
+});
+
+const { markExtractionFailed } = proxyActivities<Activities>({
+  startToCloseTimeout: "10 seconds",
+  retry: { maximumAttempts: 5, initialInterval: "2s", backoffCoefficient: 2 },
 });
 
 const { runCompilation, generatePDF } = proxyActivities<Activities>({
@@ -37,7 +43,16 @@ export interface ExtractionInput {
 export async function extractContribution(
   input: ExtractionInput,
 ): Promise<void> {
-  await extractText(input);
+  try {
+    await extractText(input);
+  } catch (e) {
+    const inner = e instanceof ActivityFailure ? e.cause : e;
+    const reason =
+      inner instanceof ApplicationFailure || inner instanceof Error
+        ? inner.message
+        : String(inner);
+    await markExtractionFailed(input.contributionId, reason);
+  }
 }
 
 export async function compileContributions(

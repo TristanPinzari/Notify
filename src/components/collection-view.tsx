@@ -7,8 +7,10 @@ import Link from "next/link";
 import { ContextFilterBar } from "@/components/context-filter-bar";
 import type { CType, CStatus, EMethod } from "@/server/db/schema";
 import {
-  createContribution,
+  createUrlContribution,
   createCustomContribution,
+  createFileContribution,
+  startFileExtraction,
   deleteContribution,
   editContribution,
   getContributionStatuses,
@@ -793,7 +795,10 @@ function StatusPill({
 }) {
   if (status === "processing")
     return (
-      <span className="status proc">
+      <span
+        className="status proc"
+        title="Up to 3 attempts · 90 min per attempt · Audio longer than 50 min is split automatically"
+      >
         <span className="spin-amber" />
         Processing
       </span>
@@ -851,6 +856,12 @@ function SourceRow({
   const [editing, setEditing] = useState(false);
   // undefined = not yet fetched; null = fetched, no text
   const [text, setText] = useState<string | null | undefined>(undefined);
+  const wordCount = useMemo(
+    () =>
+      text != null ? text.trim().split(/\s+/).filter(Boolean).length : null,
+    [text],
+  );
+  const charCount = text?.length ?? null;
   const [loadingText, setLoadingText] = useState(false);
   const [dName, setDName] = useState("");
   const [dMethod, setDMethod] = useState<EMethod>(f.method);
@@ -1164,7 +1175,13 @@ function SourceRow({
                   {f.type !== "custom" && (
                     <span className="inspect-meta">
                       <b>{EXTRACTION_LABELS[f.method]}</b>
-                      {text != null && ` · ${text.length} chars`}
+                      {wordCount != null && (
+                        <span
+                          title={`${charCount} ${charCount === 1 ? "char" : "chars"}`}
+                        >
+                          {` · ${wordCount} ${wordCount === 1 ? "word" : "words"}`}
+                        </span>
+                      )}
                     </span>
                   )}
                   {f.type === "custom" && text != null && (
@@ -1265,6 +1282,7 @@ export default function CollectionView({
   const searchParams = useSearchParams();
   const stageSeqRef = useRef(1000);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadingRef = useRef(false);
 
   const highlightSet = useMemo(
     () => (highlightSources ? new Set(highlightSources) : null),
@@ -1526,37 +1544,78 @@ export default function CollectionView({
   async function uploadFile(s: StagedFile) {
     setStagingState((st) => ({ ...st, [s.id]: "uploading" }));
 
-    const created =
-      s.type === "custom"
-        ? await createCustomContribution(classId, topicId, {
-            name: s.name,
-            text: s.text || "",
-          })
-        : await createContribution(classId, topicId, {
-            name: s.name,
-            type: s.type,
-            extractionMethod: s.method,
-            file: s.file,
-          });
-
-    if ("error" in created) {
-      setStagingState((st) => ({ ...st, [s.id]: "error" }));
-      toast.error(`Something went wrong while uploading ${s.name}.`);
+    if (s.type === "custom") {
+      const created = await createCustomContribution(classId, topicId, {
+        name: s.name,
+        text: s.text || "",
+      });
+      if ("error" in created) {
+        setStagingState((st) => ({ ...st, [s.id]: "error" }));
+        toast.error(`Something went wrong while uploading ${s.name}.`);
+        return;
+      }
+      toast.success(`Successfully uploaded ${s.name}.`);
+      setStaged((st) => st.filter((x) => x.id !== s.id));
+      setFiles((fs) => [
+        {
+          id: created.id,
+          type: s.type,
+          name: s.name,
+          who: "You",
+          uploaderId: currentUserId,
+          createdAt: created.createdAt,
+          method: s.method,
+          status: "ready",
+          failureReason: null,
+          manuallyEdited: false,
+          pinned: false,
+        },
+        ...fs,
+      ]);
       return;
     }
+
+    const urlResult = await createFileContribution(classId, topicId, {
+      name: s.name,
+      type: s.type,
+      extractionMethod: s.method,
+      fileType: s.file!.type,
+      fileSize: s.file!.size,
+    });
+
+    if ("error" in urlResult) {
+      setStagingState((st) => ({ ...st, [s.id]: "error" }));
+      toast.error(urlResult.error);
+      return;
+    }
+
+    try {
+      const res = await fetch(urlResult.uploadUrl, {
+        method: "PUT",
+        body: s.file,
+        headers: { "Content-Type": s.file!.type },
+      });
+      if (!res.ok) throw new Error(`S3 upload failed: ${res.status}`);
+    } catch {
+      setStagingState((st) => ({ ...st, [s.id]: "error" }));
+      toast.error(`Failed to upload ${s.name}.`);
+      return;
+    }
+
+    startFileExtraction(urlResult.id).catch(() => {});
 
     toast.success(`Successfully uploaded ${s.name}.`);
     setStaged((st) => st.filter((x) => x.id !== s.id));
     setFiles((fs) => [
       {
-        id: created.id,
+        id: urlResult.id,
         type: s.type,
         name: s.name,
         who: "You",
         uploaderId: currentUserId,
-        createdAt: created.createdAt,
+        createdAt: urlResult.createdAt,
         method: s.method,
-        status: s.type === "custom" ? "ready" : "processing",
+        status: "processing",
         failureReason: null,
         manuallyEdited: false,
         pinned: false,
@@ -1568,7 +1627,7 @@ export default function CollectionView({
   async function uploadLink(s: StagedLink) {
     setStagingState((st) => ({ ...st, [s.id]: "uploading" }));
 
-    const created = await createContribution(classId, topicId, {
+    const created = await createUrlContribution(classId, topicId, {
       name: s.name,
       type: s.type,
       extractionMethod: s.method,
@@ -1607,7 +1666,7 @@ export default function CollectionView({
     const checked = s.videos.filter((v) => v.checked);
     const results = await Promise.all(
       checked.map((v) =>
-        createContribution(classId, topicId, {
+        createUrlContribution(classId, topicId, {
           name: v.title,
           type: "youtube",
           extractionMethod: "youtube_transcript",
@@ -1652,18 +1711,22 @@ export default function CollectionView({
   }
 
   async function uploadAll() {
-    if (uploading) return;
+    if (uploadingRef.current) return;
+    uploadingRef.current = true;
     setUploading(true);
 
-    await Promise.all(
-      staged.map((s) => {
-        if (s.kind === "playlist") return uploadPlaylist(s);
-        if (s.kind === "link") return uploadLink(s);
-        return uploadFile(s);
-      }),
-    );
-
-    setUploading(false);
+    try {
+      await Promise.all(
+        staged.map((s) => {
+          if (s.kind === "playlist") return uploadPlaylist(s);
+          if (s.kind === "link") return uploadLink(s);
+          return uploadFile(s);
+        }),
+      );
+    } finally {
+      uploadingRef.current = false;
+      setUploading(false);
+    }
   }
 
   async function removeFile(name: string, id: string) {
@@ -1780,7 +1843,7 @@ export default function CollectionView({
               <UploadIcon />
             </div>
             <h4>Drop files here, or click to select</h4>
-            <p>PDF, DOCX, TXT, MD, image, MP3, M4A, WAV · up to 50 MB each</p>
+            <p>PDF, DOCX, TXT, MD, image, MP3, M4A, WAV · up to 500 MB each</p>
           </div>
 
           <div className="link-row flex gap-2.5 my-3.5">

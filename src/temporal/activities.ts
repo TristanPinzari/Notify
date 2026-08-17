@@ -19,6 +19,7 @@ import {
 } from "@/server/db/schema";
 import { and, desc, eq, inArray, lt, max, notInArray } from "drizzle-orm";
 import { logActivity } from "@/lib/activity-log";
+import { stripNullBytes } from "@/lib/utils";
 import { YoutubeTranscript } from "youtube-transcript";
 import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
@@ -34,8 +35,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import React from "react";
 import fs from "fs";
 import path from "path";
+import os from "os";
+import { pipeline } from "stream/promises";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import dns from "dns/promises";
 import { Agent } from "undici";
+import ffmpegBin from "ffmpeg-static";
+
+const execFileAsync = promisify(execFile);
 
 const s3 = new S3Client({ region: process.env.AWS_REGION! });
 
@@ -204,24 +212,90 @@ async function runExtraction(
 
     case "speech_to_text": {
       if (!s3Key) throw new Error("s3Key required for speech_to_text.");
-      const signedUrl = await getSignedUrl(
-        s3,
+
+      // Download from S3 to disk — avoids buffering hundreds of MB in RAM
+      const s3Object = await s3.send(
         new GetObjectCommand({
           Bucket: process.env.AWS_S3_BUCKET!,
           Key: s3Key,
         }),
-        { expiresIn: 300 },
       );
-      const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
+      const ext = s3Key.split(".").pop() ?? "bin";
+      const tmpId = crypto.randomUUID();
+      const tmpDir = os.tmpdir();
+      const inputPath = path.join(tmpDir, `${tmpId}.${ext}`);
+      await pipeline(
+        s3Object.Body as NodeJS.ReadableStream,
+        fs.createWriteStream(inputPath),
+      );
+
+      const chunkPaths: string[] = [];
       try {
-        const transcriptionResponse =
-          await client.audio.transcriptions.complete({
-            model: "voxtral-mini-latest",
-            fileUrl: signedUrl,
-          });
-        return { text: transcriptionResponse.text };
-      } catch (e) {
-        throw new Error(sanitizeAiError(e));
+        const { parseFile } = await import("music-metadata");
+        const { format } = await parseFile(inputPath);
+        const durationSec = format.duration;
+
+        const CHUNK_SEC = 50 * 60; // safely under Mistral's 60-min cap
+        const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
+
+        let filesToTranscribe: Array<{ filePath: string; name: string }>;
+
+        if (!durationSec || durationSec <= CHUNK_SEC) {
+          filesToTranscribe = [{ filePath: inputPath, name: `audio.${ext}` }];
+        } else {
+          // Split into 50-min MP3 chunks via ffmpeg (parallel)
+          const numChunks = Math.ceil(durationSec / CHUNK_SEC);
+          const chunkDefs = Array.from({ length: numChunks }, (_, i) => ({
+            startSec: i * CHUNK_SEC,
+            chunkSec: Math.min(CHUNK_SEC, durationSec - i * CHUNK_SEC),
+            chunkPath: path.join(tmpDir, `${tmpId}_chunk_${i}.mp3`),
+            name: `chunk_${i}.mp3`,
+          }));
+          chunkPaths.push(...chunkDefs.map((c) => c.chunkPath));
+          await Promise.all(
+            chunkDefs.map(({ startSec, chunkSec, chunkPath }) =>
+              execFileAsync(ffmpegBin!, [
+                "-ss",
+                String(startSec),
+                "-i",
+                inputPath,
+                "-t",
+                String(chunkSec),
+                "-acodec",
+                "libmp3lame",
+                "-ab",
+                "96k",
+                "-y",
+                chunkPath,
+              ]),
+            ),
+          );
+          filesToTranscribe = chunkDefs.map(({ chunkPath, name }) => ({
+            filePath: chunkPath,
+            name,
+          }));
+        }
+
+        const texts = await Promise.all(
+          filesToTranscribe.map(async ({ filePath, name }) => {
+            const content = await fs.promises.readFile(filePath);
+            try {
+              const response = await client.audio.transcriptions.complete({
+                model: "voxtral-mini-latest",
+                file: { fileName: name, content },
+              });
+              return response.text;
+            } catch (e) {
+              throw new Error(sanitizeAiError(e));
+            }
+          }),
+        );
+        return { text: texts.join("\n\n") };
+      } finally {
+        await fs.promises.unlink(inputPath).catch(() => {});
+        for (const p of chunkPaths) {
+          await fs.promises.unlink(p).catch(() => {});
+        }
       }
     }
 
@@ -236,37 +310,34 @@ export async function extractText(input: ExtractionInput): Promise<void> {
   );
   let res: { title?: string; text: string } = { text: "" };
 
-  try {
-    res = await runExtraction(input);
-    if (!res.text)
-      throw new Error("Extraction succeeded but returned no text.");
-  } catch (e) {
-    const failureReason = e instanceof Error ? e.message : String(e);
-    console.error(
-      `[extractText] failed — contribution ${input.contributionId}: ${failureReason}`,
-    );
-    await db
-      .update(contributions)
-      .set({
-        status: "failed",
-        failureReason,
-        ...(res.title ? { name: res.title } : {}),
-      })
-      .where(eq(contributions.id, input.contributionId));
-    throw e;
-  }
+  res = await runExtraction(input);
+  if (!res.text) throw new Error("Extraction succeeded but returned no text.");
+
+  await db
+    .update(contributions)
+    .set({
+      text: stripNullBytes(res.text),
+      status: "ready",
+      ...(res.title ? { name: stripNullBytes(res.title) } : {}),
+    })
+    .where(eq(contributions.id, input.contributionId));
 
   console.log(
     `[extractText] done — contribution ${input.contributionId} (${res.text.length} chars)`,
   );
+}
+
+export async function markExtractionFailed(
+  contributionId: string,
+  failureReason: string,
+): Promise<void> {
+  console.error(
+    `[markExtractionFailed] contribution ${contributionId}: ${failureReason}`,
+  );
   await db
     .update(contributions)
-    .set({
-      text: res.text,
-      status: "ready",
-      ...(res.title ? { name: res.title } : {}),
-    })
-    .where(eq(contributions.id, input.contributionId));
+    .set({ status: "failed", failureReason })
+    .where(eq(contributions.id, contributionId));
 }
 
 export async function runCompilation(
@@ -405,6 +476,7 @@ export async function runCompilation(
         );
       }
     } catch (e) {
+      console.error("[runCompilation] AI error:", e);
       throw new Error(sanitizeAiError(e));
     }
 
@@ -426,7 +498,7 @@ export async function runCompilation(
     await db.transaction(async (tx) => {
       await tx
         .update(masterDocuments)
-        .set({ content, status: "ready" })
+        .set({ content: stripNullBytes(content), status: "ready" })
         .where(eq(masterDocuments.id, masterDocumentId));
 
       await tx
@@ -744,7 +816,7 @@ export async function cleanOrphanedFiles() {
 
 export async function cleanStuckContributions() {
   console.log(`[cleanStuckContributions] start`);
-  const STUCK_THRESHOLD_MS = 30 * 60 * 1000;
+  const STUCK_THRESHOLD_MS = 6 * 60 * 60 * 1000;
   const cutoff = new Date(Date.now() - STUCK_THRESHOLD_MS);
 
   await db
@@ -765,7 +837,7 @@ export async function cleanStuckContributions() {
 export async function cleanStuckMasterDocuments() {
   console.log(`[cleanStuckMasterDocuments] start`);
 
-  const compileCutoff = new Date(Date.now() - 15 * 60 * 1000);
+  const compileCutoff = new Date(Date.now() - 45 * 60 * 1000);
   await db
     .update(masterDocuments)
     .set({
@@ -795,6 +867,7 @@ export async function cleanStuckMasterDocuments() {
 
 export type Activities = {
   extractText: typeof extractText;
+  markExtractionFailed: typeof markExtractionFailed;
   runCompilation: typeof runCompilation;
   generatePDF: typeof generatePDF;
   cleanOrphanedFiles: typeof cleanOrphanedFiles;

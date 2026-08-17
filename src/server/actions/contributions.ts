@@ -32,8 +32,10 @@ import {
   checkTemporalReady,
   TASK_QUEUE,
 } from "@/temporal/client";
+import { WorkflowExecutionAlreadyStartedError } from "@temporalio/client";
 import type { ExtractionInput } from "@/temporal/workflows";
 import { logActivity } from "@/lib/activity-log";
+import { stripNullBytes } from "@/lib/utils";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION! });
 
@@ -66,10 +68,11 @@ async function startExtraction(
     await temporalClient.workflow.start("extractContribution", {
       args: [input],
       taskQueue: TASK_QUEUE,
-      workflowId: `extract-${id}-${Date.now()}`,
+      workflowId: `extract-${id}`,
     });
     return true;
   } catch (e) {
+    if (e instanceof WorkflowExecutionAlreadyStartedError) return true;
     console.error(
       `ERROR: failed to queue extraction for contribution ${id}:`,
       e,
@@ -79,15 +82,14 @@ async function startExtraction(
   }
 }
 
-export async function createContribution(
+export async function createUrlContribution(
   classId: string,
   topicId: string,
   data: {
     name: string;
     type: Exclude<CType, "custom">;
     extractionMethod: EMethod;
-    url?: string;
-    file?: File;
+    url: string;
   },
 ) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -101,8 +103,6 @@ export async function createContribution(
     return { error: "Contribution name cannot be empty." };
   if (data.name.length > 200)
     return { error: "Contribution name must be 200 characters or fewer." };
-
-  let s3Key: string | undefined;
 
   try {
     if (!(await topicBelongsToClass(classId, topicId))) {
@@ -133,47 +133,7 @@ export async function createContribution(
       return allowed;
     }
 
-    if (!data.file && !data.url) {
-      console.error("ERROR: createContribution called with no file or url");
-      return { error: "No file or URL provided." };
-    }
-
     const id = crypto.randomUUID();
-    if (data.file) {
-      if (data.file.size > 50 * 1024 * 1024)
-        return { error: "File must be under 50 MB." };
-      const buffer = Buffer.from(await data.file.arrayBuffer());
-      const MIME_EXT: Record<string, string> = {
-        "image/jpeg": "jpg",
-        "image/png": "png",
-        "image/webp": "webp",
-        "image/gif": "gif",
-        "image/heic": "heic",
-        "application/pdf": "pdf",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-          "docx",
-        "text/plain": "txt",
-        "text/markdown": "md",
-        "audio/mpeg": "mp3",
-        "audio/mp4": "m4a",
-        "audio/wav": "wav",
-        "audio/ogg": "ogg",
-        "audio/webm": "webm",
-        "video/webm": "webm",
-      };
-      const ext = MIME_EXT[data.file.type] ?? "bin";
-      s3Key = `contributions/${topicId}/${id}.${ext}`;
-
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: process.env.AWS_S3_BUCKET!,
-          Key: s3Key,
-          Body: buffer,
-          ContentType: data.file.type,
-        }),
-      );
-    }
-
     const [row] = await db
       .insert(contributions)
       .values({
@@ -184,12 +144,11 @@ export async function createContribution(
         type: data.type,
         extractionMethod: data.extractionMethod,
         url: data.url,
-        s3Key,
         status: "processing",
       })
       .returning({ createdAt: contributions.createdAt });
 
-    startExtraction(id, data.extractionMethod, s3Key, data.url).catch((e) =>
+    startExtraction(id, data.extractionMethod, undefined, data.url).catch((e) =>
       console.error(
         `ERROR: failed to start extraction for contribution ${id}: `,
         e,
@@ -207,23 +166,170 @@ export async function createContribution(
     );
     return { id, createdAt: row.createdAt.toISOString() };
   } catch (e) {
-    if (s3Key) {
-      try {
-        await s3.send(
-          new DeleteObjectCommand({
-            Bucket: process.env.AWS_S3_BUCKET!,
-            Key: s3Key,
-          }),
-        );
-      } catch (cleanupError) {
-        console.error("ERROR cleaning up orphaned S3 object: ", cleanupError);
-      }
-    }
     if (isUniqueViolation(e))
       return {
         error: `${data.name} has already been contributed to this topic.`,
       };
     console.error("ERROR: ", e);
+    return { error: "Something went wrong." };
+  }
+}
+
+const MIME_EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/heic": "heic",
+  "application/pdf": "pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+    "docx",
+  "text/plain": "txt",
+  "text/markdown": "md",
+  "audio/mpeg": "mp3",
+  "audio/mp4": "m4a",
+  "audio/wav": "wav",
+  "audio/ogg": "ogg",
+  "audio/webm": "webm",
+  "video/webm": "webm",
+};
+
+export async function createFileContribution(
+  classId: string,
+  topicId: string,
+  data: {
+    name: string;
+    type: Exclude<CType, "custom">;
+    extractionMethod: EMethod;
+    fileType: string;
+    fileSize: number;
+  },
+) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    console.error("ERROR: getUploadUrl called with no session");
+    return { error: "Not authenticated." };
+  }
+  const limit = await rateLimit(session.user.id, "createContribution");
+  if (limit) return limit;
+  if (data.name.trim().length === 0)
+    return { error: "Contribution name cannot be empty." };
+  if (data.name.length > 200)
+    return { error: "Contribution name must be 200 characters or fewer." };
+  if (data.fileSize > 500 * 1024 * 1024)
+    return { error: "File must be under 500 MB." };
+
+  try {
+    if (!(await topicBelongsToClass(classId, topicId))) {
+      console.error(
+        `ERROR: topic ${topicId} does not belong to class ${classId}`,
+      );
+      return { error: "Topic does not exist in this class." };
+    }
+
+    const [cls] = await db
+      .select({ minRankUploadContribution: classes.minRankUploadContribution })
+      .from(classes)
+      .where(eq(classes.id, classId))
+      .limit(1);
+    if (!cls) {
+      console.error(`ERROR: class ${classId} does not exist`);
+      return { error: "Class does not exist." };
+    }
+
+    const allowed = await requireRank(
+      classId,
+      session.user.id,
+      cls.minRankUploadContribution,
+      "upload",
+    );
+    if ("error" in allowed) {
+      console.error(`ERROR: ${allowed.error}`);
+      return allowed;
+    }
+
+    const id = crypto.randomUUID();
+    const ext = MIME_EXT[data.fileType] ?? "bin";
+    const s3Key = `contributions/${topicId}/${id}.${ext}`;
+
+    const [row] = await db
+      .insert(contributions)
+      .values({
+        id,
+        topicId,
+        uploadedBy: session.user.id,
+        name: data.name,
+        type: data.type,
+        extractionMethod: data.extractionMethod,
+        s3Key,
+        status: "processing",
+      })
+      .returning({ createdAt: contributions.createdAt });
+
+    const uploadUrl = await getSignedUrl(
+      s3,
+      new PutObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET!,
+        Key: s3Key,
+        ContentType: data.fileType,
+      }),
+      { expiresIn: 3600 },
+    );
+
+    logActivity(
+      classId,
+      session.user.id,
+      {
+        action: "contribution_uploaded",
+        contribution: { id, name: data.name },
+      },
+      topicId,
+    );
+
+    return { id, createdAt: row.createdAt.toISOString(), uploadUrl };
+  } catch (e) {
+    if (isUniqueViolation(e))
+      return {
+        error: `${data.name} has already been contributed to this topic.`,
+      };
+    console.error("ERROR: ", e);
+    return { error: "Something went wrong." };
+  }
+}
+
+export async function startFileExtraction(contributionId: string) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return { error: "Not authenticated." };
+
+  try {
+    const [contribution] = await db
+      .select({
+        extractionMethod: contributions.extractionMethod,
+        s3Key: contributions.s3Key,
+        url: contributions.url,
+        status: contributions.status,
+        uploadedBy: contributions.uploadedBy,
+      })
+      .from(contributions)
+      .where(eq(contributions.id, contributionId))
+      .limit(1);
+
+    if (!contribution || contribution.uploadedBy !== session.user.id)
+      return { error: "Contribution not found." };
+    if (contribution.status !== "processing")
+      return { error: "Contribution is not pending extraction." };
+
+    const queued = await startExtraction(
+      contributionId,
+      contribution.extractionMethod,
+      contribution.s3Key ?? undefined,
+      contribution.url ?? undefined,
+    );
+    if (!queued)
+      return { error: "Extraction service is unavailable. Try again shortly." };
+    return { ok: true };
+  } catch (e) {
+    console.error(`ERROR: triggerExtraction for ${contributionId}:`, e);
     return { error: "Something went wrong." };
   }
 }
@@ -243,6 +349,13 @@ export async function createCustomContribution(
   }
   const limit = await rateLimit(session.user.id, "createContribution");
   if (limit) return limit;
+  if (data.name.trim().length === 0)
+    return { error: "Contribution name cannot be empty." };
+  if (data.name.length > 200)
+    return { error: "Contribution name must be 200 characters or fewer." };
+  if (!data.text) return { error: "No text provided." };
+  if (data.text.length > 50000)
+    return { error: "Text must be 50,000 characters or fewer." };
 
   try {
     if (!(await topicBelongsToClass(classId, topicId))) {
@@ -273,17 +386,6 @@ export async function createCustomContribution(
       return allowed;
     }
 
-    if (data.name.trim().length === 0)
-      return { error: "Contribution name cannot be empty." };
-    if (data.name.length > 200)
-      return { error: "Contribution name must be 200 characters or fewer." };
-    if (!data.text) {
-      console.error("ERROR: createCustomContribution called without text");
-      return { error: "No text provided." };
-    }
-    if (data.text.length > 50000)
-      return { error: "Text must be 50,000 characters or fewer." };
-
     const id = crypto.randomUUID();
     const [row] = await db
       .insert(contributions)
@@ -295,7 +397,7 @@ export async function createCustomContribution(
         type: "custom",
         extractionMethod: "text_extraction",
         status: "ready",
-        text: data.text,
+        text: stripNullBytes(data.text),
       })
       .returning({ createdAt: contributions.createdAt });
 
@@ -562,7 +664,7 @@ export async function restartExtraction(
       return allowed;
     }
 
-    const contribution = await db
+    const [contribution] = await db
       .select({
         extractionMethod: contributions.extractionMethod,
         s3Key: contributions.s3Key,
@@ -579,7 +681,7 @@ export async function restartExtraction(
       )
       .limit(1);
 
-    if (!contribution[0]) return { error: "This contribution does not exist." };
+    if (!contribution) return { error: "This contribution does not exist." };
 
     // Atomic check-and-set: only updates if not already processing, preventing duplicate workflows.
     const [locked] = await db
@@ -597,9 +699,9 @@ export async function restartExtraction(
 
     const queued = await startExtraction(
       contributionId,
-      contribution[0].extractionMethod,
-      contribution[0].s3Key || undefined,
-      contribution[0].url || undefined,
+      contribution.extractionMethod,
+      contribution.s3Key ?? undefined,
+      contribution.url ?? undefined,
     );
 
     if (!queued)
@@ -610,7 +712,7 @@ export async function restartExtraction(
       session.user.id,
       {
         action: "contribution_reprocessed",
-        contribution: { id: contributionId, name: contribution[0].name },
+        contribution: { id: contributionId, name: contribution.name },
       },
       topicId,
     );
@@ -758,16 +860,17 @@ export async function editContribution(
           error: "Text can only be manually set on custom contributions.",
         };
     }
+    if (data.extractionMethod !== undefined && contribution.type === "custom")
+      return { error: "Custom contributions do not use an extraction method." };
 
     await db
       .update(contributions)
       .set({
         name: data.name,
         extractionMethod: data.extractionMethod,
-        text: data.text,
-        manuallyEdited: true,
+        text: data.text != null ? stripNullBytes(data.text) : undefined,
         ...(data.text !== undefined
-          ? { status: "ready", failureReason: null }
+          ? { manuallyEdited: true, status: "ready", failureReason: null }
           : {}),
       })
       .where(eq(contributions.id, contributionId));
