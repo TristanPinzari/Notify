@@ -127,3 +127,60 @@ export async function requireRank(
     return { error: `Your rank is not high enough to ${action}.` };
   return { rank };
 }
+
+export async function requireUploadAccess(
+  classId: string,
+  topicId: string,
+  userId: string,
+): Promise<{ error: string } | { ok: true }> {
+  if (!(await topicBelongsToClass(classId, topicId)))
+    return { error: "Topic does not exist in this class." };
+
+  const [cls] = await db
+    .select({ minRankUploadContribution: classes.minRankUploadContribution })
+    .from(classes)
+    .where(eq(classes.id, classId))
+    .limit(1);
+  if (!cls) return { error: "Class does not exist." };
+
+  const allowed = await requireRank(
+    classId,
+    userId,
+    cls.minRankUploadContribution,
+    "upload",
+  );
+  if ("error" in allowed) return allowed;
+  return { ok: true };
+}
+
+// Uploaders can always act on their own contribution (while still a class
+// member); everyone else needs at least the class's delete-contribution rank —
+// if you're trusted to remove someone's contribution, you're trusted to edit it.
+export async function requireOwnerOrDeleteAccess(
+  classId: string,
+  userId: string,
+  uploadedBy: string | null,
+  action: string,
+): Promise<{ error: string } | { ok: true }> {
+  if (uploadedBy === userId) {
+    const rank = await getUserRank(classId, userId);
+    if (!rank) return { error: "You are not a member of this class." };
+    return { ok: true };
+  }
+
+  const [cls] = await db
+    .select({ minRankDeleteContribution: classes.minRankDeleteContribution })
+    .from(classes)
+    .where(eq(classes.id, classId))
+    .limit(1);
+  if (!cls) return { error: "Class does not exist." };
+
+  const allowed = await requireRank(
+    classId,
+    userId,
+    cls.minRankDeleteContribution,
+    action,
+  );
+  if ("error" in allowed) return allowed;
+  return { ok: true };
+}

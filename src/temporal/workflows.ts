@@ -1,12 +1,16 @@
 import { proxyActivities } from "@temporalio/workflow";
 import { ActivityFailure, ApplicationFailure } from "@temporalio/common";
 import { type Activities } from "./activities";
-import { CompilationSettings } from "@/server/actions/master-documents";
+import type { CompilationSettings } from "@/server/actions/master-documents";
+import {
+  EXTRACTION_MAX_ATTEMPTS,
+  EXTRACTION_ATTEMPT_TIMEOUT_MIN,
+} from "../lib/extraction-config";
 
 const { extractText } = proxyActivities<Activities>({
-  startToCloseTimeout: "90 minutes",
+  startToCloseTimeout: `${EXTRACTION_ATTEMPT_TIMEOUT_MIN} minutes`,
   retry: {
-    maximumAttempts: 3,
+    maximumAttempts: EXTRACTION_MAX_ATTEMPTS,
     initialInterval: "5s",
     backoffCoefficient: 2,
   },
@@ -26,6 +30,7 @@ const {
   cleanOrphanedFiles,
   cleanOrphanedClasses,
   cleanStuckContributions,
+  cleanFailedUploads,
   cleanStuckMasterDocuments,
   cleanOldLogs,
 } = proxyActivities<Activities>({
@@ -51,7 +56,11 @@ export async function extractContribution(
       inner instanceof ApplicationFailure || inner instanceof Error
         ? inner.message
         : String(inner);
-    await markExtractionFailed(input.contributionId, reason);
+    const title =
+      inner instanceof ApplicationFailure
+        ? (inner.details?.[0] as string | undefined)
+        : undefined;
+    await markExtractionFailed(input.contributionId, reason, title);
   }
 }
 
@@ -77,6 +86,7 @@ export async function reconcileStorage(): Promise<void> {
 
 export async function reconcileDatabase(): Promise<void> {
   await cleanStuckContributions();
+  await cleanFailedUploads();
 }
 
 export async function reconcileMasterDocuments(): Promise<void> {

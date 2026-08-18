@@ -1,6 +1,7 @@
 import {
   S3Client,
   GetObjectCommand,
+  HeadObjectCommand,
   ListObjectsV2Command,
   DeleteObjectsCommand,
   PutObjectCommand,
@@ -17,9 +18,26 @@ import {
   user,
   activityLogs,
 } from "@/server/db/schema";
-import { and, desc, eq, inArray, lt, max, notInArray } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  lt,
+  max,
+  notInArray,
+} from "drizzle-orm";
 import { logActivity } from "@/lib/activity-log";
-import { stripNullBytes } from "@/lib/utils";
+import { stripNullBytes, mapWithConcurrency } from "@/lib/utils";
+import {
+  AUDIO_CHUNK_MIN,
+  AUDIO_CHUNK_CONCURRENCY,
+  extractionWorkflowId,
+} from "@/lib/extraction-config";
+import { UPLOAD_URL_EXPIRES_SEC } from "@/lib/upload-config";
+import { getTemporalClient } from "@/temporal/client";
+import { ApplicationFailure } from "@temporalio/common";
 import { YoutubeTranscript } from "youtube-transcript";
 import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
@@ -224,18 +242,19 @@ async function runExtraction(
       const tmpId = crypto.randomUUID();
       const tmpDir = os.tmpdir();
       const inputPath = path.join(tmpDir, `${tmpId}.${ext}`);
-      await pipeline(
-        s3Object.Body as NodeJS.ReadableStream,
-        fs.createWriteStream(inputPath),
-      );
 
       const chunkPaths: string[] = [];
       try {
+        await pipeline(
+          s3Object.Body as NodeJS.ReadableStream,
+          fs.createWriteStream(inputPath),
+        );
+
         const { parseFile } = await import("music-metadata");
         const { format } = await parseFile(inputPath);
         const durationSec = format.duration;
 
-        const CHUNK_SEC = 50 * 60; // safely under Mistral's 60-min cap
+        const CHUNK_SEC = AUDIO_CHUNK_MIN * 60; // safely under Mistral's 60-min cap
         const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
 
         let filesToTranscribe: Array<{ filePath: string; name: string }>;
@@ -243,7 +262,11 @@ async function runExtraction(
         if (!durationSec || durationSec <= CHUNK_SEC) {
           filesToTranscribe = [{ filePath: inputPath, name: `audio.${ext}` }];
         } else {
-          // Split into 50-min MP3 chunks via ffmpeg (parallel)
+          if (!ffmpegBin)
+            throw new Error("ffmpeg binary is not available on this platform.");
+          const ffmpegPath = ffmpegBin;
+
+          // Split into 50-min MP3 chunks via ffmpeg (bounded parallelism)
           const numChunks = Math.ceil(durationSec / CHUNK_SEC);
           const chunkDefs = Array.from({ length: numChunks }, (_, i) => ({
             startSec: i * CHUNK_SEC,
@@ -252,9 +275,11 @@ async function runExtraction(
             name: `chunk_${i}.mp3`,
           }));
           chunkPaths.push(...chunkDefs.map((c) => c.chunkPath));
-          await Promise.all(
-            chunkDefs.map(({ startSec, chunkSec, chunkPath }) =>
-              execFileAsync(ffmpegBin!, [
+          await mapWithConcurrency(
+            chunkDefs,
+            AUDIO_CHUNK_CONCURRENCY,
+            ({ startSec, chunkSec, chunkPath }) =>
+              execFileAsync(ffmpegPath, [
                 "-ss",
                 String(startSec),
                 "-i",
@@ -268,7 +293,6 @@ async function runExtraction(
                 "-y",
                 chunkPath,
               ]),
-            ),
           );
           filesToTranscribe = chunkDefs.map(({ chunkPath, name }) => ({
             filePath: chunkPath,
@@ -276,8 +300,10 @@ async function runExtraction(
           }));
         }
 
-        const texts = await Promise.all(
-          filesToTranscribe.map(async ({ filePath, name }) => {
+        const texts = await mapWithConcurrency(
+          filesToTranscribe,
+          AUDIO_CHUNK_CONCURRENCY,
+          async ({ filePath, name }) => {
             const content = await fs.promises.readFile(filePath);
             try {
               const response = await client.audio.transcriptions.complete({
@@ -288,7 +314,7 @@ async function runExtraction(
             } catch (e) {
               throw new Error(sanitizeAiError(e));
             }
-          }),
+          },
         );
         return { text: texts.join("\n\n") };
       } finally {
@@ -311,7 +337,12 @@ export async function extractText(input: ExtractionInput): Promise<void> {
   let res: { title?: string; text: string } = { text: "" };
 
   res = await runExtraction(input);
-  if (!res.text) throw new Error("Extraction succeeded but returned no text.");
+  if (!res.text) {
+    throw ApplicationFailure.create({
+      message: "Extraction succeeded but returned no text.",
+      details: res.title ? [res.title] : undefined,
+    });
+  }
 
   await db
     .update(contributions)
@@ -330,13 +361,18 @@ export async function extractText(input: ExtractionInput): Promise<void> {
 export async function markExtractionFailed(
   contributionId: string,
   failureReason: string,
+  title?: string,
 ): Promise<void> {
   console.error(
     `[markExtractionFailed] contribution ${contributionId}: ${failureReason}`,
   );
   await db
     .update(contributions)
-    .set({ status: "failed", failureReason })
+    .set({
+      status: "failed",
+      failureReason,
+      ...(title ? { name: stripNullBytes(title) } : {}),
+    })
     .where(eq(contributions.id, contributionId));
 }
 
@@ -819,7 +855,7 @@ export async function cleanStuckContributions() {
   const STUCK_THRESHOLD_MS = 6 * 60 * 60 * 1000;
   const cutoff = new Date(Date.now() - STUCK_THRESHOLD_MS);
 
-  await db
+  const stuck = await db
     .update(contributions)
     .set({
       status: "failed",
@@ -830,8 +866,87 @@ export async function cleanStuckContributions() {
         eq(contributions.status, "processing"),
         lt(contributions.updatedAt, cutoff),
       ),
-    );
+    )
+    .returning({ id: contributions.id });
+
+  if (stuck.length > 0) {
+    // The workflow execution may still be running (worker crash, not a clean
+    // failure) — terminate it so a future restart doesn't collide with a zombie.
+    // Best-effort: the DB update above already succeeded, so a Temporal
+    // hiccup here shouldn't fail the whole activity and block sibling
+    // cleanup (e.g. cleanFailedUploads) from running this cycle.
+    try {
+      const temporalClient = await getTemporalClient();
+      await Promise.all(
+        stuck.map(({ id }) =>
+          temporalClient.workflow
+            .getHandle(extractionWorkflowId(id))
+            .terminate("Marked stuck by cleanStuckContributions")
+            .catch(() => {}),
+        ),
+      );
+    } catch (e) {
+      console.error("[cleanStuckContributions] failed to terminate workflows:", e);
+    }
+  }
   console.log(`[cleanStuckContributions] done`);
+}
+
+// Cleans up contribution rows created for a file upload where the client
+// never confirmed success (crashed tab, dropped network, etc.) and the file
+// never actually landed in S3. Only acts once the presigned upload URL is
+// guaranteed to be unusable — otherwise a still-in-flight legitimate upload
+// (e.g. a large file on a slow connection) could land in S3 *after* we
+// delete its row, leaving an object with no owner that cleanOrphanedFiles
+// would then silently delete — turning a visible stuck row into silent data
+// loss. See UPLOAD_URL_EXPIRES_SEC for why the threshold is what it is.
+export async function cleanFailedUploads() {
+  console.log(`[cleanFailedUploads] start`);
+  const cutoff = new Date(Date.now() - (UPLOAD_URL_EXPIRES_SEC + 300) * 1000);
+
+  const candidates = await db
+    .select({ id: contributions.id, s3Key: contributions.s3Key })
+    .from(contributions)
+    .where(
+      and(
+        eq(contributions.status, "processing"),
+        isNotNull(contributions.s3Key),
+        lt(contributions.createdAt, cutoff),
+      ),
+    );
+
+  if (candidates.length === 0) {
+    console.log(`[cleanFailedUploads] nothing to check`);
+    return;
+  }
+
+  const toDelete: string[] = [];
+  await Promise.all(
+    candidates.map(async ({ id, s3Key }) => {
+      try {
+        await s3.send(
+          new HeadObjectCommand({
+            Bucket: process.env.AWS_S3_BUCKET!,
+            Key: s3Key!,
+          }),
+        );
+        // Object exists — the upload succeeded, leave it for extraction to pick up.
+      } catch (e) {
+        if (e instanceof Error && e.name === "NotFound") toDelete.push(id);
+        // Any other error (throttling, network blip, permissions) — leave the
+        // row alone rather than risk deleting one we just failed to verify.
+      }
+    }),
+  );
+
+  if (toDelete.length === 0) {
+    console.log(`[cleanFailedUploads] nothing to delete`);
+    return;
+  }
+
+  console.log(`[cleanFailedUploads] deleting ${toDelete.length} row(s) with no matching upload`);
+  await db.delete(contributions).where(inArray(contributions.id, toDelete));
+  console.log(`[cleanFailedUploads] done`);
 }
 
 export async function cleanStuckMasterDocuments() {
@@ -872,6 +987,7 @@ export type Activities = {
   generatePDF: typeof generatePDF;
   cleanOrphanedFiles: typeof cleanOrphanedFiles;
   cleanStuckContributions: typeof cleanStuckContributions;
+  cleanFailedUploads: typeof cleanFailedUploads;
   cleanStuckMasterDocuments: typeof cleanStuckMasterDocuments;
   cleanOldLogs: typeof cleanOldLogs;
   cleanOrphanedClasses: typeof cleanOrphanedClasses;

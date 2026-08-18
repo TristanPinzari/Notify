@@ -24,63 +24,17 @@ import {
   getUserRank,
   isUniqueViolation,
   rateLimit,
+  requireOwnerOrDeleteAccess,
   requireRank,
+  requireUploadAccess,
   topicBelongsToClass,
 } from "./shared";
-import {
-  getTemporalClient,
-  checkTemporalReady,
-  TASK_QUEUE,
-} from "@/temporal/client";
-import { WorkflowExecutionAlreadyStartedError } from "@temporalio/client";
-import type { ExtractionInput } from "@/temporal/workflows";
+import { startExtraction } from "@/temporal/extraction";
 import { logActivity } from "@/lib/activity-log";
 import { stripNullBytes } from "@/lib/utils";
+import { UPLOAD_URL_EXPIRES_SEC } from "@/lib/upload-config";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION! });
-
-async function startExtraction(
-  id: string,
-  extractionMethod: EMethod,
-  s3Key?: string,
-  url?: string,
-): Promise<boolean> {
-  const fail = (reason: string) =>
-    db
-      .update(contributions)
-      .set({ status: "failed", failureReason: reason })
-      .where(eq(contributions.id, id));
-
-  const health = await checkTemporalReady();
-  if (!health.ok) {
-    await fail("Extraction service is unavailable. Please try again.");
-    return false;
-  }
-
-  try {
-    const temporalClient = await getTemporalClient();
-    const input: ExtractionInput = {
-      contributionId: id,
-      extractionMethod,
-      s3Key,
-      url,
-    };
-    await temporalClient.workflow.start("extractContribution", {
-      args: [input],
-      taskQueue: TASK_QUEUE,
-      workflowId: `extract-${id}`,
-    });
-    return true;
-  } catch (e) {
-    if (e instanceof WorkflowExecutionAlreadyStartedError) return true;
-    console.error(
-      `ERROR: failed to queue extraction for contribution ${id}:`,
-      e,
-    );
-    await fail("Failed to queue extraction. Please try again.");
-    return false;
-  }
-}
 
 export async function createUrlContribution(
   classId: string,
@@ -103,30 +57,13 @@ export async function createUrlContribution(
     return { error: "Contribution name cannot be empty." };
   if (data.name.length > 200)
     return { error: "Contribution name must be 200 characters or fewer." };
+  if (data.url.trim().length === 0) return { error: "URL cannot be empty." };
 
   try {
-    if (!(await topicBelongsToClass(classId, topicId))) {
-      console.error(
-        `ERROR: topic ${topicId} does not belong to class ${classId}`,
-      );
-      return { error: "Topic does not exist in this class." };
-    }
-
-    const [cls] = await db
-      .select({ minRankUploadContribution: classes.minRankUploadContribution })
-      .from(classes)
-      .where(eq(classes.id, classId))
-      .limit(1);
-    if (!cls) {
-      console.error(`ERROR: class ${classId} does not exist`);
-      return { error: "Class does not exist." };
-    }
-
-    const allowed = await requireRank(
+    const allowed = await requireUploadAccess(
       classId,
+      topicId,
       session.user.id,
-      cls.minRankUploadContribution,
-      "upload",
     );
     if ("error" in allowed) {
       console.error(`ERROR: ${allowed.error}`);
@@ -140,7 +77,7 @@ export async function createUrlContribution(
         id,
         topicId,
         uploadedBy: session.user.id,
-        name: data.name,
+        name: stripNullBytes(data.name),
         type: data.type,
         extractionMethod: data.extractionMethod,
         url: data.url,
@@ -220,28 +157,10 @@ export async function createFileContribution(
     return { error: "File must be under 500 MB." };
 
   try {
-    if (!(await topicBelongsToClass(classId, topicId))) {
-      console.error(
-        `ERROR: topic ${topicId} does not belong to class ${classId}`,
-      );
-      return { error: "Topic does not exist in this class." };
-    }
-
-    const [cls] = await db
-      .select({ minRankUploadContribution: classes.minRankUploadContribution })
-      .from(classes)
-      .where(eq(classes.id, classId))
-      .limit(1);
-    if (!cls) {
-      console.error(`ERROR: class ${classId} does not exist`);
-      return { error: "Class does not exist." };
-    }
-
-    const allowed = await requireRank(
+    const allowed = await requireUploadAccess(
       classId,
+      topicId,
       session.user.id,
-      cls.minRankUploadContribution,
-      "upload",
     );
     if ("error" in allowed) {
       console.error(`ERROR: ${allowed.error}`);
@@ -258,7 +177,7 @@ export async function createFileContribution(
         id,
         topicId,
         uploadedBy: session.user.id,
-        name: data.name,
+        name: stripNullBytes(data.name),
         type: data.type,
         extractionMethod: data.extractionMethod,
         s3Key,
@@ -272,8 +191,9 @@ export async function createFileContribution(
         Bucket: process.env.AWS_S3_BUCKET!,
         Key: s3Key,
         ContentType: data.fileType,
+        ContentLength: data.fileSize,
       }),
-      { expiresIn: 3600 },
+      { expiresIn: UPLOAD_URL_EXPIRES_SEC },
     );
 
     logActivity(
@@ -358,28 +278,10 @@ export async function createCustomContribution(
     return { error: "Text must be 50,000 characters or fewer." };
 
   try {
-    if (!(await topicBelongsToClass(classId, topicId))) {
-      console.error(
-        `ERROR: topic ${topicId} does not belong to class ${classId}`,
-      );
-      return { error: "Topic does not exist in this class." };
-    }
-
-    const [cls] = await db
-      .select({ minRankUploadContribution: classes.minRankUploadContribution })
-      .from(classes)
-      .where(eq(classes.id, classId))
-      .limit(1);
-    if (!cls) {
-      console.error(`ERROR: class ${classId} does not exist`);
-      return { error: "Class does not exist." };
-    }
-
-    const allowed = await requireRank(
+    const allowed = await requireUploadAccess(
       classId,
+      topicId,
       session.user.id,
-      cls.minRankUploadContribution,
-      "upload",
     );
     if ("error" in allowed) {
       console.error(`ERROR: ${allowed.error}`);
@@ -393,7 +295,7 @@ export async function createCustomContribution(
         id,
         topicId,
         uploadedBy: session.user.id,
-        name: data.name,
+        name: stripNullBytes(data.name),
         type: "custom",
         extractionMethod: "text_extraction",
         status: "ready",
@@ -551,32 +453,15 @@ export async function deleteContribution(
       return { error: "Contribution does not exist in this class." };
     }
 
-    if (contribution.uploadedBy === session.user.id) {
-      const rank = await getUserRank(classId, session.user.id);
-      if (!rank) return { error: "You are not a member of this class." };
-    } else {
-      const [cls] = await db
-        .select({
-          minRankDeleteContribution: classes.minRankDeleteContribution,
-        })
-        .from(classes)
-        .where(eq(classes.id, classId))
-        .limit(1);
-      if (!cls) {
-        console.error(`ERROR: class ${classId} does not exist`);
-        return { error: "Class does not exist." };
-      }
-
-      const allowed = await requireRank(
-        classId,
-        session.user.id,
-        cls.minRankDeleteContribution,
-        "delete contributions",
-      );
-      if ("error" in allowed) {
-        console.error(`ERROR: ${allowed.error}`);
-        return allowed;
-      }
+    const allowed = await requireOwnerOrDeleteAccess(
+      classId,
+      session.user.id,
+      contribution.uploadedBy,
+      "delete contributions",
+    );
+    if ("error" in allowed) {
+      console.error(`ERROR: ${allowed.error}`);
+      return allowed;
     }
 
     await db
@@ -636,28 +521,10 @@ export async function restartExtraction(
   }
 
   try {
-    if (!(await topicBelongsToClass(classId, topicId))) {
-      console.error(
-        `ERROR: topic ${topicId} does not belong to class ${classId}`,
-      );
-      return { error: "Topic does not exist in this class." };
-    }
-
-    const [cls] = await db
-      .select({ minRankUploadContribution: classes.minRankUploadContribution })
-      .from(classes)
-      .where(eq(classes.id, classId))
-      .limit(1);
-    if (!cls) {
-      console.error(`ERROR: class ${classId} does not exist`);
-      return { error: "Class does not exist." };
-    }
-
-    const allowed = await requireRank(
+    const allowed = await requireUploadAccess(
       classId,
+      topicId,
       session.user.id,
-      cls.minRankUploadContribution,
-      "upload",
     );
     if ("error" in allowed) {
       console.error(`ERROR: ${allowed.error}`);
@@ -789,27 +656,6 @@ export async function editContribution(
       return { error: "Topic does not exist in this class." };
     }
 
-    const [cls] = await db
-      .select({ minRankUploadContribution: classes.minRankUploadContribution })
-      .from(classes)
-      .where(eq(classes.id, classId))
-      .limit(1);
-    if (!cls) {
-      console.error(`ERROR: class ${classId} does not exist`);
-      return { error: "Class does not exist." };
-    }
-
-    const allowed = await requireRank(
-      classId,
-      session.user.id,
-      cls.minRankUploadContribution,
-      "upload",
-    );
-    if ("error" in allowed) {
-      console.error(`ERROR: ${allowed.error}`);
-      return allowed;
-    }
-
     const [contribution] = await db
       .select({
         status: contributions.status,
@@ -833,17 +679,15 @@ export async function editContribution(
     if (contribution.status === "processing")
       return { error: "This contribution is still being processed." };
 
-    if (contribution.uploadedBy !== session.user.id) {
-      const allowed = await requireRank(
-        classId,
-        session.user.id,
-        cls.minRankUploadContribution,
-        "edit contributions",
-      );
-      if ("error" in allowed) {
-        console.error(`ERROR: ${allowed.error}`);
-        return allowed;
-      }
+    const allowed = await requireOwnerOrDeleteAccess(
+      classId,
+      session.user.id,
+      contribution.uploadedBy,
+      "edit contributions",
+    );
+    if ("error" in allowed) {
+      console.error(`ERROR: ${allowed.error}`);
+      return allowed;
     }
 
     if (data.name !== undefined) {
@@ -852,21 +696,15 @@ export async function editContribution(
       if (data.name.length > 200)
         return { error: "Contribution name must be 200 characters or fewer." };
     }
-    if (data.text !== undefined) {
-      if (data.text.length > 50000)
-        return { error: "Text must be 50,000 characters or fewer." };
-      if (contribution.type !== "custom")
-        return {
-          error: "Text can only be manually set on custom contributions.",
-        };
-    }
+    if (data.text !== undefined && data.text.length > 50000)
+      return { error: "Text must be 50,000 characters or fewer." };
     if (data.extractionMethod !== undefined && contribution.type === "custom")
       return { error: "Custom contributions do not use an extraction method." };
 
     await db
       .update(contributions)
       .set({
-        name: data.name,
+        name: data.name != null ? stripNullBytes(data.name) : undefined,
         extractionMethod: data.extractionMethod,
         text: data.text != null ? stripNullBytes(data.text) : undefined,
         ...(data.text !== undefined

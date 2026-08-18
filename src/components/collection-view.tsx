@@ -50,6 +50,11 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { timeAgo, cn } from "@/lib/utils";
+import {
+  EXTRACTION_MAX_ATTEMPTS,
+  EXTRACTION_ATTEMPT_TIMEOUT_MIN,
+  AUDIO_CHUNK_MIN,
+} from "@/lib/extraction-config";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -799,7 +804,7 @@ function StatusPill({
     return (
       <span
         className="status proc"
-        title="Up to 3 attempts · 90 min per attempt · Audio longer than 50 min is split automatically"
+        title={`Up to ${EXTRACTION_MAX_ATTEMPTS} attempts · ${EXTRACTION_ATTEMPT_TIMEOUT_MIN} min per attempt · Audio longer than ${AUDIO_CHUNK_MIN} min is split automatically`}
       >
         <span className="spin-amber" />
         Processing
@@ -854,6 +859,7 @@ function SourceRow({
   onRemove,
   onUpdate,
 }: SourceRowProps) {
+  const canEdit = canDelete || f.uploaderId === currentUserId;
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   // undefined = not yet fetched; null = fetched, no text
@@ -941,7 +947,7 @@ function SourceRow({
 
       const res = await editContribution(classId, topicId, f.id, {
         name: dName.trim(),
-        extractionMethod: dMethod,
+        extractionMethod: f.type === "custom" ? undefined : dMethod,
         text: methodChanged ? undefined : dText,
       });
 
@@ -1129,10 +1135,12 @@ function SourceRow({
                     <b>{EXTRACTION_LABELS[f.method]}</b>
                   </span>
                   <div className="inspect-actions">
-                    <button className="ibtn ibtn-edit" onClick={startEdit}>
-                      <EditPencilIcon />
-                      Edit
-                    </button>
+                    {canEdit && (
+                      <button className="ibtn ibtn-edit" onClick={startEdit}>
+                        <EditPencilIcon />
+                        Edit
+                      </button>
+                    )}
                     <button
                       className="ibtn ibtn-edit"
                       onClick={retry}
@@ -1207,14 +1215,16 @@ function SourceRow({
                         {retrying ? "Re-extracting…" : "Re-extract"}
                       </button>
                     )}
-                    <button
-                      className="ibtn ibtn-edit"
-                      onClick={startEdit}
-                      disabled={loadingText}
-                    >
-                      <EditPencilIcon />
-                      Edit
-                    </button>
+                    {canEdit && (
+                      <button
+                        className="ibtn ibtn-edit"
+                        onClick={startEdit}
+                        disabled={loadingText}
+                      >
+                        <EditPencilIcon />
+                        Edit
+                      </button>
+                    )}
                   </div>
                 </div>
                 {loadingText ? (
@@ -1599,6 +1609,7 @@ export default function CollectionView({
       });
       if (!res.ok) throw new Error(`S3 upload failed: ${res.status}`);
     } catch {
+      deleteContribution(classId, urlResult.id).catch(() => {});
       setStagingState((st) => ({ ...st, [s.id]: "error" }));
       toast.error(`Failed to upload ${s.name}.`);
       return;

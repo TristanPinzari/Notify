@@ -2,20 +2,24 @@ import { NextRequest } from "next/server";
 import { db } from "@/server/db";
 import { contributions } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
-import {
-  getTemporalClient,
-  checkTemporalReady,
-  TASK_QUEUE,
-} from "@/temporal/client";
-import { WorkflowExecutionAlreadyStartedError } from "@temporalio/client";
-import type { ExtractionInput } from "@/temporal/workflows";
+import { startExtraction } from "@/temporal/extraction";
+
+const SNS_SUBSCRIBE_URL_RE = /^https:\/\/sns\.[a-z0-9-]+\.amazonaws\.com\//;
 
 export async function POST(req: NextRequest) {
   const messageType = req.headers.get("x-amz-sns-message-type");
   const body = await req.json();
 
   if (messageType === "SubscriptionConfirmation") {
-    await fetch(body.SubscribeURL as string);
+    const subscribeUrl = body.SubscribeURL;
+    if (
+      typeof subscribeUrl === "string" &&
+      SNS_SUBSCRIBE_URL_RE.test(subscribeUrl)
+    ) {
+      await fetch(subscribeUrl);
+    } else {
+      console.error("[s3-event] Rejected SubscribeURL:", subscribeUrl);
+    }
     return Response.json({ ok: true });
   }
 
@@ -44,34 +48,12 @@ export async function POST(req: NextRequest) {
 
     if (!contribution || contribution.status !== "processing") continue;
 
-    const health = await checkTemporalReady();
-    if (!health.ok) {
-      console.error(
-        `[s3-event] Temporal not ready for contribution ${contribution.id}`,
-      );
-      continue;
-    }
-
-    try {
-      const temporalClient = await getTemporalClient();
-      const input: ExtractionInput = {
-        contributionId: contribution.id,
-        extractionMethod: contribution.extractionMethod,
-        s3Key: contribution.s3Key ?? undefined,
-        url: contribution.url ?? undefined,
-      };
-      await temporalClient.workflow.start("extractContribution", {
-        args: [input],
-        taskQueue: TASK_QUEUE,
-        workflowId: `extract-${contribution.id}`,
-      });
-    } catch (e) {
-      if (e instanceof WorkflowExecutionAlreadyStartedError) continue;
-      console.error(
-        `[s3-event] Failed to queue extraction for ${contribution.id}:`,
-        e,
-      );
-    }
+    await startExtraction(
+      contribution.id,
+      contribution.extractionMethod,
+      contribution.s3Key ?? undefined,
+      contribution.url ?? undefined,
+    );
   }
 
   return Response.json({ ok: true });
