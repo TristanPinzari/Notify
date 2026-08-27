@@ -50,6 +50,7 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { timeAgo, cn } from "@/lib/utils";
+import { normalizeYoutubeUrl } from "@/lib/youtube";
 import {
   EXTRACTION_MAX_ATTEMPTS,
   EXTRACTION_ATTEMPT_TIMEOUT_MIN,
@@ -1448,11 +1449,13 @@ export default function CollectionView({
         },
       ]);
     } else {
-      if (isStagedUrl(normalizedUrl)) {
+      const type: CType = /youtu/i.test(normalizedUrl) ? "youtube" : "link";
+      const dedupUrl =
+        type === "youtube" ? normalizeYoutubeUrl(normalizedUrl) : normalizedUrl;
+      if (isStagedUrl(dedupUrl)) {
         toast.error("This link is already staged.");
         return;
       }
-      const type: CType = /youtu/i.test(normalizedUrl) ? "youtube" : "link";
       if (type === "youtube") {
         setResolvingLink(true);
         const video = await getVideoInfo(normalizedUrl);
@@ -1466,7 +1469,7 @@ export default function CollectionView({
             type,
             name: video.title,
             dur: video.duration,
-            url: normalizedUrl,
+            url: dedupUrl,
             method: METHODS_FOR_TYPE[type][0],
           },
         ]);
@@ -2113,12 +2116,9 @@ export default function CollectionView({
                           href={v.url}
                           target="_blank"
                           rel="noopener noreferrer"
+                          className={`pl-vtitle${v.checked ? "" : " off"}`}
                         >
-                          <span
-                            className={`pl-vtitle${v.checked ? "" : " off"}`}
-                          >
-                            {v.title}
-                          </span>
+                          {v.title}
                         </a>
                         <span className="pl-vdur">{v.dur}</span>
                       </div>
@@ -2132,7 +2132,18 @@ export default function CollectionView({
                   {TYPE_LABEL[s.type as CType]}
                 </span>
                 <div className="finfo">
-                  <div className="fname">{s.name}</div>
+                  {s.kind === "link" ? (
+                    <a
+                      href={s.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="fname-link"
+                    >
+                      <span className="fname">{s.name}</span>
+                    </a>
+                  ) : (
+                    <div className="fname">{s.name}</div>
+                  )}
                   <div className="fmeta">
                     {s.kind === "link"
                       ? "Link"

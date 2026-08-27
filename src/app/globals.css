@@ -4248,7 +4248,7 @@ a.rtip-src:hover {
 }
 .fname-link {
   display: block;
-  width: 100%;
+  width: fit-content;
   overflow: hidden;
   text-align: left;
   background: none;
@@ -4389,6 +4389,7 @@ a.rtip-src:hover {
   background: var(--paper-deep);
 }
 .pl-vtitle {
+  display: block;
   flex: 1;
   min-width: 0;
   font-size: 13.5px;

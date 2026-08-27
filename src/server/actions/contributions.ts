@@ -33,6 +33,7 @@ import { startExtraction } from "@/temporal/extraction";
 import { logActivity } from "@/lib/activity-log";
 import { stripNullBytes } from "@/lib/utils";
 import { UPLOAD_URL_EXPIRES_SEC } from "@/lib/upload-config";
+import { normalizeYoutubeUrl } from "@/lib/youtube";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION! });
 
@@ -58,6 +59,7 @@ export async function createUrlContribution(
   if (data.name.length > 200)
     return { error: "Contribution name must be 200 characters or fewer." };
   if (data.url.trim().length === 0) return { error: "URL cannot be empty." };
+  const url = normalizeYoutubeUrl(data.url);
 
   try {
     const allowed = await requireUploadAccess(
@@ -80,12 +82,12 @@ export async function createUrlContribution(
         name: stripNullBytes(data.name),
         type: data.type,
         extractionMethod: data.extractionMethod,
-        url: data.url,
+        url,
         status: "processing",
       })
       .returning({ createdAt: contributions.createdAt });
 
-    startExtraction(id, data.extractionMethod, undefined, data.url).catch((e) =>
+    startExtraction(id, data.extractionMethod, undefined, url).catch((e) =>
       console.error(
         `ERROR: failed to start extraction for contribution ${id}: `,
         e,
