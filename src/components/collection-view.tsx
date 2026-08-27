@@ -1678,7 +1678,13 @@ export default function CollectionView({
     setStagingState((st) => ({ ...st, [s.id]: "uploading" }));
 
     const checked = s.videos.filter((v) => v.checked);
-    const results = await Promise.all(
+    if (checked.length === 0) {
+      setStagingState((st) => ({ ...st, [s.id]: "error" }));
+      toast.error(`No videos selected in "${s.name}".`);
+      return;
+    }
+
+    const settled = await Promise.allSettled(
       checked.map((v) =>
         createUrlContribution(classId, topicId, {
           name: v.title,
@@ -1689,10 +1695,40 @@ export default function CollectionView({
       ),
     );
 
-    const created = results.filter(
-      (r): r is { id: string; createdAt: string } => !("error" in r),
-    );
-    const failed = results.filter((r): r is { error: string } => "error" in r);
+    const succeededIds = new Set<number>();
+    const createdFiles: FileRow[] = [];
+    const failed: { error: string }[] = [];
+    settled.forEach((r, i) => {
+      if (r.status === "rejected") {
+        failed.push({
+          error:
+            r.reason instanceof Error
+              ? r.reason.message
+              : "Something went wrong.",
+        });
+        return;
+      }
+      if ("id" in r.value) {
+        const ok = r.value as { id: string; createdAt: string };
+        succeededIds.add(checked[i].id);
+        createdFiles.push({
+          id: ok.id,
+          type: "youtube",
+          name: checked[i].title,
+          who: "You",
+          uploaderId: currentUserId,
+          createdAt: ok.createdAt,
+          method: "youtube_transcript",
+          status: "processing",
+          failureReason: null,
+          manuallyEdited: false,
+          pinned: false,
+        });
+      } else {
+        failed.push(r.value as { error: string });
+      }
+    });
+
     if (failed.length > 0) {
       setStagingState((st) => ({ ...st, [s.id]: "error" }));
       const firstError = failed[0].error;
@@ -1700,28 +1736,25 @@ export default function CollectionView({
       const suffix = allSame
         ? `: ${firstError}`
         : ` (${failed.length} failed — first error: ${firstError})`;
-      toast.error(`Some videos in "${s.name}" failed to add${suffix}`);
+      toast.error(
+        `${createdFiles.length === 0 ? "All" : "Some"} videos in "${s.name}" failed to add${suffix}`,
+      );
     } else {
       toast.success(`Successfully added ${s.name}.`);
-      setStaged((st) => st.filter((x) => x.id !== s.id));
     }
 
-    setFiles((fs) => [
-      ...created.map((c, i) => ({
-        id: c.id,
-        type: "youtube" as CType,
-        name: checked[i].title,
-        who: "You",
-        uploaderId: currentUserId,
-        createdAt: c.createdAt,
-        method: "youtube_transcript" as EMethod,
-        status: "processing" as CStatus,
-        failureReason: null,
-        manuallyEdited: false,
-        pinned: false,
-      })),
-      ...fs,
-    ]);
+    // Drop videos that were actually uploaded; keep the staged entry around
+    // (with whatever's left, e.g. videos the user left unchecked) unless
+    // nothing remains in it.
+    setStaged((st) =>
+      st.flatMap((x) => {
+        if (x.id !== s.id || x.kind !== "playlist") return [x];
+        const remaining = x.videos.filter((v) => !succeededIds.has(v.id));
+        return remaining.length > 0 ? [{ ...x, videos: remaining }] : [];
+      }),
+    );
+
+    setFiles((fs) => [...createdFiles, ...fs]);
   }
 
   async function uploadAll() {
