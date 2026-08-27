@@ -154,7 +154,8 @@ function fmtRecTime(secs: number): string {
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
   const s = secs % 60;
-  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  if (h > 0)
+    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
@@ -2139,7 +2140,7 @@ export default function CollectionView({
             ),
           )}
 
-          <div className="flex items-start gap-3 px-4 py-3.25 bg-(--paper-deep) border-t border-(--line-soft)">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3.25 bg-(--paper-deep) border-t border-(--line-soft)">
             <span className="flex items-start gap-2 text-[12.5px] text-(--ink-faint) leading-[1.45] flex-1">
               <span className="shrink-0 text-(--accent-text) mt-px">
                 <InfoIcon />
@@ -2148,28 +2149,34 @@ export default function CollectionView({
               usually takes a few moments, and they&apos;ll switch to Ready on
               their own.
             </span>
-            {!uploading && (
-              <button className="btn btn-ghost" onClick={() => setStaged([])}>
-                Clear
-              </button>
-            )}
-            <button
-              className="btn btn-primary"
-              onClick={uploadAll}
-              disabled={uploading || resolvingLink || stagedSize === 0}
-            >
-              {uploading ? (
-                <>
-                  <span className="mini-spin" />
-                  Uploading…
-                </>
-              ) : (
-                <>
-                  <UploadIcon />
-                  Upload {stagedSize} {stagedSize === 1 ? "source" : "sources"}
-                </>
+            <div className="flex gap-2 shrink-0">
+              {!uploading && (
+                <button
+                  className="btn btn-ghost flex-1 sm:flex-none justify-center"
+                  onClick={() => setStaged([])}
+                >
+                  Clear
+                </button>
               )}
-            </button>
+              <button
+                className="btn btn-primary flex-1 sm:flex-none justify-center"
+                onClick={uploadAll}
+                disabled={uploading || resolvingLink || stagedSize === 0}
+              >
+                {uploading ? (
+                  <>
+                    <span className="mini-spin" />
+                    Uploading…
+                  </>
+                ) : (
+                  <>
+                    <UploadIcon />
+                    Upload {stagedSize}{" "}
+                    {stagedSize === 1 ? "source" : "sources"}
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
