@@ -41,7 +41,7 @@ export default async function TopicLayout({
         <div className="flex items-center gap-2.25 text-[13.5px] min-w-0">
           <Link
             href="/home"
-            className="flex text-(--ink-fainter) hover:text-(--ink) transition-colors"
+            className="flex text-(--ink-fainter) hover:text-(--accent-text) transition-colors"
           >
             <HomeIcon />
           </Link>
