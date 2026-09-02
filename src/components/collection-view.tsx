@@ -946,11 +946,12 @@ function SourceRow({
     setSaving(true);
     try {
       const methodChanged = dMethod !== f.method;
+      const textChanged = dText !== (text ?? "");
 
       const res = await editContribution(classId, topicId, f.id, {
         name: dName.trim(),
         extractionMethod: f.type === "custom" ? undefined : dMethod,
-        text: methodChanged ? undefined : dText,
+        text: !methodChanged && textChanged ? dText : undefined,
       });
 
       if ("error" in res) {
@@ -976,9 +977,9 @@ function SourceRow({
       } else {
         onUpdate(f.id, {
           name: dName.trim(),
-          manuallyEdited: true,
-          status: "ready",
-          failureReason: null,
+          ...(textChanged
+            ? { manuallyEdited: true, status: "ready", failureReason: null }
+            : {}),
         });
         setText(dText);
         toast.success("Source updated.");
