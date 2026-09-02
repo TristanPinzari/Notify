@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/server/db";
+import { db as txDb } from "@/server/db/transactional";
 import {
   classes,
   userClasses,
@@ -79,7 +80,7 @@ export async function createClass(name: string) {
       .where(eq(user.id, session.user.id))
       .limit(1);
     const notifDefaults = userPrefs ?? DEFAULT_NOTIF_PREFS;
-    await db.transaction(async (tx) => {
+    await txDb.transaction(async (tx) => {
       await tx.insert(classes).values({ id: classId, name, code });
       await tx.insert(userClasses).values({
         userId: session.user.id,
@@ -189,7 +190,7 @@ export async function leaveClass(classId: string, transfer = true) {
       if (nextOwnerId) {
         // Designated successor — promote them (select inside transaction to
         // prevent a race where the successor leaves between read and write).
-        const nextOwnerRow = await db.transaction(async (tx) => {
+        const nextOwnerRow = await txDb.transaction(async (tx) => {
           const [row] = await tx
             .select({ name: user.name, rank: userClasses.rank })
             .from(userClasses)
@@ -239,7 +240,7 @@ export async function leaveClass(classId: string, transfer = true) {
       } else if (transfer) {
         // Auto-transfer to oldest remaining member — query inside the transaction
         // to avoid a race where the candidate leaves between the read and the write.
-        const promoted = await db.transaction(async (tx) => {
+        const promoted = await txDb.transaction(async (tx) => {
           const [oldest] = await tx
             .select({
               userId: userClasses.userId,
@@ -292,7 +293,7 @@ export async function leaveClass(classId: string, transfer = true) {
         }
       } else {
         // Orphan — leave, and delete the class if no members remain
-        await db.transaction(async (tx) => {
+        await txDb.transaction(async (tx) => {
           await tx
             .delete(userClasses)
             .where(
@@ -316,7 +317,7 @@ export async function leaveClass(classId: string, transfer = true) {
 
     const isSuccessor = cls?.nextOwnerId === session.user.id;
 
-    await db.transaction(async (tx) => {
+    await txDb.transaction(async (tx) => {
       await tx
         .delete(userClasses)
         .where(
@@ -425,7 +426,7 @@ export async function transferOwnership(classId: string) {
       return { error: "Designate a successor before transferring." };
 
     const nextOwnerId = cls.nextOwnerId;
-    const nextOwnerRow = await db.transaction(async (tx) => {
+    const nextOwnerRow = await txDb.transaction(async (tx) => {
       const [row] = await tx
         .select({ name: user.name, rank: userClasses.rank })
         .from(userClasses)
@@ -572,17 +573,21 @@ export async function kickFromClass(classId: string, userId: string) {
 
     const [targetName] = await Promise.all([
       getUserName(userId),
-      db
-        .delete(userClasses)
-        .where(
-          and(eq(userClasses.classId, classId), eq(userClasses.userId, userId)),
-        ),
-      cls[0].nextOwnerId === userId
-        ? db
+      txDb.transaction(async (tx) => {
+        await tx
+          .delete(userClasses)
+          .where(
+            and(
+              eq(userClasses.classId, classId),
+              eq(userClasses.userId, userId),
+            ),
+          );
+        if (cls[0].nextOwnerId === userId)
+          await tx
             .update(classes)
             .set({ nextOwnerId: null })
-            .where(eq(classes.id, classId))
-        : Promise.resolve(),
+            .where(eq(classes.id, classId));
+      }),
     ]);
 
     logActivity(classId, session.user.id, {
@@ -637,7 +642,7 @@ export async function banFromClass(
 
     const [targetName] = await Promise.all([
       getUserName(userId),
-      db.transaction(async (tx) => {
+      txDb.transaction(async (tx) => {
         await tx
           .delete(userClasses)
           .where(

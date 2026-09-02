@@ -77,6 +77,8 @@ export function ClassModal({ onClose, onSuccess }: Props) {
       return setError(result.error ?? "Something went wrong.");
 
     toast.success("Joined class!");
+    mutate("/api/sidebar");
+    router.replace(`/home/${result.id}`);
     onSuccess?.();
     onClose();
   }

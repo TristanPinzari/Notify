@@ -8,6 +8,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { db } from "@/server/db";
+import { db as txDb } from "@/server/db/transactional";
 import {
   classes,
   compilationSources,
@@ -466,17 +467,19 @@ export async function deleteContribution(
       return allowed;
     }
 
-    await db
-      .update(compilationSources)
-      .set({
-        snapshotName: contribution.name,
-        snapshotType: contribution.type,
-        snapshotUploadedBy: contribution.uploadedBy,
-        snapshotUploaderName: contribution.uploaderName,
-      })
-      .where(eq(compilationSources.contributionId, contributionId));
+    await txDb.transaction(async (tx) => {
+      await tx
+        .update(compilationSources)
+        .set({
+          snapshotName: contribution.name,
+          snapshotType: contribution.type,
+          snapshotUploadedBy: contribution.uploadedBy,
+          snapshotUploaderName: contribution.uploaderName,
+        })
+        .where(eq(compilationSources.contributionId, contributionId));
 
-    await db.delete(contributions).where(eq(contributions.id, contributionId));
+      await tx.delete(contributions).where(eq(contributions.id, contributionId));
+    });
 
     logActivity(
       classId,

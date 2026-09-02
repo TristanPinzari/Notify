@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/server/db";
+import { db as txDb } from "@/server/db/transactional";
 import { user, classes, userClasses, activityLogs } from "@/server/db/schema";
 import type { Rank } from "@/server/db/schema";
 import { eq, and, isNull, asc, ne } from "drizzle-orm";
@@ -91,7 +92,7 @@ export async function getAccountDeletionPreview(): Promise<{
   return { willDelete, willTransfer };
 }
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type Tx = Parameters<Parameters<typeof txDb.transaction>[0]>[0];
 
 async function logOwnershipTransfer(
   tx: Tx,
@@ -133,7 +134,7 @@ export async function deleteAccount(
   const userId = session.user.id;
   const decisionMap = new Map(decisions.map((d) => [d.classId, d.transfer]));
   try {
-    await db.transaction(async (tx) => {
+    await txDb.transaction(async (tx) => {
       const owned = await tx
         .select({ classId: classes.id, nextOwnerId: classes.nextOwnerId })
         .from(userClasses)
