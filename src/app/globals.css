@@ -4250,7 +4250,7 @@ a.rtip-src:hover {
 }
 .fname-link {
   display: block;
-  width: fit-content;
+  width: 100%;
   overflow: hidden;
   text-align: left;
   background: none;
