@@ -59,7 +59,7 @@ export default function NotFound() {
         <div className="flex gap-3.25 justify-center flex-wrap">
           <Link
             href="/home"
-            className="group inline-flex items-center gap-2.25 whitespace-nowrap text-[15px] font-semibold rounded-[11px] px-5.5 py-3.25 bg-(--accent) text-(--on-accent)! shadow-[0_1px_2px_rgba(60,45,25,.12)] transition-all duration-200 hover:-translate-y-px hover:bg-(--accent-hi) hover:shadow-[0_8px_20px_-6px_rgba(196,121,24,.4)] active:scale-[.98]"
+            className="group inline-flex items-center gap-2.25 whitespace-nowrap text-[15px] font-semibold rounded-[11px] px-5.5 py-3.25 bg-(--accent) text-(--on-accent) shadow-[0_1px_2px_rgba(60,45,25,.12)] transition-all duration-200 hover:-translate-y-px hover:bg-(--accent-hi) hover:shadow-[0_8px_20px_-6px_rgba(196,121,24,.4)] active:scale-[.98]"
           >
             Back to my classes
             <span className="transition-transform duration-200 group-hover:translate-x-1">

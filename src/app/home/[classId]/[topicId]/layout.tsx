@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { TopicTabs } from "@/components/topic-tabs";
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { HomeIcon } from "@/components/icons";
 import { MobileMenuButton } from "@/components/mobile-menu-btn";
 import { NotificationBell } from "@/components/notification-bell";
@@ -38,12 +39,18 @@ export default async function TopicLayout({
     <div className="flex flex-col h-full">
       <div className="h-14 shrink-0 flex items-center gap-3.5 px-5.5 border-b border-(--line-soft) bg-(--paper)">
         <div className="flex items-center gap-2.25 text-[13.5px] min-w-0">
-          <span className="flex text-(--ink-fainter)">
+          <Link
+            href="/home"
+            className="flex text-(--ink-fainter) hover:text-(--ink) transition-colors"
+          >
             <HomeIcon />
-          </span>
-          <span className="text-(--ink-label) whitespace-nowrap overflow-hidden text-ellipsis max-w-30">
+          </Link>
+          <Link
+            href={`/home/${classId}`}
+            className="text-(--ink-label) hover:text-(--ink) transition-colors whitespace-nowrap overflow-hidden text-ellipsis max-w-30"
+          >
             {cls[0].name}
-          </span>
+          </Link>
           <span className="text-(--ink-fainter)">/</span>
           <span className="text-(--ink) font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
             {topic[0].name}

@@ -6,6 +6,7 @@ import { ClassTabs } from "@/components/class-tabs";
 import { HomeIcon } from "@/components/icons";
 import { MobileMenuButton } from "@/components/mobile-menu-btn";
 import { NotificationBell } from "@/components/notification-bell";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 export default async function ClassLayout({
@@ -31,9 +32,12 @@ export default async function ClassLayout({
     <div className="flex flex-col h-full">
       <div className="h-14 shrink-0 flex items-center gap-3.5 px-5.5 border-b border-(--line-soft) bg-(--paper)">
         <div className="flex items-center gap-2.25 text-[13.5px] min-w-0">
-          <span className="flex text-(--ink-fainter)">
+          <Link
+            href="/home"
+            className="flex text-(--ink-fainter) hover:text-(--ink) transition-colors"
+          >
             <HomeIcon />
-          </span>
+          </Link>
           <span className="text-(--ink) font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
             {cls.name}
           </span>

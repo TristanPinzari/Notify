@@ -105,7 +105,7 @@ export default async function HomePage({
     <div className="flex flex-col h-full">
       <div className="h-14 shrink-0 flex items-center gap-3.5 px-5.5 border-b border-(--line-soft) bg-(--paper)">
         <div className="flex items-center gap-2.25 text-[13.5px] min-w-0">
-          <span className="flex text-(--ink-fainter)">
+          <span className="flex text-(--accent-text)">
             <HomeIcon />
           </span>
         </div>

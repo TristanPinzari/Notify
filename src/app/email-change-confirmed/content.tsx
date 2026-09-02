@@ -28,7 +28,7 @@ function AccentButton({
   return (
     <Link
       href={href}
-      className="inline-flex items-center justify-center gap-2.25 w-full max-w-75 text-[15.5px] font-semibold text-(--on-accent)! bg-(--accent) rounded-xl px-6 py-3.75 no-underline hover:bg-(--accent-text) transition-colors"
+      className="inline-flex items-center justify-center gap-2.25 w-full max-w-75 text-[15.5px] font-semibold text-(--on-accent) bg-(--accent) rounded-xl px-6 py-3.75 no-underline hover:bg-(--accent-text) transition-colors"
     >
       {children}
     </Link>
