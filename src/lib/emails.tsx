@@ -339,7 +339,7 @@ export function renderKicked({
   return wrap(
     h(`You were removed from ${className}`) +
       p(
-        `<strong style="color:${C.ink};">${actorName}</strong> removed you from <strong style="color:${C.ink};">${className}</strong>. You can still join other classes on Notify.`,
+        `<strong style="color:${C.ink};">${actorName}</strong> removed you from <strong style="color:${C.ink};">${className}</strong>. You can still rejoin with a class code, or join other classes on Notify.`,
       ) +
       expiry(
         "If you believe this was a mistake, reach out to the class admin directly.",

@@ -843,6 +843,7 @@ type SourceRowProps = {
   currentUserId: string;
   classId: string;
   topicId: string;
+  canUpload: boolean;
   canDelete: boolean;
   canPin: boolean;
   onOpen: (id: string) => void;
@@ -855,6 +856,7 @@ function SourceRow({
   currentUserId,
   classId,
   topicId,
+  canUpload,
   canDelete,
   canPin,
   onOpen,
@@ -1144,14 +1146,16 @@ function SourceRow({
                         Edit
                       </button>
                     )}
-                    <button
-                      className="ibtn ibtn-edit"
-                      onClick={retry}
-                      disabled={retrying}
-                    >
-                      <RetryIcon />
-                      {retrying ? "Retrying…" : "Retry"}
-                    </button>
+                    {canUpload && (
+                      <button
+                        className="ibtn ibtn-edit"
+                        onClick={retry}
+                        disabled={retrying}
+                      >
+                        <RetryIcon />
+                        {retrying ? "Retrying…" : "Retry"}
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="fail-box">
@@ -1208,7 +1212,7 @@ function SourceRow({
                     >
                       <CopyIcon /> {copied ? "Copied!" : "Copy"}
                     </button>
-                    {f.type !== "custom" && (
+                    {canUpload && f.type !== "custom" && (
                       <button
                         className="ibtn ibtn-edit"
                         onClick={retry}
@@ -2267,6 +2271,7 @@ export default function CollectionView({
                 currentUserId={currentUserId}
                 classId={classId}
                 topicId={topicId}
+                canUpload={canUpload}
                 canDelete={canDelete}
                 canPin={canPin}
                 onOpen={openContribution}
