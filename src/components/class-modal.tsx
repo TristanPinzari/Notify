@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useEscapeKey } from "@/hooks/use-escape-key";
 import { createClass, joinClass } from "@/server/actions/classes";
+import { cleanClassCodeChars } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   InfoIcon as WarnIcon,
@@ -160,7 +161,17 @@ export function ClassModal({ onClose, onSuccess }: Props) {
                 <input
                   type="text"
                   value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  onChange={(e) => {
+                    const cleaned = cleanClassCodeChars(e.target.value).slice(
+                      0,
+                      8,
+                    );
+                    setJoinCode(
+                      cleaned.length > 4
+                        ? `${cleaned.slice(0, 4)}-${cleaned.slice(4)}`
+                        : cleaned,
+                    );
+                  }}
                   placeholder="e.g. A1B2-C3D4"
                   autoFocus
                 />

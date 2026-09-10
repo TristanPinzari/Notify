@@ -29,7 +29,7 @@ import { getResend } from "@/lib/resend";
 import { renderClassInvite } from "@/lib/emails";
 import { EMAIL_RE, MAX_INVITE_BATCH } from "@/lib/validation";
 import { emailInvites, topics, notifications } from "@/server/db/schema";
-import { getBaseUrl } from "@/lib/utils";
+import { getBaseUrl, cleanClassCodeChars } from "@/lib/utils";
 
 const DEFAULT_NOTIF_PREFS = {
   notifyRankChange: true,
@@ -97,6 +97,12 @@ export async function createClass(name: string) {
   }
 }
 
+function normalizeClassCode(raw: string): string {
+  const stripped = cleanClassCodeChars(raw.trim());
+  if (stripped.length !== 8) return raw.trim().toUpperCase();
+  return `${stripped.slice(0, 4)}-${stripped.slice(4)}`;
+}
+
 export async function joinClass(code: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { error: "Not authenticated." };
@@ -108,7 +114,7 @@ export async function joinClass(code: string) {
     const cls = await db
       .select({ id: classes.id, defaultRank: classes.defaultRank })
       .from(classes)
-      .where(eq(classes.code, code))
+      .where(eq(classes.code, normalizeClassCode(code)))
       .limit(1);
     if (!cls[0]) return { error: "Class does not exist." };
     const { defaultRank } = cls[0];

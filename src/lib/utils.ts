@@ -35,6 +35,10 @@ export function stripNullBytes(s: string): string {
   return s.replace(/\x00/g, "");
 }
 
+export function cleanClassCodeChars(raw: string): string {
+  return raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
 export async function mapWithConcurrency<T, R>(
   items: T[],
   limit: number,
