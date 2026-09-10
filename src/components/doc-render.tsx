@@ -582,11 +582,29 @@ function renderInline(
     } else if (m[0].startsWith("<math>")) {
       out.push(<MathNode key={k++} tex={g.mathTex} block={false} />);
     } else if (m[0].startsWith("**")) {
-      out.push(<strong key={k++}>{g.boldInner}</strong>);
+      out.push(
+        <strong key={k++}>
+          {renderInline(g.boldInner, k + 1000, classId, topicId, staticMode)}
+        </strong>,
+      );
     } else if (g.italicStar !== undefined || g.italicUnder !== undefined) {
-      out.push(<em key={k++}>{g.italicStar ?? g.italicUnder}</em>);
+      out.push(
+        <em key={k++}>
+          {renderInline(
+            g.italicStar ?? g.italicUnder!,
+            k + 1000,
+            classId,
+            topicId,
+            staticMode,
+          )}
+        </em>,
+      );
     } else {
-      out.push(<q key={k++}>{g.quoteInner}</q>);
+      out.push(
+        <q key={k++}>
+          {renderInline(g.quoteInner, k + 1000, classId, topicId, staticMode)}
+        </q>,
+      );
     }
     rest = rest.slice(m.index + m[0].length);
     k++;
