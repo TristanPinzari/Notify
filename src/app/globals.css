@@ -2804,7 +2804,8 @@ html.dark [data-sonner-toast] {
   transform: translateX(-50%) translateY(3px);
   opacity: 0;
   pointer-events: none;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: min(240px, calc(100vw - 2rem));
   background: var(--surface-overlay);
   color: #f4efe4;
   font-family: var(--sans);
@@ -2893,6 +2894,7 @@ html.dark [data-sonner-toast] {
   flex-direction: column;
   gap: 1px;
   min-width: 160px;
+  max-width: min(260px, calc(100vw - 2rem));
   box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.45);
   transition:
     opacity 0.15s,
@@ -3023,12 +3025,12 @@ html.dark [data-sonner-toast] {
 .flagged .tip {
   position: absolute;
   bottom: calc(100% + 9px);
-  left: 0;
+  left: 50%;
   opacity: 0;
   pointer-events: none;
-  transform: translateY(3px);
+  transform: translateX(-50%) translateY(3px);
   white-space: normal;
-  width: 266px;
+  width: min(266px, calc(100vw - 2rem));
   background: var(--surface-overlay);
   color: #f4efe4;
   font-size: 12px;
@@ -3054,7 +3056,7 @@ html.dark [data-sonner-toast] {
 }
 .flagged:hover .tip {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateX(-50%) translateY(0);
 }
 
 /* conflict block */
@@ -3176,10 +3178,11 @@ html.dark [data-sonner-toast] {
   display: none;
   position: absolute;
   bottom: calc(100% + 6px);
-  left: 0;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 100;
   min-width: 200px;
-  max-width: 320px;
+  max-width: min(320px, calc(100vw - 2rem));
   background: var(--paper-raised);
   border: 1px solid var(--line-strong);
   border-radius: 10px;
