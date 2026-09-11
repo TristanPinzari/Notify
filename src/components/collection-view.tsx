@@ -1273,8 +1273,7 @@ type Props = {
 };
 
 // Single source of truth for which file extensions this app accepts and
-// what CType they map to — also drives the file input's accept list below,
-// so the two can't drift apart.
+// what CType they map to.
 const EXT_TYPE: Record<string, CType> = {
   pdf: "pdf",
   docx: "pdf",
@@ -1283,19 +1282,10 @@ const EXT_TYPE: Record<string, CType> = {
   markdown: "text",
 };
 
-// MIME-prefix categories (image/audio/video) aren't extension-based, so they
-// stay outside EXT_TYPE — one wildcard each covers every extension in the
-// category, nothing to keep in sync per-extension.
-const MIME_PREFIX_WILDCARDS = ["image/*", "audio/*", "video/*"];
-
-const STAGE_ACCEPT = [
-  ...Object.keys(EXT_TYPE).map((ext) => `.${ext}`),
-  ...MIME_PREFIX_WILDCARDS,
-].join(",");
-
-// Returns null for anything outside what this app actually supports (the
-// file input's accept list) — a drag-and-drop or an "All Files" picker
-// selection bypasses that attribute, so this is the real gate.
+// The file input has no accept attribute — on iOS, combining MIME wildcards
+// (video/*, etc.) with explicit extensions in one accept list makes Safari's
+// Photos-library picker mis-filter and grey out legitimate videos. detectType
+// is the real gate regardless of what the OS picker lets through.
 function detectType(file: File): CType | null {
   const byExt = EXT_TYPE[extOf(file)];
   if (byExt) return byExt;
@@ -1975,7 +1965,6 @@ export default function CollectionView({
             type="file"
             className="hidden"
             multiple
-            accept={STAGE_ACCEPT}
             onChange={handleFileInput}
           />
           <div

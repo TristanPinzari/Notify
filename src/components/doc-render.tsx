@@ -526,8 +526,11 @@ function Resolved({
 
 /* ─── inline renderer ───────────────────────────────────────────────── */
 
+// The underscore-italic branch requires non-word flanking on both sides
+// (unlike the asterisk branch) — matching CommonMark's actual rule that
+// intraword underscores (e.g. Current_Run_Value) are never emphasis.
 const INLINE_RE =
-  /<flagged(?<flaggedAttrs>\s[^>]*)?>(?<flaggedInner>[\s\S]*?)<\/flagged>|<resolved(?<resolvedAttrs>\s[^>]*)?>(?<resolvedInner>[\s\S]*?)<\/resolved>|<math>(?<mathTex>[\s\S]*?)<\/math>|\*\*(?<boldInner>[^*]+)\*\*|\*(?<italicStar>[^*\n]+)\*|_(?<italicUnder>[^_\n]+)_|<q>(?<quoteInner>[\s\S]*?)<\/q>/;
+  /<flagged(?<flaggedAttrs>\s[^>]*)?>(?<flaggedInner>[\s\S]*?)<\/flagged>|<resolved(?<resolvedAttrs>\s[^>]*)?>(?<resolvedInner>[\s\S]*?)<\/resolved>|<math>(?<mathTex>[\s\S]*?)<\/math>|`(?<codeInner>[^`\n]+)`|\*\*(?<boldInner>[^*]+)\*\*|\*(?<italicStar>[^*\n]+)\*|(?<!\w)_(?<italicUnder>[^_\n]+)_(?!\w)|<q>(?<quoteInner>[\s\S]*?)<\/q>/;
 
 function renderInline(
   text: string,
@@ -581,6 +584,10 @@ function renderInline(
       );
     } else if (m[0].startsWith("<math>")) {
       out.push(<MathNode key={k++} tex={g.mathTex} block={false} />);
+    } else if (g.codeInner !== undefined) {
+      // Rendered verbatim — deliberately not passed through renderInline,
+      // so nothing inside (underscores, asterisks) is reinterpreted.
+      out.push(<code key={k++}>{g.codeInner}</code>);
     } else if (m[0].startsWith("**")) {
       out.push(
         <strong key={k++}>

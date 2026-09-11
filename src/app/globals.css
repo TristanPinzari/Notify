@@ -2768,6 +2768,13 @@ html.dark [data-sonner-toast] {
 .doc .docbody {
   padding-left: 14px;
 }
+.doc code {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  background: var(--paper-deep);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
 
 /* source citation */
 .src-cite {

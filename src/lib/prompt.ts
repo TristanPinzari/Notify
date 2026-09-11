@@ -63,6 +63,20 @@ const MATH_TAG = `- <math>inline expression</math>
   </math>
   Block-level LaTeX math. Use for equations, derivations, or any formula that deserves its own line. Must appear on its own line with a blank line before and after it.`;
 
+const FORMATTING_NOTES = `## Formatting Rules
+Your output is parsed by a small custom renderer, not a full Markdown engine — it only understands the constructs listed below. Do not use anything else (tables, links, blockquotes, fenced code blocks, numbered lists, strikethrough, horizontal rules, headers past ####) — they will not render and will show up as broken literal text.
+
+Block-level:
+- \`#\` through \`####\` for headers (four levels only)
+- \`*\` or \`-\` for bullet lists; nest by indenting
+- Plain paragraphs separated by a blank line
+- The custom XML tags below (each is also block-level where noted)
+
+Inline:
+- \`**bold**\`
+- \`*italic*\` or \`_italic_\`
+- \`verbatim\` — renders exactly as written, with NO formatting interpreted inside it. Use this for variable names, identifiers, and file paths — this renderer does not protect underscores inside a word the way GitHub/CommonMark does, so a name like \`Current_Run_Value\` written as plain text will have "Run" misread as italics. Wrap any text containing an underscore or asterisk in backticks whenever it appears, so it renders literally instead.`;
+
 function buildXmlTagReference(settings: CompilationSettings): string {
   const tags = [
     settings.conflictResolution === "replace_flag"
@@ -75,8 +89,9 @@ function buildXmlTagReference(settings: CompilationSettings): string {
   ]
     .filter(Boolean)
     .join("\n\n");
-  if (!tags.length) return "";
-  return `## Custom XML Tags\nUse these tags within your markdown output:\n\n${tags}`;
+  return tags.length
+    ? `${FORMATTING_NOTES}\n\n## Custom XML Tags\nUse these tags within your markdown output:\n\n${tags}`
+    : FORMATTING_NOTES;
 }
 
 function formatContributions(contributions: ContributionForPrompt[]): string {
