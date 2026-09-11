@@ -886,7 +886,10 @@ export async function cleanStuckContributions() {
         ),
       );
     } catch (e) {
-      console.error("[cleanStuckContributions] failed to terminate workflows:", e);
+      console.error(
+        "[cleanStuckContributions] failed to terminate workflows:",
+        e,
+      );
     }
   }
   console.log(`[cleanStuckContributions] done`);
@@ -944,7 +947,9 @@ export async function cleanFailedUploads() {
     return;
   }
 
-  console.log(`[cleanFailedUploads] deleting ${toDelete.length} row(s) with no matching upload`);
+  console.log(
+    `[cleanFailedUploads] deleting ${toDelete.length} row(s) with no matching upload`,
+  );
   await db.delete(contributions).where(inArray(contributions.id, toDelete));
   console.log(`[cleanFailedUploads] done`);
 }

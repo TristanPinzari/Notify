@@ -44,6 +44,7 @@ The original version was built during my first year of university as a side proj
    - Images (handwriting and printed text extracted via OCR — Mistral)
    - **In-app audio recording** — record directly in the browser with a waveform visualizer, pause/resume support, and a review step before uploading. Transcribed automatically on upload via Mistral.
    - Audio file uploads (speech-to-text via Mistral)
+   - **Video file uploads** — audio is extracted from the video entirely client-side in the browser (ffmpeg.wasm) before upload, so the raw video never reaches storage; transcribed the same way as any other audio source
    - **YouTube videos** — paste a single video URL; transcript extracted automatically
    - **YouTube playlists** — paste a playlist URL and every video in it is staged at once, each transcribed individually
    - Web articles (scraped; SSRF-protected — private/internal addresses are blocked)
@@ -91,6 +92,7 @@ The original version was built during my first year of university as a side proj
 - **Tailwind CSS v4**
 - **better-auth** — authentication (email/password with email verification, Google OAuth)
 - **Puppeteer** — headless PDF generation for master documents
+- **ffmpeg.wasm** — client-side audio extraction from video uploads, self-hosted (no CDN dependency)
 
 ## Development
 

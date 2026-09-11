@@ -49,8 +49,9 @@ import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { timeAgo, cn } from "@/lib/utils";
+import { timeAgo, cn, extOf } from "@/lib/utils";
 import { normalizeYoutubeUrl } from "@/lib/youtube";
+import { isVideoFile, extractAudioFromVideo } from "@/lib/video-to-audio";
 import {
   EXTRACTION_MAX_ATTEMPTS,
   EXTRACTION_ATTEMPT_TIMEOUT_MIN,
@@ -150,6 +151,10 @@ type StagedPlaylist = {
   collapsed: boolean;
 };
 type StagedItem = StagedFile | StagedLink | StagedPlaylist;
+type StagingEntry =
+  | { status: "converting"; progress: number }
+  | { status: "uploading" }
+  | { status: "error" };
 
 function fmtRecTime(secs: number): string {
   const h = Math.floor(secs / 3600);
@@ -1267,17 +1272,48 @@ type Props = {
   filterReason?: string;
 };
 
-function detectType(file: File): CType {
+// Single source of truth for which file extensions this app accepts and
+// what CType they map to — also drives the file input's accept list below,
+// so the two can't drift apart.
+const EXT_TYPE: Record<string, CType> = {
+  pdf: "pdf",
+  docx: "pdf",
+  txt: "text",
+  md: "text",
+  markdown: "text",
+};
+
+// MIME-prefix categories (image/audio/video) aren't extension-based, so they
+// stay outside EXT_TYPE — one wildcard each covers every extension in the
+// category, nothing to keep in sync per-extension.
+const MIME_PREFIX_WILDCARDS = ["image/*", "audio/*", "video/*"];
+
+const STAGE_ACCEPT = [
+  ...Object.keys(EXT_TYPE).map((ext) => `.${ext}`),
+  ...MIME_PREFIX_WILDCARDS,
+].join(",");
+
+// Returns null for anything outside what this app actually supports (the
+// file input's accept list) — a drag-and-drop or an "All Files" picker
+// selection bypasses that attribute, so this is the real gate.
+function detectType(file: File): CType | null {
+  const byExt = EXT_TYPE[extOf(file)];
+  if (byExt) return byExt;
   if (file.type === "application/pdf") return "pdf";
   if (file.type.startsWith("image/")) return "image";
-  if (file.type.startsWith("audio/")) return "audio";
+  if (file.type.startsWith("audio/") || isVideoFile(file)) return "audio";
   if (
     file.type === "text/plain" ||
     file.type === "text/markdown" ||
     file.type === "text/x-markdown"
   )
     return "text";
-  return "pdf";
+  if (
+    file.type ===
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  )
+    return "pdf";
+  return null;
 }
 
 function formatSize(bytes: number): string {
@@ -1334,7 +1370,7 @@ export default function CollectionView({
   const [customText, setCustomText] = useState("");
   const customTextTrimmed = customText.trim();
   const [stagingState, setStagingState] = useState<
-    Record<number, "uploading" | "error">
+    Record<number, StagingEntry>
   >({});
 
   const filesRef = useRef(files);
@@ -1367,21 +1403,80 @@ export default function CollectionView({
     return () => clearInterval(interval);
   }, [classId, topicId]);
 
-  function stageFiles(rawFiles: File[]) {
-    const items: StagedFile[] = rawFiles.map((f) => {
-      const type = detectType(f);
-      return {
-        id: ++stageSeqRef.current,
-        kind: "file",
-        type,
-        name: f.name,
-        size: formatSize(f.size),
-        method: METHODS_FOR_TYPE[type][0],
-        file: f,
-      };
-    });
-    setStaged((st) => [...st, ...items]);
-  }
+  const convertStagedVideo = useCallback((id: number, videoFile: File) => {
+    setStagingState((st) => ({
+      ...st,
+      [id]: { status: "converting", progress: 0 },
+    }));
+    extractAudioFromVideo(videoFile, (progress) =>
+      setStagingState((st) =>
+        st[id]?.status === "converting"
+          ? { ...st, [id]: { status: "converting", progress } }
+          : st,
+      ),
+    )
+      .then((audioFile) => {
+        setStaged((st) =>
+          st.map((x) =>
+            x.id === id && x.kind === "file"
+              ? {
+                  ...x,
+                  file: audioFile,
+                  name: audioFile.name,
+                  size: formatSize(audioFile.size),
+                }
+              : x,
+          ),
+        );
+        setStagingState((st) => {
+          const next = { ...st };
+          delete next[id];
+          return next;
+        });
+      })
+      .catch(() => {
+        toast.error(
+          `Failed to extract audio from ${videoFile.name}. The file may be too large.`,
+        );
+        setStagingState((st) => ({ ...st, [id]: { status: "error" } }));
+      });
+  }, []);
+
+  const stageFiles = useCallback(
+    (rawFiles: File[]) => {
+      const items: StagedFile[] = [];
+      const unsupported: string[] = [];
+      for (const f of rawFiles) {
+        const type = detectType(f);
+        if (!type) {
+          unsupported.push(f.name);
+          continue;
+        }
+        const item: StagedFile = {
+          id: ++stageSeqRef.current,
+          kind: "file",
+          type,
+          name: f.name,
+          size: formatSize(f.size),
+          method: METHODS_FOR_TYPE[type][0],
+          file: f,
+        };
+        items.push(item);
+        if (isVideoFile(f)) convertStagedVideo(item.id, f);
+      }
+      if (unsupported.length > 0) {
+        toast.error(
+          unsupported.length === 1
+            ? `${unsupported[0]} is not a supported file type.`
+            : `${unsupported.length} files are not a supported type.`,
+        );
+      }
+      if (items.length === 0) return;
+
+      setStaged((st) => [...st, ...items]);
+    },
+    [convertStagedVideo],
+  );
 
   const lastPasteRef = useRef(0);
 
@@ -1399,7 +1494,7 @@ export default function CollectionView({
     }
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);
-  }, [canUpload]);
+  }, [canUpload, stageFiles]);
 
   function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files?.length) {
@@ -1563,7 +1658,7 @@ export default function CollectionView({
     );
 
   async function uploadFile(s: StagedFile) {
-    setStagingState((st) => ({ ...st, [s.id]: "uploading" }));
+    setStagingState((st) => ({ ...st, [s.id]: { status: "uploading" } }));
 
     if (s.type === "custom") {
       const created = await createCustomContribution(classId, topicId, {
@@ -1571,7 +1666,7 @@ export default function CollectionView({
         text: s.text || "",
       });
       if ("error" in created) {
-        setStagingState((st) => ({ ...st, [s.id]: "error" }));
+        setStagingState((st) => ({ ...st, [s.id]: { status: "error" } }));
         toast.error(`Something went wrong while uploading ${s.name}.`);
         return;
       }
@@ -1605,7 +1700,7 @@ export default function CollectionView({
     });
 
     if ("error" in urlResult) {
-      setStagingState((st) => ({ ...st, [s.id]: "error" }));
+      setStagingState((st) => ({ ...st, [s.id]: { status: "error" } }));
       toast.error(urlResult.error);
       return;
     }
@@ -1619,7 +1714,7 @@ export default function CollectionView({
       if (!res.ok) throw new Error(`S3 upload failed: ${res.status}`);
     } catch {
       deleteContribution(classId, urlResult.id).catch(() => {});
-      setStagingState((st) => ({ ...st, [s.id]: "error" }));
+      setStagingState((st) => ({ ...st, [s.id]: { status: "error" } }));
       toast.error(`Failed to upload ${s.name}.`);
       return;
     }
@@ -1647,7 +1742,7 @@ export default function CollectionView({
   }
 
   async function uploadLink(s: StagedLink) {
-    setStagingState((st) => ({ ...st, [s.id]: "uploading" }));
+    setStagingState((st) => ({ ...st, [s.id]: { status: "uploading" } }));
 
     const created = await createUrlContribution(classId, topicId, {
       name: s.name,
@@ -1657,7 +1752,7 @@ export default function CollectionView({
     });
 
     if ("error" in created) {
-      setStagingState((st) => ({ ...st, [s.id]: "error" }));
+      setStagingState((st) => ({ ...st, [s.id]: { status: "error" } }));
       toast.error(created.error);
       return;
     }
@@ -1683,11 +1778,11 @@ export default function CollectionView({
   }
 
   async function uploadPlaylist(s: StagedPlaylist) {
-    setStagingState((st) => ({ ...st, [s.id]: "uploading" }));
+    setStagingState((st) => ({ ...st, [s.id]: { status: "uploading" } }));
 
     const checked = s.videos.filter((v) => v.checked);
     if (checked.length === 0) {
-      setStagingState((st) => ({ ...st, [s.id]: "error" }));
+      setStagingState((st) => ({ ...st, [s.id]: { status: "error" } }));
       toast.error(`No videos selected in "${s.name}".`);
       return;
     }
@@ -1738,7 +1833,7 @@ export default function CollectionView({
     });
 
     if (failed.length > 0) {
-      setStagingState((st) => ({ ...st, [s.id]: "error" }));
+      setStagingState((st) => ({ ...st, [s.id]: { status: "error" } }));
       const firstError = failed[0].error;
       const allSame = failed.every((r) => r.error === firstError);
       const suffix = allSame
@@ -1772,11 +1867,13 @@ export default function CollectionView({
 
     try {
       await Promise.all(
-        staged.map((s) => {
-          if (s.kind === "playlist") return uploadPlaylist(s);
-          if (s.kind === "link") return uploadLink(s);
-          return uploadFile(s);
-        }),
+        staged
+          .filter((s) => stagingState[s.id]?.status !== "error")
+          .map((s) => {
+            if (s.kind === "playlist") return uploadPlaylist(s);
+            if (s.kind === "link") return uploadLink(s);
+            return uploadFile(s);
+          }),
       );
     } finally {
       uploadingRef.current = false;
@@ -1812,6 +1909,9 @@ export default function CollectionView({
         ? n + s.videos.filter((v) => v.checked).length
         : n + 1,
     0,
+  );
+  const converting = Object.values(stagingState).some(
+    (e) => e.status === "converting",
   );
   const contributorIds = useMemo(
     () => [...new Set(files.map((f) => f.uploaderId))],
@@ -1875,7 +1975,7 @@ export default function CollectionView({
             type="file"
             className="hidden"
             multiple
-            accept=".pdf,.docx,.txt,.md,.markdown,image/*,audio/*"
+            accept={STAGE_ACCEPT}
             onChange={handleFileInput}
           />
           <div
@@ -1898,7 +1998,7 @@ export default function CollectionView({
               <UploadIcon />
             </div>
             <h4>Drop files here, or click to select</h4>
-            <p>PDF, DOCX, TXT, MD, image, MP3, M4A, WAV · up to 500 MB each</p>
+            <p>documents, images, audios, videos · up to 500 MB each</p>
           </div>
 
           <div className="link-row flex gap-2.5 my-3.5">
@@ -2156,7 +2256,22 @@ export default function CollectionView({
                         ? "Custom"
                         : "File"}
                     {s.kind === "link" && s.dur ? ` · ${s.dur}` : ""}
-                    {stagingState[s.id] === "error" && (
+                    {(() => {
+                      const entry = stagingState[s.id];
+                      return (
+                        entry?.status === "converting" && (
+                          <>
+                            {" "}
+                            ·{" "}
+                            <span className="text-(--accent-text) font-semibold">
+                              extracting audio…
+                              {` ${Math.round(entry.progress * 100)}%`}
+                            </span>
+                          </>
+                        )
+                      );
+                    })()}
+                    {stagingState[s.id]?.status === "error" && (
                       <>
                         {" "}
                         ·{" "}
@@ -2210,7 +2325,9 @@ export default function CollectionView({
               <button
                 className="btn btn-primary flex-1 sm:flex-none justify-center"
                 onClick={uploadAll}
-                disabled={uploading || resolvingLink || stagedSize === 0}
+                disabled={
+                  uploading || resolvingLink || converting || stagedSize === 0
+                }
               >
                 {uploading ? (
                   <>

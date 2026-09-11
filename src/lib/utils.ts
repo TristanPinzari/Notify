@@ -39,6 +39,10 @@ export function cleanClassCodeChars(raw: string): string {
   return raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
+export function extOf(file: File): string {
+  return file.name.split(".").pop()?.toLowerCase() ?? "";
+}
+
 export async function mapWithConcurrency<T, R>(
   items: T[],
   limit: number,

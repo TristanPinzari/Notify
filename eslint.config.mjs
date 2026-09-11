@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Static assets, never source to lint (e.g. the self-hosted
+    // ffmpeg.wasm core build in public/ffmpeg/):
+    "public/**",
   ]),
 ]);
 

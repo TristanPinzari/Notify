@@ -131,7 +131,6 @@ const MIME_EXT: Record<string, string> = {
   "audio/wav": "wav",
   "audio/ogg": "ogg",
   "audio/webm": "webm",
-  "video/webm": "webm",
 };
 
 export async function createFileContribution(
@@ -478,7 +477,9 @@ export async function deleteContribution(
         })
         .where(eq(compilationSources.contributionId, contributionId));
 
-      await tx.delete(contributions).where(eq(contributions.id, contributionId));
+      await tx
+        .delete(contributions)
+        .where(eq(contributions.id, contributionId));
     });
 
     logActivity(
