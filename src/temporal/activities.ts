@@ -79,6 +79,7 @@ const getPdfCss = (): Promise<string> =>
   ]).then(([a, k]) => a + k));
 
 function sanitizeAiError(e: unknown): string {
+  console.error("[sanitizeAiError] raw error:", e);
   const msg = e instanceof Error ? e.message : String(e);
   if (
     /high demand|overloaded|rate.?limit|429|too many requests|capacity|try again later/i.test(
@@ -512,7 +513,6 @@ export async function runCompilation(
         );
       }
     } catch (e) {
-      console.error("[runCompilation] AI error:", e);
       throw new Error(sanitizeAiError(e));
     }
 
