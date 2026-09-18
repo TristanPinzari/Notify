@@ -33,6 +33,7 @@ import { stripNullBytes, mapWithConcurrency } from "@/lib/utils";
 import {
   AUDIO_CHUNK_MIN,
   AUDIO_CHUNK_CONCURRENCY,
+  AUDIO_CHUNK_REQUEST_GAP_MS,
   extractionWorkflowId,
 } from "@/lib/extraction-config";
 import { UPLOAD_URL_EXPIRES_SEC } from "@/lib/upload-config";
@@ -255,7 +256,7 @@ async function runExtraction(
         const { format } = await parseFile(inputPath);
         const durationSec = format.duration;
 
-        const CHUNK_SEC = AUDIO_CHUNK_MIN * 60; // safely under Mistral's 60-min cap
+        const CHUNK_SEC = AUDIO_CHUNK_MIN * 60; // safely under Voxtral Mini Transcribe 2's ~3h cap
         const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
 
         let filesToTranscribe: Array<{ filePath: string; name: string }>;
@@ -267,7 +268,8 @@ async function runExtraction(
             throw new Error("ffmpeg binary is not available on this platform.");
           const ffmpegPath = ffmpegBin;
 
-          // Split into 50-min MP3 chunks via ffmpeg (bounded parallelism)
+          // Split into AUDIO_CHUNK_MIN-min MP3 chunks via ffmpeg (bounded parallelism —
+          // local CPU/disk work, not a Mistral call, so concurrency here is fine)
           const numChunks = Math.ceil(durationSec / CHUNK_SEC);
           const chunkDefs = Array.from({ length: numChunks }, (_, i) => ({
             startSec: i * CHUNK_SEC,
@@ -301,22 +303,28 @@ async function runExtraction(
           }));
         }
 
-        const texts = await mapWithConcurrency(
-          filesToTranscribe,
-          AUDIO_CHUNK_CONCURRENCY,
-          async ({ filePath, name }) => {
-            const content = await fs.promises.readFile(filePath);
-            try {
-              const response = await client.audio.transcriptions.complete({
-                model: "voxtral-mini-latest",
-                file: { fileName: name, content },
-              });
-              return response.text;
-            } catch (e) {
-              throw new Error(sanitizeAiError(e));
-            }
-          },
-        );
+        // Sequential, not concurrent — Mistral's account-level rate limit for
+        // this model is low (well under one request per second), so chunks of
+        // one file are transcribed one at a time with a gap between requests
+        // rather than fired concurrently.
+        const texts: string[] = [];
+        for (let i = 0; i < filesToTranscribe.length; i++) {
+          if (i > 0)
+            await new Promise((r) =>
+              setTimeout(r, AUDIO_CHUNK_REQUEST_GAP_MS),
+            );
+          const { filePath, name } = filesToTranscribe[i];
+          const content = await fs.promises.readFile(filePath);
+          try {
+            const response = await client.audio.transcriptions.complete({
+              model: "voxtral-mini-latest",
+              file: { fileName: name, content },
+            });
+            texts.push(response.text);
+          } catch (e) {
+            throw new Error(sanitizeAiError(e));
+          }
+        }
         return { text: texts.join("\n\n") };
       } finally {
         await fs.promises.unlink(inputPath).catch(() => {});
