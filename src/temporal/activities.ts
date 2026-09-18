@@ -255,6 +255,9 @@ async function runExtraction(
         const { parseFile } = await import("music-metadata");
         const { format } = await parseFile(inputPath);
         const durationSec = format.duration;
+        console.log(
+          `[speech_to_text] ${input.contributionId}: audio length ${durationSec ? Math.round(durationSec) + "s" : "unknown"}`,
+        );
 
         const CHUNK_SEC = AUDIO_CHUNK_MIN * 60; // safely under Voxtral Mini Transcribe 2's ~3h cap
         const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
@@ -307,6 +310,9 @@ async function runExtraction(
         // this model is low (well under one request per second), so chunks of
         // one file are transcribed one at a time with a gap between requests
         // rather than fired concurrently.
+        console.log(
+          `[speech_to_text] ${input.contributionId}: ${filesToTranscribe.length} request(s) to be made`,
+        );
         const texts: string[] = [];
         for (let i = 0; i < filesToTranscribe.length; i++) {
           if (i > 0)
@@ -321,7 +327,13 @@ async function runExtraction(
               file: { fileName: name, content },
             });
             texts.push(response.text);
+            console.log(
+              `[speech_to_text] ${input.contributionId}: request ${i + 1}/${filesToTranscribe.length} done (${name})`,
+            );
           } catch (e) {
+            console.error(
+              `[speech_to_text] ${input.contributionId}: request ${i + 1}/${filesToTranscribe.length} failed (${name})`,
+            );
             throw new Error(sanitizeAiError(e));
           }
         }
