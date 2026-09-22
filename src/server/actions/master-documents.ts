@@ -95,7 +95,23 @@ export async function createMasterDocument(
       return allowed;
     }
 
-    if (!settings.fromScratch) {
+    // A client-requested incremental compile is only meaningful if there's a
+    // ready document to build on — otherwise treat it as from-scratch
+    // regardless of what the client sent, so contributions never get
+    // silently skipped for lack of a base document that doesn't exist.
+    const [prevReadyDoc] = await db
+      .select({ id: masterDocuments.id })
+      .from(masterDocuments)
+      .where(
+        and(
+          eq(masterDocuments.topicId, topicId),
+          eq(masterDocuments.status, "ready"),
+        ),
+      )
+      .limit(1);
+    const fromScratch = settings.fromScratch || !prevReadyDoc;
+
+    if (!fromScratch) {
       const [newContrib] = await db
         .select({ id: contributions.id })
         .from(contributions)
@@ -116,12 +132,15 @@ export async function createMasterDocument(
       };
 
     const masterDocumentId = crypto.randomUUID();
-    const { fromScratch, ...docSettings } = settings;
     await db.insert(masterDocuments).values({
       id: masterDocumentId,
       triggeredBy: session.user.id,
       topicId,
-      ...docSettings,
+      outputType: settings.outputType,
+      depth: settings.depth,
+      conflictResolution: settings.conflictResolution,
+      factChecking: settings.factChecking,
+      sourcesInline: settings.sourcesInline,
     });
 
     if (fromScratch)
@@ -138,7 +157,7 @@ export async function createMasterDocument(
     const temporalClient = await getTemporalClient();
     try {
       await temporalClient.workflow.start("compileContributions", {
-        args: [masterDocumentId, topicId, settings],
+        args: [masterDocumentId, topicId, { ...settings, fromScratch }],
         taskQueue: TASK_QUEUE,
         workflowId: `compile-${masterDocumentId}`,
       });

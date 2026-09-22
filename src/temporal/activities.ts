@@ -316,9 +316,7 @@ async function runExtraction(
         const texts: string[] = [];
         for (let i = 0; i < filesToTranscribe.length; i++) {
           if (i > 0)
-            await new Promise((r) =>
-              setTimeout(r, AUDIO_CHUNK_REQUEST_GAP_MS),
-            );
+            await new Promise((r) => setTimeout(r, AUDIO_CHUNK_REQUEST_GAP_MS));
           const { filePath, name } = filesToTranscribe[i];
           const content = await fs.promises.readFile(filePath);
           try {

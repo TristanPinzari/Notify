@@ -124,6 +124,9 @@ export function MasterDocView({
   masterDocs: initialDocs,
 }: Props) {
   const [docs, setDocs] = useState<MasterDoc[]>(initialDocs);
+  // Only a "ready" doc can be incrementally built on — a failed or
+  // still-compiling one can't, so from-scratch is the only real option then.
+  const hasReadyDoc = docs.some((d) => d.status === "ready");
   const [activeId, setActiveId] = useState<string | null>(
     initialDocs[0]?.id ?? null,
   );
@@ -158,10 +161,22 @@ export function MasterDocView({
           conflictResolution: initialDocs[0].conflictResolution,
           factChecking: initialDocs[0].factChecking,
           sourcesInline: initialDocs[0].sourcesInline,
-          fromScratch: false,
+          fromScratch: !hasReadyDoc,
         }
-      : DEFAULTS,
+      : { ...DEFAULTS, fromScratch: !hasReadyDoc },
   );
+
+  // draft.fromScratch is only otherwise set on mount, selectDoc, or a manual
+  // toggle — this catches the case where a topic goes from no ready doc to
+  // having one (e.g. the first-ever compile finishing) while the settings
+  // panel's draft was left forced-on, so it relaxes back to the real default.
+  const prevHasReadyDocRef = useRef(hasReadyDoc);
+  useEffect(() => {
+    if (hasReadyDoc && !prevHasReadyDocRef.current) {
+      setDraft((s) => (s.fromScratch ? { ...s, fromScratch: false } : s));
+    }
+    prevHasReadyDocRef.current = hasReadyDoc;
+  }, [hasReadyDoc]);
 
   useEffect(() => {
     if (!compilingDocId) return;
@@ -290,7 +305,7 @@ export function MasterDocView({
         conflictResolution: d.conflictResolution,
         factChecking: d.factChecking,
         sourcesInline: d.sourcesInline,
-        fromScratch: false,
+        fromScratch: !hasReadyDoc,
       });
     }
   }
@@ -575,17 +590,20 @@ export function MasterDocView({
               <span className="track" />
             </label>
           </div>
-          <div className={`set-row${hasDoc ? " scratch" : ""}`}>
+          <div className={`set-row${hasReadyDoc ? " scratch" : ""}`}>
             <div className="sl">
               <div className="st">Recompile from scratch</div>
               <div className="set-desc">
-                Include all sources, not just new ones since the last compile.
+                {hasReadyDoc
+                  ? "Include all sources, not just new ones since the last compile."
+                  : "No previous document to build on, so this compile always includes all sources."}
               </div>
             </div>
             <label className="toggle">
               <input
                 type="checkbox"
                 checked={draft.fromScratch}
+                disabled={!hasReadyDoc}
                 onChange={() => setSetting("fromScratch", !draft.fromScratch)}
               />
               <span className="track" />
