@@ -56,7 +56,7 @@ const SOURCE_TAG = `- <source id="CONTRIBUTION_ID" name="CONTRIBUTION_NAME" />
   Inline source citation. Place after the sentence it supports. Multiple <source /> tags may follow a single sentence when it draws from more than one contribution.`;
 
 const MATH_TAG = `- <math>inline expression</math>
-  Inline LaTeX math. Use for variables, symbols, and short expressions within a sentence (e.g. <math>E = mc^2</math>).
+  Inline LaTeX math. Use for variables, symbols, and short expressions within a sentence (e.g. <math>E = mc^2</math>) — including a simple substitution or equality like <math>V = V_s</math>, not just multi-term formulas. Never write an equation in backticks instead.
 
 - <math display="block">
   multi-line or large expression
@@ -75,7 +75,7 @@ Block-level:
 Inline:
 - \`**bold**\`
 - \`*italic*\` or \`_italic_\`
-- \`verbatim\` — renders exactly as written, with NO formatting interpreted inside it. Use this for variable names, identifiers, and file paths — this renderer does not protect underscores inside a word the way GitHub/CommonMark does, so a name like \`Current_Run_Value\` written as plain text will have "Run" misread as italics. Wrap any text containing an underscore or asterisk in backticks whenever it appears, so it renders literally instead.`;
+- \`verbatim\` — renders exactly as written, with NO formatting interpreted inside it. Use this for non-mathematical text only: variable/identifier names, file paths, technical terms — this renderer does not protect underscores inside a word the way GitHub/CommonMark does, so a name like \`Current_Run_Value\` written as plain text will have "Run" misread as italics. Wrap any such text containing an underscore or asterisk in backticks whenever it appears, so it renders literally instead. Do NOT use backticks for math or equations, even a short substitution like a plain variable assignment — use <math> for those instead (see below) so they render as properly typeset math rather than a flat literal string.`;
 
 function buildXmlTagReference(settings: CompilationSettings): string {
   const tags = [

@@ -197,9 +197,13 @@ function parseBlocks(md: string, nameById?: Map<string, string>): Block[] {
       continue;
     }
 
-    const hm = line.match(/^(#{1,4})\s+(.*)/);
+    // Matches up to 6 hashes (Markdown's usual max) even though only h1-h4
+    // are supported — clamping a stray h5/h6 to h4 is more robust than
+    // trusting the model to never write one despite the prompt saying not to.
+    const hm = line.match(/^(#{1,6})\s+(.*)/);
     if (hm) {
-      const kind = `h${hm[1].length}` as "h1" | "h2" | "h3" | "h4";
+      const level = Math.min(hm[1].length, 4);
+      const kind = `h${level}` as "h1" | "h2" | "h3" | "h4";
       const s = stripSources(hm[2], nameById);
       blocks.push({ kind, text: s.text, srcs: s.srcs, cite: [] });
       i++;
