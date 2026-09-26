@@ -58,6 +58,8 @@ const SOURCE_TAG = `- <source id="CONTRIBUTION_ID" name="CONTRIBUTION_NAME" />
 const MATH_TAG = `- <math>inline expression</math>
   Inline LaTeX math. Use for variables, symbols, and short expressions within a sentence (e.g. <math>E = mc^2</math>) — including a simple substitution or equality like <math>V = V_s</math>, not just multi-term formulas. Never write an equation in backticks instead.
 
+  Bright-line rule: any LaTeX command — anything starting with a backslash, like \\ne, \\times, \\le, \\ge, \\frac, \\infty, \\cdot, \\div, \\approx, \\sum, \\sqrt, \\alpha, \\text — MUST be inside <math> tags. This renderer does not interpret LaTeX outside <math>, so a command written elsewhere (backticks or plain text) shows up as the literal broken-looking source, not the symbol: \`F \\ne 0\` renders as the raw text "F \\ne 0", not "F ≠ 0". Write <math>F \\ne 0</math> instead. If you're about to type a backslash command, stop and check it's wrapped in <math>.
+
 - <math display="block">
   multi-line or large expression
   </math>
