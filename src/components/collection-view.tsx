@@ -1657,7 +1657,7 @@ export default function CollectionView({
       });
       if ("error" in created) {
         setStagingState((st) => ({ ...st, [s.id]: { status: "error" } }));
-        toast.error(`Something went wrong while uploading ${s.name}.`);
+        toast.error(created.error);
         return;
       }
       toast.success(`Successfully uploaded ${s.name}.`);

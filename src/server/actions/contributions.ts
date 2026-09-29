@@ -38,6 +38,8 @@ import { normalizeYoutubeUrl } from "@/lib/youtube";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION! });
 
+const CONTRIBUTION_TEXT_MAX_CHARS = 100_000;
+
 export async function createUrlContribution(
   classId: string,
   topicId: string,
@@ -276,8 +278,10 @@ export async function createCustomContribution(
   if (data.name.length > 200)
     return { error: "Contribution name must be 200 characters or fewer." };
   if (!data.text) return { error: "No text provided." };
-  if (data.text.length > 50000)
-    return { error: "Text must be 50,000 characters or fewer." };
+  if (data.text.length > CONTRIBUTION_TEXT_MAX_CHARS)
+    return {
+      error: `Text must be ${CONTRIBUTION_TEXT_MAX_CHARS.toLocaleString()} characters or fewer.`,
+    };
 
   try {
     const allowed = await requireUploadAccess(
@@ -702,8 +706,13 @@ export async function editContribution(
       if (data.name.length > 200)
         return { error: "Contribution name must be 200 characters or fewer." };
     }
-    if (data.text !== undefined && data.text.length > 50000)
-      return { error: "Text must be 50,000 characters or fewer." };
+    if (
+      data.text !== undefined &&
+      data.text.length > CONTRIBUTION_TEXT_MAX_CHARS
+    )
+      return {
+        error: `Text must be ${CONTRIBUTION_TEXT_MAX_CHARS.toLocaleString()} characters or fewer.`,
+      };
     if (data.extractionMethod !== undefined && contribution.type === "custom")
       return { error: "Custom contributions do not use an extraction method." };
 
