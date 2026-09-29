@@ -56,9 +56,7 @@ const SOURCE_TAG = `- <source id="CONTRIBUTION_ID" name="CONTRIBUTION_NAME" />
   Inline source citation. Place after the sentence it supports. Multiple <source /> tags may follow a single sentence when it draws from more than one contribution.`;
 
 const MATH_TAG = `- <math>inline expression</math>
-  Inline LaTeX math. Use for variables, symbols, and short expressions within a sentence (e.g. <math>E = mc^2</math>) — including a simple substitution or equality like <math>V = V_s</math>, not just multi-term formulas. Never write an equation in backticks instead.
-
-  Bright-line rule: any LaTeX command — anything starting with a backslash, like \\ne, \\times, \\le, \\ge, \\frac, \\infty, \\cdot, \\div, \\approx, \\sum, \\sqrt, \\alpha, \\text — MUST be inside <math> tags. The same goes for a subscript or exponent used as math notation, e.g. a base indicator (\`3.6\` in base 10 written as a subscript) or a power like 2 to the 5th — write <math>3.6_{10}</math> or <math>2^5</math>, not backticks. This is different from an underscore that's simply part of an identifier's spelling, like \`Current_Run_Value\` — that correctly stays in backticks. The distinction: does the underscore/caret mean something mathematically (a subscript or exponent), or is it just a character inside a name? This renderer does not interpret LaTeX outside <math>, so any of this notation written elsewhere (backticks or plain text) shows up as the literal broken-looking source, not the formatted symbol: \`F \\ne 0\` renders as the raw text "F \\ne 0", and \`3.6_10\` renders with a bare underscore, not a subscript. If you're about to type a backslash, or an underscore/caret that means something mathematically, stop and check it's wrapped in <math>.
+  Inline LaTeX math, for a variable, symbol, or short expression within a sentence (e.g. <math>E = mc^2</math>). See "Math" in the Formatting Rules above for when to use this instead of backticks.
 
 - <math display="block">
   multi-line or large expression
@@ -66,18 +64,33 @@ const MATH_TAG = `- <math>inline expression</math>
   Block-level LaTeX math. Use for equations, derivations, or any formula that deserves its own line. Must appear on its own line with a blank line before and after it.`;
 
 const FORMATTING_NOTES = `## Formatting Rules
-Your output is parsed by a small custom renderer, not a full Markdown engine — it only understands the constructs listed below. Do not use anything else (tables, links, blockquotes, fenced code blocks, numbered lists, strikethrough, horizontal rules, headers past ####) — they will not render and will show up as broken literal text.
+Your output is parsed by a small custom renderer, not a full Markdown engine. It understands ONLY the constructs below — nothing else (tables, links, blockquotes, numbered lists, strikethrough, horizontal rules, headers past ####, fenced code blocks) will render. Each one just shows up as broken literal text on the page.
 
 Block-level:
-- \`#\` through \`####\` for headers (four levels only)
-- \`*\` or \`-\` for bullet lists; nest by indenting
-- Plain paragraphs separated by a blank line
-- The custom XML tags below (each is also block-level where noted)
+- \`#\` through \`####\` — headers, four levels only
+- \`*\` or \`-\` — bullet lists; nest by indenting
+- A blank line — separates paragraphs
+- The custom XML tags listed below (each is also block-level where noted)
 
 Inline:
 - \`**bold**\`
 - \`*italic*\` or \`_italic_\`
-- \`verbatim\` — renders exactly as written, with NO formatting interpreted inside it. Use this for non-mathematical text only: variable/identifier names, file paths, technical terms — this renderer does not protect underscores inside a word the way GitHub/CommonMark does, so a name like \`Current_Run_Value\` written as plain text will have "Run" misread as italics. Wrap any such text containing an underscore or asterisk in backticks whenever it appears, so it renders literally instead. Do NOT use backticks for math or equations, even a short substitution like a plain variable assignment — use <math> for those instead (see below) so they render as properly typeset math rather than a flat literal string.`;
+- \`verbatim text\` — single backticks around short text, shown exactly as typed. For non-math text only: identifiers, file paths, technical terms.
+
+No code blocks. There is no way to show a multi-line code block with preserved formatting — only single backticks around a short inline piece of text. Never write triple backticks (\`\`\`), with or without a word after them (\`\`\`verbatim, \`\`\`c, \`\`\`python are all invalid — none of this is real syntax here). Every backtick-fence line renders as its own broken, disconnected paragraph.
+  WRONG:
+  \`\`\`
+  if (x > 0) {
+      return x;
+  }
+  \`\`\`
+  RIGHT — describe it in prose, with single backticks for short pieces: "If \`x > 0\`, the function returns \`x\`."
+
+Math always goes in <math>...</math>, never in backticks — even something short. Three signs something belongs in <math>:
+  1. A LaTeX command (anything starting with a backslash: \\ne, \\times, \\le, \\frac, \\infty, ...). WRONG: \`F \\ne 0\`. RIGHT: <math>F \\ne 0</math>.
+  2. A subscript or exponent used mathematically (a base, a power). WRONG: \`3.6_10\`. RIGHT: <math>3.6_{10}</math>.
+  3. An equation or substitution, even a simple one. WRONG: \`V = V_s\`. RIGHT: <math>V = V_s</math>.
+  An underscore that's just part of an identifier's spelling is NOT math and correctly stays in backticks: \`Current_Run_Value\` is right as written. The test: does the underscore/backslash mean something mathematically, or is it just a character in a name?`;
 
 function buildXmlTagReference(settings: CompilationSettings): string {
   const tags = [
