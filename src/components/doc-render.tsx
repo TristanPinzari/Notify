@@ -358,8 +358,25 @@ function renameSourceAttrs(md: string): string {
   );
 }
 
+// The model is explicitly told never to wrap math in backticks, but keeps
+// doing it anyway for substitutions like `$$x^2$$` — this exact habit was
+// one of the original reasons the old regex parser got replaced, and the
+// prompt instruction alone hasn't fully suppressed it. A backtick code span
+// always wins under CommonMark (its content is never re-parsed), so without
+// this, the dollar signs show up as visible literal text instead of
+// rendering as math. Only unwraps a span whose ENTIRE content is wrapped in
+// matching $ or $$ on both ends — a real code span like `$PATH` or
+// `$5 to $10` doesn't match (no closing $ immediately before the backtick),
+// so verbatim text is left alone.
+function unwrapBacktickMath(md: string): string {
+  return md.replace(
+    /`(\$\$?)([^`]+?)\1`/g,
+    (_, delim, content) => `${delim}${content}${delim}`,
+  );
+}
+
 function preprocessMarkdown(raw: string): string {
-  return renameSourceAttrs(collapseTagNewlines(raw));
+  return renameSourceAttrs(collapseTagNewlines(unwrapBacktickMath(raw)));
 }
 
 /* ─── sanitize schema ───────────────────────────────────────────────── */

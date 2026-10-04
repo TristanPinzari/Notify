@@ -70,7 +70,12 @@ Tables need a real separator row: every cell must contain at least one literal h
 
 On top of standard Markdown, two things specific to this app:
 
-- Math always uses double-dollar LaTeX delimiters — never a single \`$\`, which is reserved for literal dollar amounts (e.g. "it costs $30"). For math within a sentence, keep it on the same line as the surrounding text: \`$$E = mc^2$$\` within a sentence. For an equation that deserves its own line, put \`$$\` alone, then the expression, then \`$$\` alone, each on its own line with a blank line before and after. Never use backticks for math, even a short substitution like \`$$V = V_s$$\`. A backtick code span (\`like this\`) is for non-math verbatim text only — identifiers, file paths, technical terms — and never interprets LaTeX inside it.
+- Math always uses double-dollar LaTeX delimiters, written directly in the text — never a single $, which is reserved for literal dollar amounts (e.g. "it costs $30"), and never wrapped in backticks, even for a short inline substitution. A backtick code span is for non-math verbatim text only — identifiers, file paths, technical terms — and never interprets LaTeX inside it; wrapping math in backticks makes it display as literal text instead of rendering.
+  RIGHT — math within a sentence, no backticks:
+  The result is $$E = mc^2$$, derived from relativity.
+  WRONG — backticks around math silently fail to render, showing the raw characters instead:
+  The result is \`$$E = mc^2$$\`, derived from relativity.
+  For an equation that deserves its own line, put $$ alone, then the expression, then $$ alone, each on its own line with a blank line before and after.
 - The custom XML tags listed below. Bold/italic/code inside their content still renders normally.`;
 
 function buildXmlTagReference(settings: CompilationSettings): string {
