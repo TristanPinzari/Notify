@@ -55,42 +55,23 @@ const FLAGGED_TAG_REPLACE = `- <flagged original="paraphrased original claim">co
 const SOURCE_TAG = `- <source id="CONTRIBUTION_ID" name="CONTRIBUTION_NAME" />
   Inline source citation. Place after the sentence it supports. Multiple <source /> tags may follow a single sentence when it draws from more than one contribution.`;
 
-const MATH_TAG = `- <math>inline expression</math>
-  Inline LaTeX math, for a variable, symbol, or short expression within a sentence (e.g. <math>E = mc^2</math>). See "Math" in the Formatting Rules above for when to use this instead of backticks.
-
-- <math display="block">
-  multi-line or large expression
-  </math>
-  Block-level LaTeX math. Use for equations, derivations, or any formula that deserves its own line. Must appear on its own line with a blank line before and after it.`;
-
 const FORMATTING_NOTES = `## Formatting Rules
-Your output is parsed by a small custom renderer, not a full Markdown engine. It understands ONLY the constructs below — nothing else (tables, links, blockquotes, numbered lists, strikethrough, horizontal rules, headers past ####, fenced code blocks) will render. Each one just shows up as broken literal text on the page.
+Your output is parsed by remark/rehype, a real, standards-compliant CommonMark + GitHub Flavored Markdown (GFM) engine — the exact same parsing rules GitHub itself uses. Headers, bullet and numbered lists, bold/italic, tables, fenced code blocks with a language tag, and blockquotes all work exactly as the GFM spec defines them, with no exceptions or restrictions. Trust the spec precisely — do not approximate or improvise syntax, especially for tables (see below).
 
-Block-level:
-- \`#\` through \`####\` — headers, four levels only
-- \`*\` or \`-\` — bullet lists; nest by indenting
-- A blank line — separates paragraphs
-- The custom XML tags listed below (each is also block-level where noted)
+Tables need a real separator row: every cell must contain at least one literal hyphen (\`-\`). A colon alone, with no hyphen, is not valid syntax and does not mean "aligned" by itself — colons only modify a hyphen run, they never replace it. Do not shrink or omit the hyphens to visually match a narrow header.
+  RIGHT:
+  | A | B | Sum |
+  |---|---|-----|
+  | 0 | 0 | 0   |
+  WRONG — bare colons with no hyphens silently fail to parse as a table at all, falling back to one literal paragraph of pipe-delimited text:
+  | A | B | Sum |
+  | : | : | :   |
+  | 0 | 0 | 0   |
 
-Inline:
-- \`**bold**\`
-- \`*italic*\` or \`_italic_\`
-- \`verbatim text\` — single backticks around short text, shown exactly as typed. For non-math text only: identifiers, file paths, technical terms.
+On top of standard Markdown, two things specific to this app:
 
-No code blocks. There is no way to show a multi-line code block with preserved formatting — only single backticks around a short inline piece of text. Never write triple backticks (\`\`\`), with or without a word after them (\`\`\`verbatim, \`\`\`c, \`\`\`python are all invalid — none of this is real syntax here). Every backtick-fence line renders as its own broken, disconnected paragraph.
-  WRONG:
-  \`\`\`
-  if (x > 0) {
-      return x;
-  }
-  \`\`\`
-  RIGHT — describe it in prose, with single backticks for short pieces: "If \`x > 0\`, the function returns \`x\`."
-
-Math always goes in <math>...</math>, never in backticks — even something short. Three signs something belongs in <math>:
-  1. A LaTeX command (anything starting with a backslash: \\ne, \\times, \\le, \\frac, \\infty, ...). WRONG: \`F \\ne 0\`. RIGHT: <math>F \\ne 0</math>.
-  2. A subscript or exponent used mathematically (a base, a power). WRONG: \`3.6_10\`. RIGHT: <math>3.6_{10}</math>.
-  3. An equation or substitution, even a simple one. WRONG: \`V = V_s\`. RIGHT: <math>V = V_s</math>.
-  An underscore that's just part of an identifier's spelling is NOT math and correctly stays in backticks: \`Current_Run_Value\` is right as written. The test: does the underscore/backslash mean something mathematically, or is it just a character in a name?`;
+- Math always uses double-dollar LaTeX delimiters — never a single \`$\`, which is reserved for literal dollar amounts (e.g. "it costs $30"). For math within a sentence, keep it on the same line as the surrounding text: \`$$E = mc^2$$\` within a sentence. For an equation that deserves its own line, put \`$$\` alone, then the expression, then \`$$\` alone, each on its own line with a blank line before and after. Never use backticks for math, even a short substitution like \`$$V = V_s$$\`. A backtick code span (\`like this\`) is for non-math verbatim text only — identifiers, file paths, technical terms — and never interprets LaTeX inside it.
+- The custom XML tags listed below. Bold/italic/code inside their content still renders normally.`;
 
 function buildXmlTagReference(settings: CompilationSettings): string {
   const tags = [
@@ -100,7 +81,6 @@ function buildXmlTagReference(settings: CompilationSettings): string {
     settings.factChecking === "flag" ? FLAGGED_TAG_FLAG : null,
     settings.factChecking === "replace" ? FLAGGED_TAG_REPLACE : null,
     settings.sourcesInline ? SOURCE_TAG : null,
-    MATH_TAG,
   ]
     .filter(Boolean)
     .join("\n\n");

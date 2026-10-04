@@ -139,10 +139,19 @@ export function MasterDocView({
   const [pdfLoading, setPdfLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editContent, setEditContent] = useState("");
+  const [editPreview, setEditPreview] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [staticMode, setStaticMode] = useState(false);
   const menuBtnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // The live preview re-runs the full remark/rehype pipeline on every change,
+  // so it's debounced off the raw keystroke stream — the editor itself
+  // (editContent) stays instant.
+  useEffect(() => {
+    const id = setTimeout(() => setEditPreview(editContent), 150);
+    return () => clearTimeout(id);
+  }, [editContent]);
 
   const activeDoc = docs.find((d) => d.id === activeId) ?? null;
   const compilingDocId = docs.find((d) => d.status === "compiling")?.id ?? null;
@@ -321,6 +330,7 @@ export function MasterDocView({
   function enterEdit() {
     if (!activeDoc?.content) return;
     setEditContent(activeDoc.content);
+    setEditPreview(activeDoc.content);
     setShowConfig(false);
     setShowActions(false);
     setEditMode(true);
@@ -864,7 +874,7 @@ export function MasterDocView({
               </div>
               <div className="edit-modal-panel overflow-y-auto overflow-x-hidden">
                 <CompiledDoc
-                  markdown={editContent}
+                  markdown={editPreview}
                   classId={classId}
                   topicId={topicId}
                   staticMode={staticMode}

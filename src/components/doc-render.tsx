@@ -1,7 +1,19 @@
 "use client";
 
 import { useMemo } from "react";
-import katex from "katex";
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import remarkRehype from "remark-rehype";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+import rehypeKatex from "rehype-katex";
+import rehypeHighlight from "rehype-highlight";
+import { visit } from "unist-util-visit";
+import { toJsxRuntime } from "hast-util-to-jsx-runtime";
+import { Fragment, jsx, jsxs } from "react/jsx-runtime";
+import type { Element, ElementContent, Root } from "hast";
 import {
   FlagDocIcon,
   ConflictSplitIcon,
@@ -20,10 +32,6 @@ type SourceReg = {
 };
 
 /* ─── helpers ───────────────────────────────────────────────────────── */
-
-function getAttr(s: string, name: string): string | undefined {
-  return s.match(new RegExp(`${name}="([^"]*)"`))?.at(1);
-}
 
 function sourceHref(
   id: string | undefined,
@@ -71,27 +79,6 @@ function parseSources(raw: string): SrcRef[] {
   return results;
 }
 
-/** Remove <source .../> from text; capture all distinct sources found */
-function stripSources(
-  text: string,
-  nameById?: Map<string, string>,
-): { text: string; srcs: SrcRef[] } {
-  const srcs: SrcRef[] = [];
-  const seen = new Set<string>();
-  const cleaned = text.replace(/\s*<source(\s[^>]*)?\s*\/>/g, (_, a = "") => {
-    const id = getAttr(a, "id");
-    const name =
-      getAttr(a, "name") || (id ? nameById?.get(id) : undefined) || "?";
-    const key = id ?? name;
-    if (!seen.has(key)) {
-      seen.add(key);
-      srcs.push({ id, name });
-    }
-    return "";
-  });
-  return { text: cleaned, srcs };
-}
-
 function sameSource(a: SrcRef | null, b: SrcRef | null): boolean {
   if (!a || !b) return false;
   return a.id !== undefined && b.id !== undefined
@@ -118,193 +105,6 @@ function makeRegistry(): SourceReg {
       return order.map((s, i) => ({ n: i + 1, name: s.name, id: s.id }));
     },
   };
-}
-
-/* ─── IR block types ────────────────────────────────────────────────── */
-
-type LiItem = {
-  text: string;
-  srcs: SrcRef[];
-  cite: SrcRef[];
-  children: LiItem[];
-};
-
-type Block =
-  | {
-      kind: "h1" | "h2" | "h3" | "h4" | "p";
-      text: string;
-      srcs: SrcRef[];
-      cite: SrcRef[];
-    }
-  | { kind: "li-group"; items: LiItem[] }
-  | { kind: "conflict"; sources: SrcRef[]; verdict?: string; inner: string }
-  | { kind: "math"; tex: string }
-  | { kind: "blank" };
-
-/* ─── parse markdown → blocks ──────────────────────────────────────── */
-
-function parseBlocks(md: string, nameById?: Map<string, string>): Block[] {
-  const lines = md
-    .replace(/\t/g, "  ")
-    .replace(/<math(\s[^>]*)?>[\s\S]*?<\/math>/g, (m) => m.replace(/\n/g, " "))
-    .replace(/([^\n])(\s*<conflict\b)/g, "$1\n$2")
-    .replace(/(<\/conflict>)(\s*\S)/g, "$1\n$2")
-    .split("\n");
-  const blocks: Block[] = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-
-    if (/^\s*<math\b[^>]*display="block"/.test(line)) {
-      const tex = line
-        .replace(/^[\s\S]*?<math[^>]*>/, "")
-        .replace(/<\/math>[\s\S]*$/, "")
-        .trim();
-      blocks.push({ kind: "math", tex });
-      i++;
-      continue;
-    }
-
-    if (/^\s*<conflict/.test(line)) {
-      let buf = line;
-      let accumulated = 0;
-      while (
-        !/<\/conflict>/.test(buf) &&
-        i + 1 < lines.length &&
-        accumulated < 30
-      ) {
-        i++;
-        accumulated++;
-        buf += "\n" + lines[i];
-      }
-      const rawSources = getAttr(buf, "sources") ?? "";
-      const conflictSources = rawSources
-        ? parseSources(rawSources)
-        : [getAttr(buf, "a"), getAttr(buf, "b")]
-            .filter((v): v is string => !!v)
-            .map((name) => ({ name }));
-      blocks.push({
-        kind: "conflict",
-        sources: conflictSources,
-        verdict: getAttr(buf, "verdict"),
-        inner: buf
-          .replace(/^[\s\S]*?<conflict[^>]*>/, "")
-          .replace(/<\/conflict>[\s\S]*$/, "")
-          .trim(),
-      });
-      i++;
-      continue;
-    }
-
-    // Matches up to 6 hashes (Markdown's usual max) even though only h1-h4
-    // are supported — clamping a stray h5/h6 to h4 is more robust than
-    // trusting the model to never write one despite the prompt saying not to.
-    const hm = line.match(/^(#{1,6})\s+(.*)/);
-    if (hm) {
-      const level = Math.min(hm[1].length, 4);
-      const kind = `h${level}` as "h1" | "h2" | "h3" | "h4";
-      const s = stripSources(hm[2], nameById);
-      blocks.push({ kind, text: s.text, srcs: s.srcs, cite: [] });
-      i++;
-      continue;
-    }
-
-    if (/^\s*[*-]\s+/.test(line)) {
-      const roots: LiItem[] = [];
-      const stack: Array<{ item: LiItem; indent: number }> = [];
-      while (i < lines.length && /^\s*[*-]\s+/.test(lines[i])) {
-        const raw = lines[i];
-        const indent = raw.match(/^(\s*)/)?.[1].length ?? 0;
-        const s = stripSources(raw.replace(/^\s*[*-]\s+/, ""), nameById);
-        const item: LiItem = {
-          text: s.text,
-          srcs: s.srcs,
-          cite: [],
-          children: [],
-        };
-        while (stack.length > 0 && stack[stack.length - 1].indent >= indent)
-          stack.pop();
-        if (stack.length === 0) roots.push(item);
-        else stack[stack.length - 1].item.children.push(item);
-        stack.push({ item, indent });
-        i++;
-      }
-      blocks.push({ kind: "li-group", items: roots });
-      continue;
-    }
-
-    if (line.trim() === "") {
-      blocks.push({ kind: "blank" });
-      i++;
-      continue;
-    }
-
-    const s = stripSources(line, nameById);
-    blocks.push({ kind: "p", text: s.text, srcs: s.srcs, cite: [] });
-    i++;
-  }
-
-  return blocks;
-}
-
-/* ─── citation pass ─────────────────────────────────────────────────── */
-/*
- * Flattens all text-bearing blocks into a sequence, detects source runs,
- * and writes the run's SrcRef onto the LAST block of each run.
- * Blank and conflict blocks are transparent — they don't break a run.
- */
-function assignCitations(blocks: Block[]): void {
-  type Slot = { srcs: SrcRef[]; set: (c: SrcRef[]) => void };
-  const flat: Slot[] = [];
-
-  function flattenItem(item: LiItem) {
-    flat.push({
-      srcs: item.srcs,
-      set: (c) => {
-        item.cite = c;
-      },
-    });
-    for (const child of item.children) flattenItem(child);
-  }
-
-  for (const b of blocks) {
-    if (b.kind === "li-group") {
-      for (const item of b.items) flattenItem(item);
-    } else if ("srcs" in b) {
-      const tb = b as { srcs: SrcRef[]; cite: SrcRef[] };
-      flat.push({
-        srcs: tb.srcs,
-        set: (c) => {
-          tb.cite = c;
-        },
-      });
-    }
-  }
-
-  let runSrc: SrcRef | null = null;
-  let runEnd = -1;
-
-  for (let i = 0; i < flat.length; i++) {
-    const { srcs, set } = flat[i];
-    if (srcs.length === 0) continue;
-    if (srcs.length > 1) {
-      if (runEnd >= 0 && runSrc) {
-        flat[runEnd].set([runSrc]);
-        runSrc = null;
-        runEnd = -1;
-      }
-      set(srcs);
-      continue;
-    }
-    const src = srcs[0];
-    if (!sameSource(src, runSrc)) {
-      if (runEnd >= 0 && runSrc) flat[runEnd].set([runSrc]);
-      runSrc = src;
-    }
-    runEnd = i;
-  }
-  if (runEnd >= 0 && runSrc) flat[runEnd].set([runSrc]);
 }
 
 /* ─── sub-components ─────────────────────────────────────────────────── */
@@ -409,24 +209,6 @@ function Flagged({
   );
 }
 
-function renderKatex(tex: string, displayMode: boolean): string {
-  const src =
-    displayMode && tex.includes("\\\\") && !tex.includes("\\begin{")
-      ? `\\begin{gathered}${tex}\\end{gathered}`
-      : tex;
-  return katex.renderToString(src, { displayMode, throwOnError: false });
-}
-
-function MathNode({ tex, block }: { tex: string; block: boolean }) {
-  const Tag = block ? "div" : "span";
-  return (
-    <Tag
-      className={block ? "math-block" : "math-inline"}
-      dangerouslySetInnerHTML={{ __html: renderKatex(tex, block) }}
-    />
-  );
-}
-
 function Conflict({
   sources,
   verdict,
@@ -528,184 +310,274 @@ function Resolved({
   );
 }
 
-/* ─── inline renderer ───────────────────────────────────────────────── */
+/* ─── markdown pre-processing ───────────────────────────────────────── */
+//
+// Two string-level transforms run before real parsing, each working around
+// a real CommonMark rule verified against this app's actual dependencies
+// (see the migration plan for the empirical traces). No legacy-syntax
+// backward compat — old <math>-tag documents are rare enough (mostly test
+// data) that they're not worth carrying a conversion path for.
+//
+// 1. <flagged>/<resolved>/<conflict> spans have internal newlines collapsed
+//    to spaces. A tag that is alone on its own line and spans multiple
+//    lines is CommonMark "HTML block type 7", which swallows everything
+//    inside — including bold text and bullet lists — as unparsed raw text
+//    until the next blank line. Collapsing to one line sidesteps the rule
+//    entirely. This matches today's existing behavior for conflict content
+//    (already flat, never block-level), so it is not a capability loss.
+// 2. <source id="..." name="..." /> has its attributes renamed to
+//    srcid/srcname. rehype-sanitize's GitHub-style schema silently
+//    rewrites `id`/`name` attribute values with a "user-content-" prefix
+//    (anti DOM-clobbering protection) — verified empirically — which would
+//    corrupt every citation's id before it ever reaches our own code. The
+//    rename is purely internal; the model-facing tag syntax in prompt.ts
+//    is unchanged.
 
-// The underscore-italic branch requires non-word flanking on both sides
-// (unlike the asterisk branch) — matching CommonMark's actual rule that
-// intraword underscores (e.g. Current_Run_Value) are never emphasis.
-const INLINE_RE =
-  /<flagged(?<flaggedAttrs>\s[^>]*)?>(?<flaggedInner>[\s\S]*?)<\/flagged>|<resolved(?<resolvedAttrs>\s[^>]*)?>(?<resolvedInner>[\s\S]*?)<\/resolved>|<math>(?<mathTex>[\s\S]*?)<\/math>|`(?<codeInner>[^`\n]+)`|\*\*(?<boldInner>[^*]+)\*\*|\*(?<italicStar>[^*\n]+)\*|(?<!\w)_(?<italicUnder>[^_\n]+)_(?!\w)|<q>(?<quoteInner>[\s\S]*?)<\/q>/;
-
-function renderInline(
-  text: string,
-  k = 0,
-  classId = "",
-  topicId = "",
-  staticMode = false,
-): React.ReactNode[] {
-  const out: React.ReactNode[] = [];
-  let rest = text;
-  while (rest.length) {
-    const m = INLINE_RE.exec(rest);
-    if (!m) {
-      out.push(rest);
-      break;
-    }
-    if (m.index > 0) out.push(rest.slice(0, m.index));
-    const g = m.groups!;
-    if (m[0].startsWith("<flagged")) {
-      const a = g.flaggedAttrs ?? "";
-      out.push(
-        <Flagged
-          key={k++}
-          correction={getAttr(a, "correction")}
-          original={getAttr(a, "original")}
-          staticMode={staticMode}
-        >
-          {renderInline(g.flaggedInner, k + 1000, classId, topicId, staticMode)}
-        </Flagged>,
-      );
-    } else if (m[0].startsWith("<resolved")) {
-      const a = g.resolvedAttrs ?? "";
-      out.push(
-        <Resolved
-          key={k++}
-          sources={parseSources(getAttr(a, "sources") ?? "")}
-          conflict={getAttr(a, "conflict") ?? ""}
-          verdict={getAttr(a, "verdict")}
-          classId={classId}
-          topicId={topicId}
-          staticMode={staticMode}
-        >
-          {renderInline(
-            g.resolvedInner,
-            k + 1000,
-            classId,
-            topicId,
-            staticMode,
-          )}
-        </Resolved>,
-      );
-    } else if (m[0].startsWith("<math>")) {
-      out.push(<MathNode key={k++} tex={g.mathTex} block={false} />);
-    } else if (g.codeInner !== undefined) {
-      // Rendered verbatim — deliberately not passed through renderInline,
-      // so nothing inside (underscores, asterisks) is reinterpreted.
-      out.push(<code key={k++}>{g.codeInner}</code>);
-    } else if (m[0].startsWith("**")) {
-      out.push(
-        <strong key={k++}>
-          {renderInline(g.boldInner, k + 1000, classId, topicId, staticMode)}
-        </strong>,
-      );
-    } else if (g.italicStar !== undefined || g.italicUnder !== undefined) {
-      out.push(
-        <em key={k++}>
-          {renderInline(
-            g.italicStar ?? g.italicUnder!,
-            k + 1000,
-            classId,
-            topicId,
-            staticMode,
-          )}
-        </em>,
-      );
-    } else {
-      out.push(
-        <q key={k++}>
-          {renderInline(g.quoteInner, k + 1000, classId, topicId, staticMode)}
-        </q>,
-      );
-    }
-    rest = rest.slice(m.index + m[0].length);
-    k++;
-  }
-  return out;
+function collapseTagNewlines(md: string): string {
+  return md.replace(
+    /<(flagged|resolved|conflict)(\s[^>]*)?>[\s\S]*?<\/\1>/g,
+    (m) => m.replace(/\n/g, " "),
+  );
 }
 
-/* ─── block renderer ────────────────────────────────────────────────── */
+function renameSourceAttrs(md: string): string {
+  // Matches only well-formed quoted attr="value" pairs (not a bare [^>]*
+  // scan) so a contribution title containing a literal `>` — e.g. "Chapter
+  // 2 > Review Notes" — doesn't truncate the match and silently drop the
+  // rename. Verified empirically: the naive version fails to match at all
+  // in that case, leaving id/name unrenamed and the citation lost later to
+  // rehype-sanitize's clobber-prefix rewrite.
+  return md.replace(
+    /<source((?:\s+[a-zA-Z-]+="[^"]*")*)\s*\/>/g,
+    (_, attrs = "") => {
+      const renamed = attrs
+        .replace(/\bid=/g, "srcid=")
+        .replace(/\bname=/g, "srcname=");
+      return `<source${renamed} />`;
+    },
+  );
+}
 
-function renderBlocks(
-  blocks: Block[],
-  reg: SourceReg,
-  classId: string,
-  topicId: string,
-  staticMode = false,
-): React.ReactNode[] {
-  const out: React.ReactNode[] = [];
-  let k = 0;
+function preprocessMarkdown(raw: string): string {
+  return renameSourceAttrs(collapseTagNewlines(raw));
+}
 
-  function renderItems(items: LiItem[]): React.ReactNode[] {
-    return items.map((item, j) => (
-      <li key={j}>
-        {renderWithCite(item.text, item.cite)}
-        {item.children.length > 0 && <ul>{renderItems(item.children)}</ul>}
-      </li>
-    ));
-  }
+/* ─── sanitize schema ───────────────────────────────────────────────── */
+//
+// Extends GitHub's default schema with exactly the 4 custom tags and their
+// specific attributes. Everything else (script tags, event handlers,
+// javascript: hrefs, arbitrary attributes) is stripped — verified against
+// a deliberately hostile payload. This is a required stage, not optional:
+// rehype-raw turns raw HTML into real, executing elements, and this
+// component's output also feeds Puppeteer server-side for PDF generation.
+const sanitizeSchema = {
+  ...defaultSchema,
+  tagNames: [
+    ...(defaultSchema.tagNames ?? []),
+    "flagged",
+    "resolved",
+    "conflict",
+    "source",
+  ],
+  attributes: {
+    ...defaultSchema.attributes,
+    flagged: ["correction", "original"],
+    resolved: ["sources", "conflict", "verdict"],
+    conflict: ["sources", "verdict", "a", "b"],
+    source: ["srcid", "srcname"],
+  },
+};
 
-  function cite(srcs: SrcRef[]) {
-    if (srcs.length === 0) return null;
-    const resolved = srcs.map((src) => ({
-      n: reg.getNum(src),
-      name: src.name,
-      href: sourceHref(src.id, classId, topicId),
-    }));
-    if (resolved.length === 1) {
-      const { n, name, href } = resolved[0];
-      return (
-        <SourceCite n={n} name={name} href={href} staticMode={staticMode} />
+/* ─── citation plugin ───────────────────────────────────────────────── */
+//
+// Rehype plugin, run last in the pipeline (on the final, sanitized,
+// katex/highlight-resolved tree). Ports the old assignCitations logic:
+// walks block-level nodes in document order, strips <source/> children,
+// and — for a run of consecutive same-source citations — attaches the
+// visible marker only to the LAST node in the run, exactly as before.
+//
+// Walking both `p` and `li` (direct children only, no recursion) handles
+// tight AND loose lists for free: a tight <li> has its <source/> as a
+// direct child; a loose <li><p>...</p></li> has it nested one level
+// deeper, so the <li>'s own (empty) entry is a harmless no-op and the
+// inner <p> picks up the real citation — verified empirically, CommonMark
+// guarantees looseness is a whole-list property so there is no mixed case
+// to handle. visit()'s default pre-order traversal naturally reproduces
+// "document order with nested lists flattened first-then-children", the
+// same order the old flattenItem produced by hand.
+const BLOCK_TAGS = new Set(["p", "h1", "h2", "h3", "h4", "h5", "h6", "li"]);
+
+// <conflict> is the one custom tag that's actually block-level (a <div>),
+// not inline like <flagged>/<resolved>. remark decides paragraph-wrapping
+// before rehype-raw ever turns the tag into a real element, so a <conflict>
+// ends up nested inside a <p> — invalid HTML (a div can't be a p's
+// descendant) that causes a real React hydration mismatch in the
+// client-rendered view, not just untidy markup. The prompt tells the model
+// to always put <conflict> alone on its own line with blank lines around
+// it, but that's not guaranteed to be followed — verified empirically that
+// without a blank line (or glued directly onto the same line as other
+// text), the paragraph still forms with <conflict> as one of several
+// children, not the sole one. So rather than only handling the
+// "sole child" case, this splits ANY <p> containing a block-level custom
+// tag into separate siblings: a <p> for the text before it, the tag itself,
+// and a <p> for the text after — correct for the sole-child case too (the
+// empty-text siblings are dropped). Runs before rehypeCitations so
+// citations attach to the final, correctly-structured tree.
+const BLOCK_LEVEL_CUSTOM_TAGS = new Set(["conflict"]);
+
+function isMeaningful(node: ElementContent): boolean {
+  return !(node.type === "text" && /^\s*$/.test(node.value));
+}
+
+function rehypeUnwrapBlockParagraphs() {
+  return (tree: Root) => {
+    visit(tree, "element", (node: Element, index, parent) => {
+      if (node.tagName !== "p" || !parent || index === undefined) return;
+      const hasBlockChild = node.children.some(
+        (c) => c.type === "element" && BLOCK_LEVEL_CUSTOM_TAGS.has(c.tagName),
       );
-    }
-    return <SourceGroup sources={resolved} staticMode={staticMode} />;
-  }
+      if (!hasBlockChild) return;
 
-  function renderWithCite(text: string, srcs: SrcRef[]): React.ReactNode {
-    if (srcs.length === 0)
-      return renderInline(text, 0, classId, topicId, staticMode);
-    return (
-      <>
-        {renderInline(text, 0, classId, topicId, staticMode)}
-        {cite(srcs)}
-      </>
-    );
-  }
-
-  for (const b of blocks) {
-    switch (b.kind) {
-      case "h1":
-      case "h2":
-      case "h3":
-      case "h4":
-      case "p": {
-        const Tag = b.kind;
-        out.push(<Tag key={k++}>{renderWithCite(b.text, b.cite)}</Tag>);
-        break;
+      const replacement: ElementContent[] = [];
+      let buffer: ElementContent[] = [];
+      const flushBuffer = () => {
+        if (buffer.some(isMeaningful)) {
+          replacement.push({
+            type: "element",
+            tagName: "p",
+            properties: {},
+            children: buffer,
+          });
+        }
+        buffer = [];
+      };
+      for (const child of node.children) {
+        if (
+          child.type === "element" &&
+          BLOCK_LEVEL_CUSTOM_TAGS.has(child.tagName)
+        ) {
+          flushBuffer();
+          replacement.push(child);
+        } else {
+          buffer.push(child);
+        }
       }
-      case "li-group":
-        out.push(<ul key={k++}>{renderItems(b.items)}</ul>);
-        break;
-      case "conflict":
-        out.push(
-          <Conflict
-            key={k++}
-            sources={b.sources}
-            verdict={b.verdict}
-            classId={classId}
-            topicId={topicId}
-          >
-            {renderInline(b.inner, 0, classId, topicId, staticMode)}
-          </Conflict>,
-        );
-        break;
-      case "math":
-        out.push(<MathNode key={k++} tex={b.tex} block />);
-        break;
-      case "blank":
-        break;
+      flushBuffer();
+
+      parent.children.splice(index, 1, ...replacement);
+      return index + replacement.length;
+    });
+  };
+}
+
+function extractSourceChildren(
+  children: ElementContent[],
+  nameById: Map<string, string>,
+): { srcs: SrcRef[]; kept: ElementContent[] } {
+  const srcs: SrcRef[] = [];
+  const seen = new Set<string>();
+  const kept: ElementContent[] = [];
+  for (const child of children) {
+    if (child.type === "element" && child.tagName === "source") {
+      // Removing the tag can leave behind the space that used to separate
+      // it from the preceding word — e.g. "states <source/>." would
+      // otherwise render as "states ." (dangling space before the
+      // period). The citation marker always lands at the very end of the
+      // container regardless of where the tag sat (see `attach`), so this
+      // trim is purely cosmetic cleanup of the gap the removed tag leaves.
+      const prev = kept[kept.length - 1];
+      if (prev?.type === "text") {
+        prev.value = prev.value.replace(/[ \t]+$/, "");
+      }
+      const props = child.properties;
+      const id = typeof props.srcid === "string" ? props.srcid : undefined;
+      const name =
+        (typeof props.srcname === "string" ? props.srcname : undefined) ||
+        (id ? nameById.get(id) : undefined) ||
+        "?";
+      const key = id ?? name;
+      if (!seen.has(key)) {
+        seen.add(key);
+        srcs.push({ id, name });
+      }
+      continue;
+    }
+    kept.push(child);
+  }
+  return { srcs, kept };
+}
+
+type CitationOptions = {
+  classId: string;
+  topicId: string;
+  allSources?: { id?: string; name: string }[];
+  registry: SourceReg;
+};
+
+function rehypeCitations(options: CitationOptions) {
+  const nameById = new Map<string, string>();
+  for (const s of options.allSources ?? []) {
+    if (s.id) nameById.set(s.id, s.name);
+  }
+
+  function attach(container: Element, srcs: SrcRef[]) {
+    if (srcs.length === 1) {
+      const { id, name } = srcs[0];
+      const n = options.registry.getNum({ id, name });
+      const href = sourceHref(id, options.classId, options.topicId);
+      container.children.push({
+        type: "element",
+        tagName: "source-cite",
+        properties: { n, name, href: href ?? "" },
+        children: [],
+      });
+    } else {
+      const resolved = srcs.map((s) => ({
+        n: options.registry.getNum(s),
+        name: s.name,
+        href: sourceHref(s.id, options.classId, options.topicId) ?? "",
+      }));
+      container.children.push({
+        type: "element",
+        tagName: "source-group",
+        properties: { sources: JSON.stringify(resolved) },
+        children: [],
+      });
     }
   }
-  return out;
+
+  return (tree: Root) => {
+    type Slot = { container: Element; srcs: SrcRef[] };
+    const flat: Slot[] = [];
+
+    visit(tree, "element", (node: Element) => {
+      if (!BLOCK_TAGS.has(node.tagName)) return;
+      const { srcs, kept } = extractSourceChildren(node.children, nameById);
+      node.children = kept;
+      flat.push({ container: node, srcs });
+    });
+
+    let runSrc: SrcRef | null = null;
+    let runContainer: Element | null = null;
+
+    for (const { container, srcs } of flat) {
+      if (srcs.length === 0) continue;
+      if (srcs.length > 1) {
+        if (runContainer && runSrc) attach(runContainer, [runSrc]);
+        runSrc = null;
+        runContainer = null;
+        attach(container, srcs);
+        continue;
+      }
+      const src = srcs[0];
+      if (!sameSource(src, runSrc)) {
+        if (runContainer && runSrc) attach(runContainer, [runSrc]);
+        runSrc = src;
+      }
+      runContainer = container;
+    }
+    if (runContainer && runSrc) attach(runContainer, [runSrc]);
+  };
 }
 
 /* ─── public component ──────────────────────────────────────────────── */
@@ -725,14 +597,111 @@ export function CompiledDoc({
 }) {
   const { body, sources } = useMemo(() => {
     const reg = makeRegistry();
-    const nameById = new Map<string, string>();
-    for (const s of allSources ?? []) {
-      if (s.id) nameById.set(s.id, s.name);
-      reg.getNum(s);
-    }
-    const blocks = parseBlocks(markdown, nameById);
-    assignCitations(blocks);
-    const body = renderBlocks(blocks, reg, classId, topicId, staticMode);
+    // Seed every known source up front, in allSources order — matches the
+    // existing behavior this component has always had (the footer lists
+    // every source passed in, not just ones the citation plugin finds).
+    for (const s of allSources ?? []) reg.getNum(s);
+
+    const processed = preprocessMarkdown(markdown);
+    const processor = unified()
+      .use(remarkParse)
+      .use(remarkGfm)
+      // singleDollarTextMath disabled: its default treats any two single `$`
+      // in a paragraph as a math span, which mangles ordinary prose dollar
+      // amounts (e.g. "$30 and $50" renders as garbled pseudo-math) — verified
+      // empirically. Inline math requires $$...$$ on one line instead (see
+      // prompt.ts); a lone $ is always just a dollar sign.
+      .use(remarkMath, { singleDollarTextMath: false })
+      .use(remarkRehype, { allowDangerousHtml: true })
+      .use(rehypeRaw)
+      .use(rehypeSanitize, sanitizeSchema)
+      .use(rehypeUnwrapBlockParagraphs)
+      .use(rehypeKatex)
+      .use(rehypeHighlight)
+      .use(rehypeCitations, { classId, topicId, allSources, registry: reg });
+
+    const tree = processor.runSync(
+      processor.parse(processed),
+      processed,
+    ) as Root;
+
+    const components = {
+      flagged: (props: {
+        correction?: string;
+        original?: string;
+        children?: React.ReactNode;
+      }) => (
+        <Flagged
+          correction={props.correction}
+          original={props.original}
+          staticMode={staticMode}
+        >
+          {props.children}
+        </Flagged>
+      ),
+      resolved: (props: {
+        sources?: string;
+        conflict?: string;
+        verdict?: string;
+        children?: React.ReactNode;
+      }) => (
+        <Resolved
+          sources={parseSources(props.sources ?? "")}
+          conflict={props.conflict ?? ""}
+          verdict={props.verdict}
+          classId={classId}
+          topicId={topicId}
+          staticMode={staticMode}
+        >
+          {props.children}
+        </Resolved>
+      ),
+      conflict: (props: {
+        sources?: string;
+        verdict?: string;
+        a?: string;
+        b?: string;
+        children?: React.ReactNode;
+      }) => {
+        const srcs = props.sources
+          ? parseSources(props.sources)
+          : [props.a, props.b]
+              .filter((v): v is string => !!v)
+              .map((name) => ({ name }));
+        return (
+          <Conflict
+            sources={srcs}
+            verdict={props.verdict}
+            classId={classId}
+            topicId={topicId}
+          >
+            {props.children}
+          </Conflict>
+        );
+      },
+      "source-cite": (props: { n?: number; name?: string; href?: string }) => (
+        <SourceCite
+          n={props.n ?? 0}
+          name={props.name ?? "?"}
+          href={props.href || undefined}
+          staticMode={staticMode}
+        />
+      ),
+      "source-group": (props: { sources?: string }) => (
+        <SourceGroup
+          sources={props.sources ? JSON.parse(props.sources) : []}
+          staticMode={staticMode}
+        />
+      ),
+    };
+
+    const body = toJsxRuntime(tree, {
+      Fragment,
+      jsx,
+      jsxs,
+      components,
+    });
+
     return { body, sources: reg.list() };
   }, [markdown, classId, topicId, allSources, staticMode]);
 

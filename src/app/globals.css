@@ -2765,6 +2765,22 @@ html.dark [data-sonner-toast] {
   color: var(--ink-heading);
   margin: 18px 0 5px;
 }
+.doc h5 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 15px;
+  color: var(--ink-heading);
+  margin: 14px 0 4px;
+}
+.doc h6 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin: 12px 0 4px;
+}
 .doc .docbody {
   padding-left: 14px;
 }
@@ -2774,6 +2790,96 @@ html.dark [data-sonner-toast] {
   background: var(--paper-deep);
   padding: 1px 5px;
   border-radius: 4px;
+}
+
+/* GFM tables */
+.doc table {
+  width: 100%;
+  margin: 4px 0 20px;
+  font-size: 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+}
+.doc th,
+.doc td {
+  padding: 8px 14px;
+  text-align: left;
+  color: var(--ink-body);
+  border-bottom: 1px solid var(--line-soft);
+}
+.doc th:not(:last-child),
+.doc td:not(:last-child) {
+  border-right: 1px solid var(--line-soft);
+}
+.doc tbody tr:last-child td {
+  border-bottom: none;
+}
+.doc tbody tr:nth-child(even) {
+  background: var(--paper-deep);
+}
+.doc th {
+  background: var(--paper-deep);
+  color: var(--ink-heading);
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* blockquotes */
+.doc blockquote {
+  margin: 0 0 14px;
+  padding: 2px 14px;
+  border-left: 3px solid var(--line-strong);
+  color: var(--ink-faint);
+}
+
+/* fenced code blocks — block form; cancel the inline .doc code styling */
+.doc pre {
+  margin: 4px 0 16px;
+  padding: 13px 15px;
+  background: var(--paper-deep);
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  overflow-x: auto;
+}
+.doc pre code {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.55;
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* syntax highlighting (rehype-highlight / highlight.js classes) —
+   reuses this app's existing semantic color tokens rather than a
+   separate hardcoded palette, so it already adapts to light/dark. */
+.doc .hljs-keyword,
+.doc .hljs-built_in {
+  color: var(--accent-text);
+}
+.doc .hljs-string {
+  color: var(--success);
+}
+.doc .hljs-number,
+.doc .hljs-literal {
+  color: var(--info);
+}
+.doc .hljs-comment {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+.doc .hljs-title,
+.doc .hljs-title.function_ {
+  color: var(--ink-heading);
+}
+.doc .hljs-params,
+.doc .hljs-attr {
+  color: var(--ink-body);
 }
 
 /* source citation */
@@ -2844,14 +2950,7 @@ html.dark [data-sonner-toast] {
 
 /* static (non-interactive) source citation — used in PDF/print export */
 .src-cite-static {
-  font-family: var(--mono);
-  font-size: 9px;
-  font-weight: 600;
-  color: var(--accent-text);
-  background: var(--accent-soft);
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  padding: 0 3px;
+  font-size: 0.75em;
   vertical-align: super;
   line-height: 1.2;
   margin-left: 1px;
@@ -3243,17 +3342,18 @@ a.rtip-src:hover {
   margin-top: 1px;
 }
 
-/* math blocks */
-.math-block {
+/* math — rehype-katex renders $...$/$$...$$ directly with no app wrapper,
+   so inline and block math share the same .katex class; .katex-display
+   is the signal for which one we're sizing/spacing. */
+.doc .katex {
+  font-size: 1em;
+}
+.doc .katex-display {
   margin: 16px 0;
   overflow-x: auto;
-  text-align: center;
 }
-.math-block .katex-display {
-  margin: 0;
-}
-.math-inline .katex {
-  font-size: 1em;
+.doc .katex-display .katex {
+  font-size: 1.21em;
 }
 
 /* source footer */
