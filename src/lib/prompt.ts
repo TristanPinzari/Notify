@@ -68,6 +68,16 @@ Tables need a real separator row: every cell must contain at least one literal h
   | : | : | :   |
   | 0 | 0 | 0   |
 
+A literal pipe character inside a cell (e.g. writing the NAND operator as "p|q") must be escaped as \\| — an unescaped | is read as a new column separator, which miscounts the columns and, like the hyphen mistake above, silently fails the whole table.
+  RIGHT:
+  | p | q | p\\|q |
+  |---|---|------|
+  | 1 | 1 | 0    |
+  WRONG — the unescaped | splits "p|q" into two columns, mismatching the 3-column separator row below it:
+  | p | q | p|q |
+  |---|---|-----|
+  | 1 | 1 | 0   |
+
 On top of standard Markdown, two things specific to this app:
 
 - Math always uses double-dollar LaTeX delimiters, written directly in the text — never a single $, which is reserved for literal dollar amounts (e.g. "it costs $30"), and never wrapped in backticks, even for a short inline substitution. A backtick code span is for non-math verbatim text only — identifiers, file paths, technical terms — and never interprets LaTeX inside it; wrapping math in backticks makes it display as literal text instead of rendering.

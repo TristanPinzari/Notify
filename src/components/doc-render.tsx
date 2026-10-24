@@ -375,8 +375,26 @@ function unwrapBacktickMath(md: string): string {
   );
 }
 
+// A literal `$` inside a math expression is invalid LaTeX — `$` is the math
+// delimiter itself, so KaTeX throws a parse error ("Can't use function '$'
+// in math mode") rather than rendering a dollar sign. This shows up whenever
+// a worked example writes dollar amounts directly inside a $$...$$ formula,
+// e.g. $$CFO = $180,000 + $45,000 - ... = $219,000$$ — confirmed empirically
+// against a real generated finance document. Escaping each inner `$` that's
+// immediately followed by a digit (the currency pattern, as opposed to the
+// `$$` pair delimiting the expression itself) lets KaTeX render it as a
+// literal dollar sign instead of erroring.
+function escapeCurrencyInMath(md: string): string {
+  return md.replace(/\$\$([\s\S]*?)\$\$/g, (_, inner) => {
+    const escaped = inner.replace(/\$(?=\d)/g, "\\$");
+    return `$$${escaped}$$`;
+  });
+}
+
 function preprocessMarkdown(raw: string): string {
-  return renameSourceAttrs(collapseTagNewlines(unwrapBacktickMath(raw)));
+  return renameSourceAttrs(
+    collapseTagNewlines(escapeCurrencyInMath(unwrapBacktickMath(raw))),
+  );
 }
 
 /* ─── sanitize schema ───────────────────────────────────────────────── */
