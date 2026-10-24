@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import ReactMarkdown from "react-markdown";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
@@ -167,6 +168,26 @@ function SourceGroup({
   );
 }
 
+// correction/original come from the same AI-compiled document and follow
+// the same double-dollar math convention as the rest of it (see
+// prompt.ts), so a correction like "the formula is $$E = mc^2$$" needs
+// real math rendering here too, not literal text. These are hast
+// attribute strings (not re-parsed by the main pipeline), so they get their
+// own small react-markdown pass. `p` is overridden to a fragment since both
+// call sites render this inline (inside a <span>/<em>), where a real <p>
+// would be invalid nesting.
+function InlineMarkdown({ children }: { children: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[[remarkMath, { singleDollarTextMath: false }]]}
+      rehypePlugins={[rehypeKatex]}
+      components={{ p: ({ children }) => <>{children}</> }}
+    >
+      {children}
+    </ReactMarkdown>
+  );
+}
+
 function Flagged({
   correction,
   original,
@@ -181,7 +202,7 @@ function Flagged({
   if (staticMode)
     return correction && !original ? (
       <>
-        {children} <em>({correction})</em>
+        {children} <em>(<InlineMarkdown>{correction}</InlineMarkdown>)</em>
       </>
     ) : (
       <>{children}</>
@@ -203,7 +224,7 @@ function Flagged({
       </span>
       <span className="tip">
         <b>{tipLabel}</b>
-        {tipBody}
+        <InlineMarkdown>{tipBody}</InlineMarkdown>
       </span>
     </span>
   );
