@@ -1,3 +1,5 @@
+import { SITE_HOST } from "@/lib/utils";
+
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
 const C = {
@@ -64,7 +66,7 @@ function footer() {
       </p>
       <p style="margin:0;font-family:${mono};font-size:11px;letter-spacing:.04em;color:${C.fainter};">
         Notify &middot; Study together, one document &middot;
-        <a href="https://notifyy.ca" style="color:${C.faint};text-decoration:none;">notifyy.ca</a>
+        <a href="https://${SITE_HOST}" style="color:${C.faint};text-decoration:none;">${SITE_HOST}</a>
       </p>
     </td>
   </tr>`;

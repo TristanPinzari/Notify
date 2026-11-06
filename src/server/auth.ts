@@ -7,6 +7,7 @@ import { account } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
 import { EMAIL_RE } from "@/lib/validation";
 import { getResend } from "@/lib/resend";
+import { MAIL_FROM } from "@/lib/utils";
 import {
   renderResetPassword,
   renderVerifyEmail,
@@ -14,7 +15,7 @@ import {
   renderVerifyNewEmail,
 } from "@/lib/emails";
 
-const senderEmail = "Notify <noreply@notifyy.ca>";
+const senderEmail = MAIL_FROM.noreply;
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {

@@ -13,6 +13,23 @@ export function getBaseUrl(): string {
   return process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 }
 
+// Derived from BETTER_AUTH_URL so the sending domain only has to change in
+// one env var, not in every file that sends mail.
+const MAIL_DOMAIN = (() => {
+  try {
+    return new URL(getBaseUrl()).hostname;
+  } catch {
+    return "localhost";
+  }
+})();
+
+export const SITE_HOST = MAIL_DOMAIN;
+export const MAIL_FROM = {
+  noreply: `Notify <noreply@${MAIL_DOMAIN}>`,
+  notifications: `Notify <notifications@${MAIL_DOMAIN}>`,
+  invites: `Notify <invites@${MAIL_DOMAIN}>`,
+} as const;
+
 export function timeAgo(iso: string): string {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 60) return "just now";

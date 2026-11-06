@@ -202,7 +202,10 @@ function Flagged({
   if (staticMode)
     return correction && !original ? (
       <>
-        {children} <em>(<InlineMarkdown>{correction}</InlineMarkdown>)</em>
+        {children}{" "}
+        <em>
+          (<InlineMarkdown>{correction}</InlineMarkdown>)
+        </em>
       </>
     ) : (
       <>{children}</>

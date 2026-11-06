@@ -3,6 +3,7 @@
 import { auth } from "@/server/auth";
 import { headers } from "next/headers";
 import { getResend } from "@/lib/resend";
+import { MAIL_FROM } from "@/lib/utils";
 import { rateLimit } from "./shared";
 
 export async function sendFeedback(
@@ -21,7 +22,7 @@ export async function sendFeedback(
   const escapedName = name.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   const { error } = await getResend().emails.send({
-    from: "Notify <noreply@notifyy.ca>",
+    from: MAIL_FROM.noreply,
     to: "tristanpinzari@gmail.com",
     subject: `Notify feedback from ${name}`,
     html: `<p><strong>From:</strong> ${escapedName} &lt;${email}&gt;</p><p><strong>Message:</strong></p><p style="white-space:pre-wrap">${trimmed.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`,

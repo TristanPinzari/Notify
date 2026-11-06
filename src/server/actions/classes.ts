@@ -29,7 +29,7 @@ import { getResend } from "@/lib/resend";
 import { renderClassInvite } from "@/lib/emails";
 import { EMAIL_RE, MAX_INVITE_BATCH } from "@/lib/validation";
 import { emailInvites, topics, notifications } from "@/server/db/schema";
-import { getBaseUrl, cleanClassCodeChars } from "@/lib/utils";
+import { getBaseUrl, cleanClassCodeChars, MAIL_FROM } from "@/lib/utils";
 
 const DEFAULT_NOTIF_PREFS = {
   notifyRankChange: true,
@@ -1053,7 +1053,7 @@ export async function sendClassInvites(classId: string, rawEmails: string[]) {
     const results = await Promise.allSettled(
       toSend.map((email) =>
         getResend().emails.send({
-          from: "Notify <invites@notifyy.ca>",
+          from: MAIL_FROM.invites,
           to: email,
           subject: `${session.user.name} invited you to ${cls.name} on Notify`,
           html: renderClassInvite({

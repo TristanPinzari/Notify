@@ -19,10 +19,10 @@ import {
   renderUnbanned,
   RANK_LABELS,
 } from "@/lib/emails";
-import { getBaseUrl } from "@/lib/utils";
+import { getBaseUrl, MAIL_FROM } from "@/lib/utils";
 import type { ActivityPayload } from "@/lib/activity-log";
 
-export const FROM = "Notify <notifications@notifyy.ca>";
+export const FROM = MAIL_FROM.notifications;
 
 async function notifyRemoval(
   classId: string,
