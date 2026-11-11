@@ -68,11 +68,14 @@ export function sanitizeFilename(name: string): string {
     .slice(0, 150);
 }
 
-// RFC 6266/5987: an ASCII fallback plus a UTF-8 percent-encoded filename, so
-// accented or non-Latin names still download correctly in every browser.
+// "inline" (not "attachment") so the browser renders the PDF in the new tab
+// instead of forcing an immediate download with nothing to look at. The
+// browser's own PDF viewer still uses this filename if the user saves it
+// from there. RFC 6266/5987: an ASCII fallback plus a UTF-8 percent-encoded
+// filename, so accented or non-Latin names still show up correctly.
 export function contentDisposition(filename: string): string {
   const ascii = filename.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
-  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+  return `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
 export async function mapWithConcurrency<T, R>(
