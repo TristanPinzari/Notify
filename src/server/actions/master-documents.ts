@@ -24,7 +24,7 @@ import {
   topicBelongsToClass,
 } from "./shared";
 import { logActivity } from "@/lib/activity-log";
-import { stripNullBytes } from "@/lib/utils";
+import { stripNullBytes, sanitizeFilename, contentDisposition } from "@/lib/utils";
 import {
   getTemporalClient,
   checkTemporalReady,
@@ -270,9 +270,12 @@ export async function createPDF(
         pdfStatus: masterDocuments.pdfStatus,
         pdfS3Key: masterDocuments.pdfS3Key,
         topicId: masterDocuments.topicId,
+        topicName: topics.name,
+        className: classes.name,
       })
       .from(masterDocuments)
       .innerJoin(topics, eq(masterDocuments.topicId, topics.id))
+      .innerJoin(classes, eq(topics.classId, classes.id))
       .where(
         and(
           eq(masterDocuments.id, masterDocumentId),
@@ -283,11 +286,13 @@ export async function createPDF(
     if (!row[0]) return { error: "This master document does not exist." };
 
     if (row[0].pdfS3Key && !force && row[0].pdfStatus !== "generating") {
+      const filename = `${sanitizeFilename(row[0].className)} - ${sanitizeFilename(row[0].topicName)}.pdf`;
       const signedUrl = await getSignedUrl(
         s3,
         new GetObjectCommand({
           Bucket: process.env.AWS_S3_BUCKET!,
           Key: row[0].pdfS3Key,
+          ResponseContentDisposition: contentDisposition(filename),
         }),
         { expiresIn: 300 },
       );

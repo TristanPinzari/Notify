@@ -60,6 +60,21 @@ export function extOf(file: File): string {
   return file.name.split(".").pop()?.toLowerCase() ?? "";
 }
 
+export function sanitizeFilename(name: string): string {
+  return name
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 150);
+}
+
+// RFC 6266/5987: an ASCII fallback plus a UTF-8 percent-encoded filename, so
+// accented or non-Latin names still download correctly in every browser.
+export function contentDisposition(filename: string): string {
+  const ascii = filename.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}
+
 export async function mapWithConcurrency<T, R>(
   items: T[],
   limit: number,
