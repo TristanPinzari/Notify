@@ -683,7 +683,7 @@ function LeaveClassModal({
           {successorName ? (
             <>
               Ownership of <b>{className}</b> will transfer to{" "}
-              <b>{successorName}</b>. You will leave the class entirely — to
+              <b>{successorName}</b>. You will leave the class entirely. To
               rejoin you&apos;ll need an invite or the join code.
             </>
           ) : (
@@ -705,7 +705,7 @@ function LeaveClassModal({
                 >
                   {transfer
                     ? "The oldest member becomes the new owner"
-                    : "No owner — deleted after 6 months of inactivity"}
+                    : "No owner, deleted after 6 months of inactivity"}
                 </p>
               </div>
               <Toggle
@@ -1119,7 +1119,7 @@ export default function SettingsView({
             <LockIcon />
             <span>
               You&apos;re a <b>{cap(viewerRank)}</b> here. These are the class
-              rules — you can see them, but only the <b>owner</b> can change
+              rules. You can see them, but only the <b>owner</b> can change
               them.
             </span>
           </div>
@@ -1203,7 +1203,7 @@ export default function SettingsView({
           <div className="section-label">
             <span className="slead">
               <g.Icon />
-              {g.group} — minimum role
+              {g.group}: minimum role
             </span>
           </div>
           <div className="sv-card">
@@ -1350,8 +1350,8 @@ export default function SettingsView({
                 <div className="sv-st">Delete class</div>
                 <div className="sv-desc">
                   Permanently deletes{" "}
-                  <b className="text-(--ink-heading)">{cls.name} </b>— every
-                  topic, collection, contribution, and master document — for all
+                  <b className="text-(--ink-heading)">{cls.name}</b>, every
+                  topic, collection, contribution, and master document, for all
                   members. This can&apos;t be undone.
                 </div>
               </div>

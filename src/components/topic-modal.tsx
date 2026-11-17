@@ -64,7 +64,7 @@ export function TopicModal({ classId, onClose, onSuccess }: Props) {
                 setError("");
               }}
               onKeyDown={(e) => e.key === "Enter" && !loading && handleCreate()}
-              placeholder="e.g. Week 3 — Cellular Respiration"
+              placeholder="e.g. Week 3: Cellular Respiration"
               autoFocus
             />
             <span className="lead">

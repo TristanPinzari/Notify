@@ -72,7 +72,7 @@ export function EmailChangeConfirmedContent({
         Change approved
       </div>
       <h1 className="font-(family-name:--serif) font-normal text-[38px] leading-[1.08] tracking-[-0.01em] text-(--ink-heading) mt-0 mb-3.5">
-        One more step — check your new inbox.
+        One more step: check your new inbox.
       </h1>
       <p className="text-[15.5px] leading-[1.62] text-(--ink-body) mx-auto mb-7 max-w-90">
         You approved this change from your current address. We&apos;ve sent a

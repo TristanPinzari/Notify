@@ -52,7 +52,7 @@ export default function NotFound() {
         </h1>
 
         <p className="text-[16.5px] leading-[1.62] text-(--ink-body) mx-auto mb-8 max-w-107.5">
-          We compiled everything the class had — but this page just isn&apos;t
+          We compiled everything the class had, but this page just isn&apos;t
           in the collection. The link is no longer valid or broken.
         </p>
 

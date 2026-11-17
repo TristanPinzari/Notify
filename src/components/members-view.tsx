@@ -782,7 +782,7 @@ function ProfileModal({
               Last active
             </span>
             <span className="font-medium text-(--ink-heading)">
-              {member.lastActive ? timeAgo(member.lastActive) : "—"}
+              {member.lastActive ? timeAgo(member.lastActive) : "Never"}
             </span>
           </div>
           {(showActions || isSelf) && (
@@ -838,7 +838,7 @@ function ProfileModal({
               )}
               {isSelf && (
                 <p className="text-[12px] text-(--ink-fainter) text-center m-0">
-                  This is you — manage your account from Settings.
+                  This is you. Manage your account from Settings.
                 </p>
               )}
             </>

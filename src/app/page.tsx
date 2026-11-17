@@ -67,8 +67,8 @@ export default function Page() {
             </h1>
             <p className="sub">
               Lectures move fast and half the class misses something. Notify
-              pools your whole class&apos;s notes — PDFs, photos, even recorded
-              lectures — and compiles them into one clean, fact-checked master
+              pools your whole class&apos;s notes (PDFs, photos, even recorded
+              lectures) and compiles them into one clean, fact-checked master
               document.
             </p>
             <div className="hero-cta">
@@ -192,7 +192,7 @@ export default function Page() {
           <q>
             Notify was born in a history lecture where the slides flew by,
             nothing got posted online, and everyone left with half a page of
-            notes — and a different half.
+            notes, and a different half.
           </q>
           <div className="by">
             The fix:{" "}
@@ -219,7 +219,7 @@ export default function Page() {
               <h3>Join your class</h3>
               <p>
                 Create a class or join one with a short code. Organize it into
-                topics — one per lecture, unit, or exam — so notes never turn
+                topics (one per lecture, unit, or exam) so notes never turn
                 into a pile.
               </p>
             </div>
@@ -237,7 +237,7 @@ export default function Page() {
               <h3>Get the master doc</h3>
               <p>
                 Notify reads every source, cross-references them, and produces
-                one fact-checked document — so the whole class studies from the
+                one fact-checked document, so the whole class studies from the
                 same complete record.
               </p>
             </div>
@@ -283,8 +283,8 @@ export default function Page() {
               </div>
               <h3>One shared collection</h3>
               <p>
-                Every classmate adds to a single topic collection — PDFs,
-                photos, and lecture links — so nobody studies from an incomplete
+                Every classmate adds to a single topic collection (PDFs,
+                photos, and lecture links) so nobody studies from an incomplete
                 set again.
               </p>
             </div>

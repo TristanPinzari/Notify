@@ -100,7 +100,7 @@ export default function ClassesView({ classes }: { classes: ClassRow[] }) {
           <div className="kicker">Classes</div>
           <h1 className="pane-title">Your classes</h1>
           <p className="pane-desc">
-            Each class is its own space — a collection of topics your group
+            Each class is its own space, a collection of topics your group
             compiles into shared notes.
           </p>
         </div>

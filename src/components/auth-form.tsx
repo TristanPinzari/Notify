@@ -294,7 +294,7 @@ export function AuthForm({ defaultMode }: { defaultMode: "login" | "signup" }) {
               <p className="brand-sub">
                 {forgotDone
                   ? "We've sent a one-time reset link. It expires in 30 minutes, so grab it while it's fresh."
-                  : "Enter your email and we'll send a secure link to set a new password — your classes stay exactly where you left them."}
+                  : "Enter your email and we'll send a secure link to set a new password. Your classes stay exactly where you left them."}
               </p>
             </div>
             <StepDots step={forgotDone ? 2 : 1} />
@@ -323,7 +323,7 @@ export function AuthForm({ defaultMode }: { defaultMode: "login" | "signup" }) {
               <p className="brand-sub">
                 {isSignup
                   ? "Create your account and start a class in under a minute. Your first master document is moments away."
-                  : "Sign in to pick up where your class left off — every note, compiled into one source of truth."}
+                  : "Sign in to pick up where your class left off: every note, compiled into one source of truth."}
               </p>
             </div>
             <div className="brand-feats">

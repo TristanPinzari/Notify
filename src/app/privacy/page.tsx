@@ -110,8 +110,8 @@ export default function PrivacyPage() {
             <strong className="text-(--ink-heading)">
               Content you upload.
             </strong>{" "}
-            Files you contribute to a class — PDFs, images, audio recordings,
-            Word documents — are stored on our file servers. Extracted text from
+            Files you contribute to a class (PDFs, images, audio recordings,
+            Word documents) are stored on our file servers. Extracted text from
             those files is stored in our database. Master documents compiled
             from your class&apos;s sources are also stored per topic.
           </p>
@@ -128,8 +128,8 @@ export default function PrivacyPage() {
             <strong className="text-(--ink-heading)">
               Notification preferences.
             </strong>{" "}
-            Your email notification settings — which event types trigger emails
-            — are stored per account.
+            Your email notification settings (which event types trigger emails)
+            are stored per account.
           </p>
           <p>
             <strong className="text-(--ink-heading)">
@@ -229,20 +229,20 @@ export default function PrivacyPage() {
           <p>Under GDPR and PIPEDA you have the right to:</p>
           <ul className="list-disc pl-5 space-y-1.5">
             <li>
-              <strong className="text-(--ink-heading)">Access</strong> — request
+              <strong className="text-(--ink-heading)">Access</strong>: request
               a copy of the personal data we hold about you
             </li>
             <li>
-              <strong className="text-(--ink-heading)">Correction</strong> —
+              <strong className="text-(--ink-heading)">Correction</strong>:
               update your name or email in account settings at any time
             </li>
             <li>
-              <strong className="text-(--ink-heading)">Deletion</strong> —
+              <strong className="text-(--ink-heading)">Deletion</strong>:
               request that your account and associated data be deleted
             </li>
             <li>
-              <strong className="text-(--ink-heading)">Withdraw consent</strong>{" "}
-              — turn off analytics cookies in Preferences at any time
+              <strong className="text-(--ink-heading)">Withdraw consent</strong>:
+              turn off analytics cookies in Preferences at any time
             </li>
           </ul>
           <p>
@@ -258,15 +258,13 @@ export default function PrivacyPage() {
           <p>Notify uses browser local storage for two purposes:</p>
           <ul className="list-disc pl-5 space-y-1.5">
             <li>
-              <strong className="text-(--ink-heading)">Theme preference</strong>{" "}
-              — stores your light/dark/auto setting. No personal data; never
+              <strong className="text-(--ink-heading)">Theme preference</strong>:
+              stores your light/dark/auto setting. No personal data; never
               leaves your device.
             </li>
             <li>
-              <strong className="text-(--ink-heading)">
-                Analytics consent
-              </strong>{" "}
-              — stores whether you accepted or declined PostHog analytics. No
+              <strong className="text-(--ink-heading)">Analytics consent</strong>:
+              stores whether you accepted or declined PostHog analytics. No
               personal data; never leaves your device.
             </li>
           </ul>

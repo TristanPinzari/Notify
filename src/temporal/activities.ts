@@ -877,7 +877,7 @@ export async function cleanStuckContributions() {
     .update(contributions)
     .set({
       status: "failed",
-      failureReason: "Processing timed out — worker may have crashed.",
+      failureReason: "Processing timed out. Worker may have crashed.",
     })
     .where(
       and(
@@ -980,7 +980,7 @@ export async function cleanStuckMasterDocuments() {
     .update(masterDocuments)
     .set({
       status: "failed",
-      failureReason: "Compilation timed out — worker may have crashed.",
+      failureReason: "Compilation timed out. Worker may have crashed.",
     })
     .where(
       and(

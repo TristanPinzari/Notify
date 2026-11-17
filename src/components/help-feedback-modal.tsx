@@ -42,7 +42,7 @@ export function HelpFeedbackModal({ onClose }: Props) {
         </div>
 
         <p className="text-[13px] text-(--ink-faint) leading-relaxed mt-0 mb-4">
-          Ask a question or share feedback — we read every message.
+          Ask a question or share feedback. We read every message.
         </p>
 
         <div className="field">

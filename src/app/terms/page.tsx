@@ -109,7 +109,7 @@ export default function TermsPage() {
           <p>
             You own the content you upload to Notify. By uploading it, you grant
             us a limited licence to store, process, and display it solely for
-            the purpose of operating the service — for example, extracting text
+            the purpose of operating the service, for example, extracting text
             to compile a master document, or displaying a file to members of
             your class.
           </p>
@@ -160,8 +160,8 @@ export default function TermsPage() {
           <p>
             To the maximum extent permitted by law, Tristan Pinzari shall not be
             liable for any indirect, incidental, special, consequential, or
-            punitive damages — including loss of data, loss of academic
-            standing, or any other harm — arising from your use of or inability
+            punitive damages (including loss of data, loss of academic
+            standing, or any other harm) arising from your use of or inability
             to use Notify, even if advised of the possibility of such damages.
           </p>
           <p>

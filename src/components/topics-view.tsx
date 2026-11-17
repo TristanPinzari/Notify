@@ -128,7 +128,7 @@ export default function TopicsView({
           <div className="kicker">Topics</div>
           <h1 className="pane-title">{className}</h1>
           <p className="pane-desc">
-            Each topic is its own workspace — a shared collection of notes that
+            Each topic is its own workspace, a shared collection of notes that
             Notify compiles into one master document.
           </p>
         </div>

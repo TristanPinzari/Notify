@@ -464,7 +464,7 @@ function DeleteAccountModal({ onClose }: { onClose: () => void }) {
                     >
                       {transferring
                         ? "The oldest member becomes the new owner"
-                        : "No owner — deleted after 6 months of inactivity"}
+                        : "No owner, deleted after 6 months of inactivity"}
                     </p>
                   </div>
                   <Toggle

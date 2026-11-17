@@ -78,19 +78,19 @@ const DEFAULTS: CompilationSettings = {
 const CONFLICT_TIP: Record<CompilationSettings["conflictResolution"], string> =
   {
     trust_pinned:
-      "Trust pinned contributions when sources disagree — only flag if pinned contributions conflict with each other",
+      "Trust pinned contributions when sources disagree, only flag if pinned contributions conflict with each other",
     trust_majority:
-      "Go with what most contributions agree on — only flag when there's no clear majority",
+      "Go with what most contributions agree on, only flag when there's no clear majority",
     flag_all: "Always show disagreements as a visible conflict block",
     replace_flag:
-      "Write the best answer inline — a subtle marker shows where contributions differed",
+      "Write the best answer inline, a subtle marker shows where contributions differed",
   };
 
 const FACTCHECK_TIP: Record<CompilationSettings["factChecking"], string> = {
   none: "",
-  flag: "Keep the original claim — dubious ones are marked, hover to see the suggested correction",
+  flag: "Keep the original claim, dubious ones are marked, hover to see the suggested correction",
   replace:
-    "Replace wrong claims with the correction — hover to see what the source originally said",
+    "Replace wrong claims with the correction, hover to see what the source originally said",
 };
 
 const LABEL = {

@@ -789,8 +789,8 @@ function RecordPanel({
         Recording · {fmtRecTime(addedDuration)} · added to selection
       </span>
       <p className="text-[13px] text-(--ink-faint) m-0 leading-normal max-w-75">
-        It&apos;ll sit in the staging area with your other sources —
-        transcription runs when you upload.
+        It&apos;ll sit in the staging area with your other sources.
+        Transcription runs when you upload.
       </p>
       <button className="btn btn-ghost" onClick={redo}>
         <MicIcon size={14} />
@@ -980,7 +980,7 @@ function SourceRow({
         });
         setText(undefined);
         setOpen(false);
-        toast.success("Saved — re-extracting with new method.");
+        toast.success("Saved. Re-extracting with new method.");
       } else {
         onUpdate(f.id, {
           name: dName.trim(),
@@ -1126,7 +1126,7 @@ function SourceRow({
                       spellCheck={false}
                       placeholder={
                         f.status === "failed"
-                          ? "Extraction failed — you can paste a manual transcript here."
+                          ? "Extraction failed. You can paste a manual transcript here."
                           : "Extracted text…"
                       }
                     />
@@ -1828,7 +1828,7 @@ export default function CollectionView({
       const allSame = failed.every((r) => r.error === firstError);
       const suffix = allSame
         ? `: ${firstError}`
-        : ` (${failed.length} failed — first error: ${firstError})`;
+        : ` (${failed.length} failed, first error: ${firstError})`;
       toast.error(
         `${createdFiles.length === 0 ? "All" : "Some"} videos in "${s.name}" failed to add${suffix}`,
       );
@@ -1917,7 +1917,7 @@ export default function CollectionView({
           <h1 className="pane-title">Shared sources</h1>
           <p className="pane-desc">
             Everything the class has contributed for this topic. Every ready
-            source is included in the next compile — remove anything you
+            source is included in the next compile. Remove anything you
             don&apos;t want.
           </p>
         </div>
@@ -2114,7 +2114,7 @@ export default function CollectionView({
                     </label>
                     <input
                       className="tin w-full"
-                      placeholder="Auto-named from date — edit anytime"
+                      placeholder="Auto-named from date, edit anytime"
                       value={customName}
                       onChange={(e) => setCustomName(e.target.value)}
                     />
@@ -2298,7 +2298,7 @@ export default function CollectionView({
               <span className="shrink-0 text-(--accent-text) mt-px">
                 <InfoIcon />
               </span>
-              Sources show as Processing while we extract their text — this
+              Sources show as Processing while we extract their text. This
               usually takes a few moments, and they&apos;ll switch to Ready on
               their own.
             </span>
