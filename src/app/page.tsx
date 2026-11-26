@@ -219,8 +219,8 @@ export default function Page() {
               <h3>Join your class</h3>
               <p>
                 Create a class or join one with a short code. Organize it into
-                topics (one per lecture, unit, or exam) so notes never turn
-                into a pile.
+                topics (one per lecture, unit, or exam) so notes never turn into
+                a pile.
               </p>
             </div>
             <div className="step">
@@ -283,9 +283,9 @@ export default function Page() {
               </div>
               <h3>One shared collection</h3>
               <p>
-                Every classmate adds to a single topic collection (PDFs,
-                photos, and lecture links) so nobody studies from an incomplete
-                set again.
+                Every classmate adds to a single topic collection (PDFs, photos,
+                and lecture links) so nobody studies from an incomplete set
+                again.
               </p>
             </div>
             <div className="feat">

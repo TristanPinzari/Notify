@@ -160,9 +160,9 @@ export default function TermsPage() {
           <p>
             To the maximum extent permitted by law, Tristan Pinzari shall not be
             liable for any indirect, incidental, special, consequential, or
-            punitive damages (including loss of data, loss of academic
-            standing, or any other harm) arising from your use of or inability
-            to use Notify, even if advised of the possibility of such damages.
+            punitive damages (including loss of data, loss of academic standing,
+            or any other harm) arising from your use of or inability to use
+            Notify, even if advised of the possibility of such damages.
           </p>
           <p>
             Our total liability to you for any claim arising from use of Notify

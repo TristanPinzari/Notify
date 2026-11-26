@@ -29,8 +29,8 @@ export function CookieBanner() {
 
         <p className="text-[13px] text-(--ink-body) mt-0 mb-1.5 leading-[1.6] text-center">
           Notify uses <strong>PostHog</strong> for anonymous analytics (page
-          views and feature usage) to understand how the app is used and make
-          it better. No study data is ever collected or shared.{" "}
+          views and feature usage) to understand how the app is used and make it
+          better. No study data is ever collected or shared.{" "}
           <Link href="/privacy" className="lk-accent">
             Privacy Policy
           </Link>

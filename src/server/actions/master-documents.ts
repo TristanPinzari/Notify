@@ -24,7 +24,11 @@ import {
   topicBelongsToClass,
 } from "./shared";
 import { logActivity } from "@/lib/activity-log";
-import { stripNullBytes, sanitizeFilename, contentDisposition } from "@/lib/utils";
+import {
+  stripNullBytes,
+  sanitizeFilename,
+  contentDisposition,
+} from "@/lib/utils";
 import {
   getTemporalClient,
   checkTemporalReady,
@@ -292,7 +296,7 @@ export async function createPDF(
         new GetObjectCommand({
           Bucket: process.env.AWS_S3_BUCKET!,
           Key: row[0].pdfS3Key,
-          ResponseContentDisposition: contentDisposition(filename),
+          ResponseContentDisposition: contentDisposition(filename, "inline"),
         }),
         { expiresIn: 300 },
       );

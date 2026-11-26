@@ -16,6 +16,7 @@ import {
   getContributionStatuses,
   getContributionText,
   getContributionUrl,
+  getContributionDownloadUrl,
   restartExtraction,
   setContributionPin,
 } from "@/server/actions/contributions";
@@ -44,12 +45,13 @@ import {
   StopSquareIcon,
   PlaySolidIcon,
   WaveformIcon,
+  DownloadIcon,
 } from "@/components/icons";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { timeAgo, cn, extOf } from "@/lib/utils";
+import { timeAgo, cn, extOf, triggerDownload } from "@/lib/utils";
 import { normalizeYoutubeUrl } from "@/lib/youtube";
 import { isVideoFile, extractAudioFromVideo } from "@/lib/video-to-audio";
 import {
@@ -842,7 +844,6 @@ function StatusPill({
   );
 }
 
-/* ---- SourceRow: committed source with expandable inspection panel ---- */
 type SourceRowProps = {
   f: FileRow;
   currentUserId: string;
@@ -852,6 +853,7 @@ type SourceRowProps = {
   canDelete: boolean;
   canPin: boolean;
   onOpen: (id: string) => void;
+  onDownload: (id: string) => void;
   onRemove: (name: string, id: string) => void;
   onUpdate: (id: string, patch: Partial<FileRow>) => void;
 };
@@ -865,6 +867,7 @@ function SourceRow({
   canDelete,
   canPin,
   onOpen,
+  onDownload,
   onRemove,
   onUpdate,
 }: SourceRowProps) {
@@ -1056,6 +1059,15 @@ function SourceRow({
               onClick={togglePanel}
             >
               <InspectIcon />
+            </button>
+          )}
+          {(f.type === "pdf" || f.type === "image" || f.type === "audio") && (
+            <button
+              className="icon-btn"
+              title="Download"
+              onClick={() => onDownload(f.id)}
+            >
+              <DownloadIcon />
             </button>
           )}
           {(canDelete || f.uploaderId === currentUserId) && (
@@ -1887,6 +1899,15 @@ export default function CollectionView({
     window.open(result.url, "_blank", "noopener,noreferrer");
   }
 
+  async function downloadContribution(id: string) {
+    const result = await getContributionDownloadUrl(classId, id);
+    if ("error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    triggerDownload(result.url);
+  }
+
   function updateFile(id: string, patch: Partial<FileRow>) {
     setFiles((fs) => fs.map((f) => (f.id === id ? { ...f, ...patch } : f)));
   }
@@ -2381,6 +2402,7 @@ export default function CollectionView({
                 canDelete={canDelete}
                 canPin={canPin}
                 onOpen={openContribution}
+                onDownload={downloadContribution}
                 onRemove={removeFile}
                 onUpdate={updateFile}
               />

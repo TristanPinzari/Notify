@@ -32,7 +32,11 @@ import {
 } from "./shared";
 import { startExtraction } from "@/temporal/extraction";
 import { logActivity } from "@/lib/activity-log";
-import { stripNullBytes } from "@/lib/utils";
+import {
+  stripNullBytes,
+  sanitizeFilename,
+  contentDisposition,
+} from "@/lib/utils";
 import { UPLOAD_URL_EXPIRES_SEC } from "@/lib/upload-config";
 import { normalizeYoutubeUrl } from "@/lib/youtube";
 
@@ -371,6 +375,61 @@ export async function getContributionUrl(
       new GetObjectCommand({
         Bucket: process.env.AWS_S3_BUCKET!,
         Key: contribution.s3Key,
+      }),
+      { expiresIn: 300 },
+    );
+
+    return { url };
+  } catch (e) {
+    console.error("ERROR: ", e);
+    return { error: "Something went wrong." };
+  }
+}
+
+export async function getContributionDownloadUrl(
+  classId: string,
+  contributionId: string,
+) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    console.error("ERROR: getContributionDownloadUrl called with no session");
+    return { error: "Not authenticated." };
+  }
+
+  try {
+    const rank = await getUserRank(classId, session.user.id);
+    if (!rank) {
+      console.error(
+        `ERROR: user ${session.user.id} is not a member of class ${classId}`,
+      );
+      return { error: "You are not a member of this class." };
+    }
+
+    const [contribution] = await db
+      .select({ s3Key: contributions.s3Key, name: contributions.name })
+      .from(contributions)
+      .innerJoin(topics, eq(contributions.topicId, topics.id))
+      .where(
+        and(eq(contributions.id, contributionId), eq(topics.classId, classId)),
+      )
+      .limit(1);
+    if (!contribution) {
+      return { error: "Contribution does not exist in this class." };
+    }
+    if (!contribution.s3Key) {
+      return { error: "No file available for this contribution." };
+    }
+
+    const ext = contribution.s3Key.split(".").pop();
+    const filename =
+      sanitizeFilename(contribution.name) + (ext ? `.${ext}` : "");
+
+    const url = await getSignedUrl(
+      s3,
+      new GetObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET!,
+        Key: contribution.s3Key,
+        ResponseContentDisposition: contentDisposition(filename, "attachment"),
       }),
       { expiresIn: 300 },
     );

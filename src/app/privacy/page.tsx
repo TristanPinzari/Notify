@@ -241,8 +241,8 @@ export default function PrivacyPage() {
               request that your account and associated data be deleted
             </li>
             <li>
-              <strong className="text-(--ink-heading)">Withdraw consent</strong>:
-              turn off analytics cookies in Preferences at any time
+              <strong className="text-(--ink-heading)">Withdraw consent</strong>
+              : turn off analytics cookies in Preferences at any time
             </li>
           </ul>
           <p>
@@ -258,13 +258,15 @@ export default function PrivacyPage() {
           <p>Notify uses browser local storage for two purposes:</p>
           <ul className="list-disc pl-5 space-y-1.5">
             <li>
-              <strong className="text-(--ink-heading)">Theme preference</strong>:
-              stores your light/dark/auto setting. No personal data; never
+              <strong className="text-(--ink-heading)">Theme preference</strong>
+              : stores your light/dark/auto setting. No personal data; never
               leaves your device.
             </li>
             <li>
-              <strong className="text-(--ink-heading)">Analytics consent</strong>:
-              stores whether you accepted or declined PostHog analytics. No
+              <strong className="text-(--ink-heading)">
+                Analytics consent
+              </strong>
+              : stores whether you accepted or declined PostHog analytics. No
               personal data; never leaves your device.
             </li>
           </ul>

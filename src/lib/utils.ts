@@ -13,8 +13,6 @@ export function getBaseUrl(): string {
   return process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 }
 
-// Derived from BETTER_AUTH_URL so the sending domain only has to change in
-// one env var, not in every file that sends mail.
 const MAIL_DOMAIN = (() => {
   try {
     return new URL(getBaseUrl()).hostname;
@@ -68,14 +66,21 @@ export function sanitizeFilename(name: string): string {
     .slice(0, 150);
 }
 
-// "inline" (not "attachment") so the browser renders the PDF in the new tab
-// instead of forcing an immediate download with nothing to look at. The
-// browser's own PDF viewer still uses this filename if the user saves it
-// from there. RFC 6266/5987: an ASCII fallback plus a UTF-8 percent-encoded
-// filename, so accented or non-Latin names still show up correctly.
-export function contentDisposition(filename: string): string {
+export function contentDisposition(
+  filename: string,
+  type: "inline" | "attachment" = "attachment",
+): string {
   const ascii = filename.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
-  return `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+  return `${type}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}
+
+export function triggerDownload(url: string): void {
+  const a = document.createElement("a");
+  a.href = url;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 export async function mapWithConcurrency<T, R>(
