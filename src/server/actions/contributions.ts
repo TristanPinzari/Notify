@@ -176,7 +176,8 @@ export async function createFileContribution(
     }
 
     const id = crypto.randomUUID();
-    const ext = MIME_EXT[data.fileType] ?? "bin";
+    const baseMimeType = data.fileType.split(";")[0].trim();
+    const ext = MIME_EXT[baseMimeType] ?? "bin";
     const s3Key = `contributions/${topicId}/${id}.${ext}`;
 
     const [row] = await db
